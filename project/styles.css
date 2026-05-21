@@ -1,0 +1,421 @@
+/* ===== Genç TETSİAD prototype — quiet luxury ===== */
+
+:root {
+  /* TETSİAD green family — sustainable textile palette */
+  --navy: #0F6B45;          /* primary (was navy) */
+  --navy-mid: #135B3C;      /* card / mid surface */
+  --navy-light: #1B7A4F;    /* lighter elevation */
+  --navy-deep: #073323;     /* deepest green */
+  --ivory: #F7F4EC;
+  --ivory-deep: #ECE6D2;
+  --ivory-warm: #EFE8D9;
+  /* warm accent — kept as cream-gold to read on green */
+  --gold: #D9C896;
+  --gold-bright: #E8DCAE;
+  --gold-dim: rgba(217,200,150,0.14);
+  --gold-line: rgba(217,200,150,0.32);
+  --gold-soft: rgba(217,200,150,0.55);
+  --text-muted: #A5C0B0;
+  --text-warm: #C0B79A;
+
+  --serif: "Cormorant Garamond", "Times New Roman", serif;
+  --sans: "Plus Jakarta Sans", -apple-system, system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+  --script: "Caveat", cursive;
+}
+
+* { box-sizing: border-box; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #06281c;
+  background-image:
+    radial-gradient(ellipse at 15% 10%, rgba(217,200,150,0.05), transparent 50%),
+    radial-gradient(ellipse at 85% 90%, rgba(15,107,69,0.45), transparent 60%);
+  min-height: 100vh;
+  font-family: var(--sans);
+  color: var(--ivory);
+}
+
+/* ── Stage: shows multiple phones side-by-side ── */
+.stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 56px 24px 120px;
+  gap: 36px;
+}
+
+.stage-header {
+  width: min(1200px, 100%);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding-bottom: 28px;
+  border-bottom: 0.5px solid var(--gold-line);
+  margin-bottom: 8px;
+}
+.stage-eyebrow {
+  font-family: var(--sans);
+  font-size: 9px;
+  letter-spacing: 3.5px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 12px;
+}
+.stage-title {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 48px;
+  line-height: 1;
+  color: var(--ivory);
+  margin: 0;
+}
+.stage-title em { color: var(--gold); font-style: italic; }
+.stage-meta {
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.7;
+  letter-spacing: 0.5px;
+}
+.stage-meta strong { color: var(--gold); font-weight: 500; letter-spacing: 1px; }
+
+.phones {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  justify-items: center;
+  gap: 56px 40px;
+  width: min(1700px, 100%);
+}
+
+.phone-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.phone-cell-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.phone-cell-num {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--gold);
+  letter-spacing: 2px;
+}
+.phone-cell-title {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 18px;
+  color: var(--ivory);
+}
+
+/* ── Generic content surfaces inside the phone ── */
+.screen {
+  width: 100%;
+  min-height: 100%;
+  background: var(--navy);
+  color: var(--ivory);
+  font-family: var(--sans);
+  position: relative;
+}
+
+.screen-ivory { background: var(--ivory); color: var(--navy); }
+
+/* labels */
+.lbl {
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.lbl-mute { color: var(--text-muted); }
+.lbl-ivory { color: var(--ivory); }
+.lbl-navy { color: var(--navy); }
+
+/* gold rules */
+.rule {
+  height: 0.5px;
+  background: var(--gold-line);
+  width: 100%;
+  border: 0;
+}
+.rule-gold { background: var(--gold); }
+.rule-ivory { background: rgba(245,240,230,0.18); }
+.rule-vertical {
+  width: 0.5px;
+  background: var(--gold-line);
+  height: 100%;
+}
+
+/* serif headlines */
+.serif { font-family: var(--serif); }
+.serif-italic { font-family: var(--serif); font-style: italic; font-weight: 300; }
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 22px;
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  border: 0.5px solid var(--gold);
+  cursor: pointer;
+  background: transparent;
+  color: var(--gold);
+  transition: all 200ms ease;
+  user-select: none;
+}
+.btn-fill { background: var(--gold); color: var(--navy); }
+.btn-fill:hover { background: var(--gold-bright); }
+.btn-outline:hover { background: var(--gold-dim); }
+.btn-ghost { border: 0; padding: 6px 0; color: var(--gold); }
+.btn-disabled { opacity: 0.4; pointer-events: none; }
+
+/* Monogram circle */
+.monogram {
+  width: 44px; height: 44px;
+  border-radius: 999px;
+  border: 0.5px solid var(--gold);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 19px;
+  color: var(--gold);
+  background: transparent;
+  flex-shrink: 0;
+}
+.monogram-gold { background: var(--gold); color: var(--navy); border-color: var(--gold); }
+.monogram-large { width: 64px; height: 64px; font-size: 26px; }
+.monogram-sm { width: 32px; height: 32px; font-size: 13px; }
+
+/* Underline-only input */
+.uline-input {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-bottom: 0.5px solid var(--gold-line);
+  padding: 10px 0 8px;
+  font-family: var(--serif);
+  font-size: 20px;
+  color: var(--ivory);
+  outline: none;
+  transition: border-color 200ms;
+}
+.uline-input:focus { border-bottom-color: var(--gold); }
+.uline-input::placeholder { color: rgba(245,240,230,0.25); font-style: italic; }
+.uline-input-navy { color: var(--navy); }
+.uline-input-navy::placeholder { color: rgba(13,27,42,0.30); }
+
+/* Tab bar */
+.tabbar {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  background: var(--navy-deep);
+  border-top: 0.5px solid var(--gold-line);
+  display: flex;
+  padding: 14px 0 28px;
+  z-index: 30;
+}
+.tabbar-item {
+  flex: 1;
+  text-align: center;
+  font-family: var(--sans);
+  font-size: 8px;
+  letter-spacing: 2.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 8px 0 6px;
+  position: relative;
+  text-transform: uppercase;
+}
+.tabbar-item.active { color: var(--gold); }
+.tabbar-item.active::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 50%; transform: translateX(-50%);
+  width: 22px; height: 1px;
+  background: var(--gold);
+}
+
+/* Weave overlay for green cards */
+.weave {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.weave::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(45deg, rgba(217,200,150,0.045) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(-45deg, rgba(217,200,150,0.025) 0 1px, transparent 1px 11px);
+  pointer-events: none;
+  z-index: 0;
+}
+.weave > * { position: relative; z-index: 1; }
+
+/* Card */
+.card-navy {
+  background: var(--navy-mid);
+  color: var(--ivory);
+}
+
+/* Striped photo placeholder */
+.photo-ph {
+  background-color: var(--navy-light);
+  background-image:
+    repeating-linear-gradient(135deg, rgba(217,200,150,0.10) 0 1px, transparent 1px 9px),
+    linear-gradient(180deg, rgba(7,51,35,0.4), rgba(7,51,35,0));
+  display: flex;
+  align-items: flex-end;
+  padding: 14px;
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+/* Hide scrollbars on internal phone content */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+
+/* Small badge */
+.badge-dot {
+  width: 6px; height: 6px; background: var(--gold); border-radius: 999px;
+  display: inline-block;
+}
+
+/* Pill (filter) */
+.pill {
+  padding: 8px 14px;
+  border: 0.5px solid var(--gold-line);
+  color: var(--text-muted);
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  background: transparent;
+  white-space: nowrap;
+  transition: all 200ms;
+}
+.pill.active { background: var(--gold); color: var(--navy); border-color: var(--gold); }
+.pill:hover:not(.active) { color: var(--gold); border-color: var(--gold); }
+
+/* Progress bar */
+.bar {
+  height: 2px;
+  background: rgba(245,240,230,0.10);
+  position: relative;
+  overflow: hidden;
+}
+.bar > div { height: 100%; background: var(--gold); }
+
+/* logo styling */
+.logo-wrap { display: inline-flex; align-items: center; justify-content: center; }
+
+/* small chevron */
+.chev { color: var(--gold); font-family: var(--serif); }
+
+/* Universal phone scroll area */
+.phone-scroll {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* faint corner brackets */
+.corner-brackets { position: relative; }
+.corner-brackets::before, .corner-brackets::after {
+  content: "";
+  position: absolute;
+  width: 14px; height: 14px;
+  border: 0.5px solid var(--gold);
+}
+.corner-brackets::before { top: 8px; left: 8px; border-right: 0; border-bottom: 0; }
+.corner-brackets::after { bottom: 8px; right: 8px; border-left: 0; border-top: 0; }
+
+/* number prefixes */
+.num {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--gold);
+  font-size: 11px;
+  margin-right: 8px;
+  letter-spacing: 1px;
+}
+
+/* fade in helper */
+.fade-in { animation: fadein 280ms ease both; }
+@keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+/* signature */
+.signature {
+  font-family: var(--script);
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.5px;
+}
+
+/* attribution byline */
+.byline {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 2px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.byline strong { color: var(--gold); font-weight: 500; }
+
+/* Section start chip (numbered) */
+.section-marker {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+.section-marker .ln { width: 18px; height: 0.5px; background: var(--gold); }
+
+/* Status bar on dark backgrounds inside the device — overlays */
+.statusbar-wash { background: linear-gradient(180deg, rgba(13,27,42,1), rgba(13,27,42,0.85) 80%, transparent); }
+
+/* form inputs (otp) */
+.otp-cell {
+  flex: 1;
+  height: 56px;
+  background: transparent;
+  border: 0;
+  border-bottom: 0.5px solid var(--gold-line);
+  text-align: center;
+  font-family: var(--serif);
+  font-size: 28px;
+  color: var(--ivory);
+  outline: none;
+}
+.otp-cell:focus, .otp-cell.filled { border-bottom-color: var(--gold); }
