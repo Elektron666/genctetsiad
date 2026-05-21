@@ -419,3 +419,97 @@ html, body {
   outline: none;
 }
 .otp-cell:focus, .otp-cell.filled { border-bottom-color: var(--gold); }
+
+/* ── Modal bottom sheet ── */
+.modal-overlay {
+  position: absolute; inset: 0; z-index: 300;
+  background: rgba(4, 22, 13, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex; flex-direction: column; justify-content: flex-end;
+  animation: fadein 180ms ease both;
+}
+.modal-sheet {
+  background: var(--navy-deep);
+  border-top: 0.5px solid var(--gold);
+  padding: 28px 24px 44px;
+  animation: slideUp 300ms cubic-bezier(.2,.7,.2,1) both;
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0.6; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* ── Toast ── */
+.toast-container {
+  position: absolute; bottom: 106px; left: 0; right: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  z-index: 400; pointer-events: none;
+}
+.toast {
+  padding: 11px 18px;
+  background: var(--navy-mid); border: 0.5px solid var(--gold-line);
+  display: inline-flex; align-items: center; gap: 10px; max-width: 290px;
+  font-family: var(--sans); font-size: 10px; font-weight: 500; letter-spacing: 0.5px;
+  color: var(--ivory);
+  animation: toastIn 300ms cubic-bezier(.2,.7,.2,1) both, toastOut 300ms ease forwards;
+  animation-delay: 0s, 2.7s;
+}
+.toast-success { border-left: 2px solid var(--gold); }
+.toast-error   { border-left: 2px solid rgba(220,80,80,0.7); }
+.toast-info    { border-left: 2px solid var(--text-muted); }
+@keyframes toastIn {
+  from { transform: translateY(14px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes toastOut {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-10px); }
+}
+
+/* ── Skeleton shimmer ── */
+.skeleton {
+  background: linear-gradient(90deg,
+    rgba(217,200,150,0.06) 25%,
+    rgba(217,200,150,0.13) 50%,
+    rgba(217,200,150,0.06) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton-line  { height: 10px; margin-bottom: 8px; }
+.skeleton-sm    { height: 8px; width: 60%; margin-bottom: 6px; }
+.skeleton-card  { height: 76px; }
+
+/* ── Registration step slide ── */
+.reg-step {
+  animation: slideInRight 260ms cubic-bezier(.2,.7,.2,1) both;
+}
+@keyframes slideInRight {
+  from { transform: translateX(20px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+/* ── Typing cursor blink ── */
+.type-cursor {
+  display: inline-block; width: 2px; height: 1em;
+  background: var(--gold); margin-left: 2px; vertical-align: middle;
+  animation: blink 0.8s step-end infinite;
+}
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+/* ── Demo mode badge ── */
+.demo-badge {
+  position: fixed; top: 16px; right: 16px; z-index: 9999;
+  background: rgba(217,200,150,0.12); border: 0.5px solid var(--gold);
+  padding: 6px 14px;
+  font-family: var(--mono); font-size: 9px; letter-spacing: 2px; color: var(--gold);
+  cursor: pointer;
+}
+
+/* ── Stage presentation mode ── */
+.stage-presentation .stage-header { display: none !important; }
+.stage-presentation .stage { padding-top: 32px; }

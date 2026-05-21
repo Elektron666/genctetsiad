@@ -1,17 +1,80 @@
 /* screen-profile.jsx — Membership card */
 
 function ProfileScreen({ onSignOut, onBellClick }) {
+  const [memberIdx, setMemberIdx] = React.useState(1); // default: Fatih Özdemir
+  const [showSwitcher, setShowSwitcher] = React.useState(false);
+  const member = MEMBERS[memberIdx];
+
   const menu = [
-    { num: 1, label: 'Üyelik Bilgileri', sub: 'Kişisel ve firma bilgileri' },
-    { num: 2, label: 'Bildirim Ayarları', sub: 'Push, e-posta, hatırlatma' },
-    { num: 3, label: 'Katılım Geçmişi', sub: '08 etkinlik · 02 sertifika' },
-    { num: 4, label: 'Belgelerim', sub: 'Üyelik belgesi, faturalar, KVKK' },
-    { num: 5, label: 'Destek', sub: 'TETSİAD ekibine yaz' },
+    { num: 1, label: 'Üyelik Bilgileri',   sub: 'Kişisel ve firma bilgileri' },
+    { num: 2, label: 'Bildirim Ayarları',  sub: 'Push, e-posta, hatırlatma' },
+    { num: 3, label: 'Katılım Geçmişi',    sub: `${String(member.events).padStart(2,'0')} etkinlik · ${String(member.certs).padStart(2,'0')} sertifika` },
+    { num: 4, label: 'Belgelerim',         sub: 'Üyelik belgesi, faturalar, KVKK' },
+    { num: 5, label: 'Destek',             sub: 'TETSİAD ekibine yaz' },
   ];
 
   return (
     <div className="screen phone-scroll no-scrollbar" style={{ paddingBottom: 100 }}>
-      <AppHeader section="KART" title={<>Üyelik <em style={{ fontStyle: 'italic' }}>kartınız.</em></>} count={ANNOUNCEMENTS.length} onBellClick={onBellClick} />
+      <AppHeader section="KART" title={<>Üyelik <em style={{ fontStyle: 'italic' }}>kartınız.</em></>}
+        count={ANNOUNCEMENTS.length} onBellClick={onBellClick} />
+
+      {/* Member switcher — sunum aracı */}
+      <div style={{ padding: '0 24px 16px' }}>
+        <div
+          onClick={() => setShowSwitcher(s => !s)}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '10px 14px',
+            background: 'rgba(217,200,150,0.06)',
+            border: '0.5px solid var(--gold-line)',
+            cursor: 'pointer',
+          }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Monogram initials={member.initials} gold={member.gold} size="sm" />
+            <div>
+              <div style={{
+                fontFamily: 'Cormorant Garamond, serif', fontSize: 14,
+                color: 'var(--ivory)', lineHeight: 1,
+              }}>{member.name}</div>
+              <div className="byline" style={{ marginTop: 3 }}>{member.role}</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="lbl" style={{ fontSize: 7, color: 'var(--text-muted)' }}>DEMO MODU</div>
+            <Chev dir={showSwitcher ? 'up' : 'down'} size={8} />
+          </div>
+        </div>
+
+        {showSwitcher && (
+          <div className="fade-in" style={{ border: '0.5px solid var(--gold-line)', borderTop: 'none' }}>
+            {MEMBERS.map((m, i) => (
+              <div key={m.id}
+                onClick={() => { setMemberIdx(i); setShowSwitcher(false); }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '12px 14px',
+                  borderTop: '0.5px solid rgba(217,200,150,0.10)',
+                  cursor: 'pointer',
+                  background: i === memberIdx ? 'rgba(217,200,150,0.10)' : 'transparent',
+                  transition: 'background 150ms',
+                }}>
+                <Monogram initials={m.initials} gold={m.gold} size="sm" />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 14, color: 'var(--ivory)', lineHeight: 1 }}>
+                    {m.name}
+                  </div>
+                  <div className="byline" style={{ marginTop: 2 }}>
+                    <span style={{ color: 'var(--gold)' }}>{m.firm}</span> · {m.sector}
+                  </div>
+                </div>
+                {i === memberIdx && (
+                  <span style={{ color: 'var(--gold)', fontSize: 11 }}>✓</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Membership card */}
       <div style={{ padding: '0 24px 24px' }}>
@@ -20,6 +83,7 @@ function ProfileScreen({ onSignOut, onBellClick }) {
           border: '0.5px solid var(--gold)',
           padding: '24px 22px 20px',
           position: 'relative',
+          transition: 'all 300ms ease',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
@@ -35,42 +99,48 @@ function ProfileScreen({ onSignOut, onBellClick }) {
           {/* Name + monogram */}
           <div style={{ marginTop: 32, display: 'flex', alignItems: 'flex-end', gap: 16 }}>
             <div style={{
-              width: 64, height: 64, background: 'var(--gold)', color: 'var(--navy)',
+              width: 64, height: 64,
+              background: member.gold ? 'var(--gold)' : 'transparent',
+              border: member.gold ? 'none' : '0.5px solid var(--gold)',
+              color: member.gold ? 'var(--navy)' : 'var(--gold)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic', fontWeight: 500,
               fontSize: 30, letterSpacing: 1,
-            }}>FÖ</div>
+              transition: 'all 300ms ease',
+            }}>{member.initials}</div>
             <div style={{ flex: 1 }}>
               <div className="byline" style={{ marginBottom: 4 }}>ÜYE ADI</div>
               <div style={{
                 fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic',
-                fontWeight: 300, fontSize: 28, color: 'var(--ivory)', lineHeight: 1,
-              }}>Fatih Özdemir</div>
+                fontWeight: 300, fontSize: 26, color: 'var(--ivory)', lineHeight: 1,
+                transition: 'all 200ms ease',
+              }}>{member.name}</div>
             </div>
           </div>
 
           {/* Details grid */}
           <div style={{
-            marginTop: 28, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px 12px',
+            marginTop: 28, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px 12px',
             paddingTop: 20, borderTop: '0.5px solid var(--gold-line)',
           }}>
             {[
-              ['FİRMA', 'ORMEN TEKSTİL'],
-              ['ŞEHİR', 'Ankara'],
-              ['SEKTÖR', 'Döşemelik'],
-              ['POZİSYON', 'Yönetici / 2. Kuşak'],
-            ].map(([l, v], i) => (
-              <div key={i}>
+              ['FİRMA',    member.firm],
+              ['ŞEHİR',    member.city],
+              ['SEKTÖR',   member.sector],
+              ['POZİSYON', member.position || member.role],
+            ].map(([l, v]) => (
+              <div key={l}>
                 <div className="byline" style={{ marginBottom: 4 }}>{l}</div>
                 <div style={{
-                  fontFamily: 'Cormorant Garamond, serif', fontSize: 15,
+                  fontFamily: 'Cormorant Garamond, serif', fontSize: 14,
                   color: 'var(--ivory)', lineHeight: 1.2,
+                  transition: 'all 200ms ease',
                 }}>{v}</div>
               </div>
             ))}
           </div>
 
-          {/* Footer of card */}
+          {/* Card footer */}
           <div style={{
             marginTop: 22, paddingTop: 16, borderTop: '0.5px solid var(--gold-line)',
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -80,19 +150,21 @@ function ProfileScreen({ onSignOut, onBellClick }) {
             </div>
             <div style={{
               fontFamily: 'JetBrains Mono, monospace', fontSize: 10, letterSpacing: 2, color: 'var(--gold)',
-            }}>№ GT-2026-0342</div>
+            }}>№ {member.memberNo}</div>
           </div>
         </div>
 
-        {/* Concept architect marker */}
-        <div style={{
-          marginTop: 12, padding: '10px 12px',
-          background: 'rgba(196,162,101,0.10)', border: '0.5px solid var(--gold-line)',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        }}>
-          <div className="byline" style={{ fontSize: 8 }}>BU UYGULAMANIN KONSEPT MİMARI</div>
-          <div className="signature" style={{ fontSize: 18, lineHeight: 1 }}>Fatih Özdemir</div>
-        </div>
+        {/* Concept architect marker (only for FÖ) */}
+        {member.id === 1 && (
+          <div className="fade-in" style={{
+            marginTop: 12, padding: '10px 12px',
+            background: 'rgba(196,162,101,0.10)', border: '0.5px solid var(--gold-line)',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          }}>
+            <div className="byline" style={{ fontSize: 8 }}>BU UYGULAMANIN KONSEPT MİMARI</div>
+            <div className="signature" style={{ fontSize: 18, lineHeight: 1 }}>Fatih Özdemir</div>
+          </div>
+        )}
       </div>
 
       {/* Stats */}
@@ -101,14 +173,15 @@ function ProfileScreen({ onSignOut, onBellClick }) {
         borderTop: '0.5px solid var(--gold-line)', borderBottom: '0.5px solid var(--gold-line)',
       }}>
         {[
-          ['08', 'ETKİNLİK'],
-          ['02', 'SERTİFİKA'],
-          ['34', 'BAĞLANTI'],
+          [String(member.events).padStart(2, '0'), 'ETKİNLİK'],
+          [String(member.certs).padStart(2, '0'),  'SERTİFİKA'],
+          [String(member.connections).padStart(2, '0'), 'BAĞLANTI'],
         ].map(([n, l], i) => (
           <div key={i} style={{ textAlign: 'center', borderRight: i < 2 ? '0.5px solid var(--gold-line)' : '' }}>
             <div style={{
               fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic',
               fontSize: 30, color: 'var(--ivory)', fontWeight: 300, lineHeight: 1,
+              transition: 'all 200ms ease',
             }}>{n}</div>
             <div className="byline" style={{ marginTop: 8 }}>{l}</div>
           </div>
@@ -152,7 +225,7 @@ function ProfileScreen({ onSignOut, onBellClick }) {
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
       }}>
         <div className="byline">
-          v0.9 · BETA · YALNIZCA <span style={{ color: 'var(--gold)' }}>DAVETLİ</span> ÜYELER
+          v1.0 · BETA · YALNIZCA <span style={{ color: 'var(--gold)' }}>DAVETLİ</span> ÜYELER
         </div>
         <div className="byline">
           KONSEPT <span style={{ color: 'var(--gold)' }}>FATİH ÖZDEMİR</span> · ORMEN TEKSTİL · ANKARA

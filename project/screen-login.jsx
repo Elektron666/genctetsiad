@@ -1,6 +1,6 @@
 /* screen-login.jsx — login screen, navy full bleed */
 
-function LoginScreen({ onSignIn }) {
+function LoginScreen({ onSignIn, onRegister }) {
   const [mode, setMode] = React.useState('phone'); // phone | email
   const [phone, setPhone] = React.useState('312 442 18 90');
   const [otpStage, setOtpStage] = React.useState(false);
@@ -162,7 +162,8 @@ function LoginScreen({ onSignIn }) {
       <div style={{ textAlign: 'center', marginTop: 30, position: 'relative', zIndex: 2 }}>
         <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 11, color: 'var(--text-muted)' }}>
           Henüz üye değil misiniz?{' '}
-          <span style={{ color: 'var(--gold)', cursor: 'pointer' }}>Üyelik başvurusu yap →</span>
+          <span style={{ color: 'var(--gold)', cursor: 'pointer' }}
+            onClick={onRegister}>Üyelik başvurusu yap →</span>
         </div>
       </div>
 

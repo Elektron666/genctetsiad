@@ -182,7 +182,92 @@ function PhotoPH({ height = 140, label = 'PHOTO', tone = 'navy' }) {
   );
 }
 
+/* Modal bottom sheet */
+function Modal({ open, onClose, title, children }) {
+  if (!open) return null;
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24,
+        }}>
+          <div>
+            <div className="lbl" style={{ marginBottom: 8 }}>GENÇ TETSİAD</div>
+            <div style={{
+              fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic',
+              fontWeight: 300, fontSize: 26, color: 'var(--ivory)', lineHeight: 1,
+            }}>{title}</div>
+          </div>
+          <span onClick={onClose} className="byline" style={{ cursor: 'pointer', color: 'var(--gold)', paddingTop: 4 }}>✕</span>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* Toast notification — auto-dismiss after 3s */
+function Toast({ message, type = 'success', onDone }) {
+  React.useEffect(() => {
+    const t = setTimeout(onDone, 3000);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <div className={`toast toast-${type}`}>
+      <span style={{ color: type === 'success' ? 'var(--gold)' : type === 'error' ? '#e05050' : 'var(--text-muted)' }}>
+        {type === 'success' ? '✓' : type === 'error' ? '✕' : '·'}
+      </span>
+      {message}
+    </div>
+  );
+}
+
+/* ToastContainer — place inside the phone screen wrapper */
+function ToastContainer({ toasts, onRemove }) {
+  if (!toasts || toasts.length === 0) return null;
+  return (
+    <div className="toast-container">
+      {toasts.map(t => (
+        <Toast key={t.id} message={t.message} type={t.type} onDone={() => onRemove(t.id)} />
+      ))}
+    </div>
+  );
+}
+
+/* useToast hook */
+function useToast() {
+  const [toasts, setToasts] = React.useState([]);
+  const show = React.useCallback((message, type = 'success') => {
+    const id = Date.now();
+    setToasts(ts => [...ts, { id, message, type }]);
+  }, []);
+  const remove = React.useCallback((id) => {
+    setToasts(ts => ts.filter(t => t.id !== id));
+  }, []);
+  return { toasts, show, remove };
+}
+
+/* Skeleton loader lines */
+function SkeletonLine({ width = '100%' }) {
+  return <div className="skeleton skeleton-line" style={{ width }} />;
+}
+function SkeletonCard() {
+  return (
+    <div style={{ padding: '20px 24px', borderBottom: '0.5px solid var(--gold-line)' }}>
+      <div style={{ display: 'flex', gap: 14 }}>
+        <div className="skeleton" style={{ width: 44, height: 44, borderRadius: 999, flexShrink: 0 }} />
+        <div style={{ flex: 1 }}>
+          <SkeletonLine width="70%" />
+          <SkeletonLine width="45%" />
+          <div className="skeleton skeleton-sm" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 Object.assign(window, {
   TetsiadLogo, Monogram, SectionLabel, BellIcon, SearchIcon,
   ChevronRight, AppHeader, WeavePattern, Chev, PhotoPH, ImageSlot,
+  Modal, Toast, ToastContainer, useToast, SkeletonLine, SkeletonCard,
 });

@@ -1,23 +1,50 @@
 /* screen-calendar.jsx — Events list */
 
-function CalendarScreen({ onBellClick }) {
+function CalendarScreen({ onBellClick, registeredEvents: externalReg, onToggleRegistration: externalToggle }) {
   const [filter, setFilter] = React.useState('TÜMÜ');
-  const [registered, setRegistered] = React.useState(new Set([2, 5])); // pre-attended 14 May, 18 Jul
+  /* fall back to local state if no global state provided */
+  const [localReg, setLocalReg] = React.useState(new Set([2, 5]));
+  const registered = externalReg || localReg;
+
+  const toggleReg = (id) => {
+    if (externalToggle) {
+      externalToggle(id);
+    } else {
+      setLocalReg(s => {
+        const next = new Set(s);
+        if (next.has(id)) next.delete(id); else next.add(id);
+        return next;
+      });
+    }
+  };
+
   const [openId, setOpenId] = React.useState(null);
+  /* animated counts — track per-event delta */
+  const [flashId, setFlashId] = React.useState(null);
+
+  const handleToggle = (ev, id) => {
+    ev.stopPropagation();
+    toggleReg(id);
+    setFlashId(id);
+    setTimeout(() => setFlashId(null), 600);
+  };
 
   const filtered = filter === 'TÜMÜ' ? EVENTS : EVENTS.filter(e => e.tag === filter);
 
-  const toggleReg = (id) => {
-    setRegistered(s => {
-      const next = new Set(s);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
+  /* live count = base count ± user registration */
+  const getCount = (e) => {
+    const base   = e.count;
+    const wasReg = new Set([2, 5]).has(e.id); // pre-seeded
+    const isReg  = registered.has(e.id);
+    if (isReg && !wasReg) return base + 1;
+    if (!isReg && wasReg) return base - 1;
+    return base;
   };
 
   return (
     <div className="screen phone-scroll no-scrollbar" style={{ paddingBottom: 100 }}>
-      <AppHeader section="TAKVİM" title={<>Yaklaşan <em style={{ fontStyle: 'italic' }}>etkinlikler.</em></>} count={ANNOUNCEMENTS.length} onBellClick={onBellClick} />
+      <AppHeader section="TAKVİM" title={<>Yaklaşan <em style={{ fontStyle: 'italic' }}>etkinlikler.</em></>}
+        count={ANNOUNCEMENTS.length} onBellClick={onBellClick} />
 
       {/* Year + count */}
       <div style={{ padding: '0 24px 16px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
@@ -27,6 +54,9 @@ function CalendarScreen({ onBellClick }) {
         }}>2026</div>
         <div className="byline">
           <span style={{ color: 'var(--gold)' }}>{filtered.length}</span> / {EVENTS.length} ETKİNLİK
+          {registered.size > 0 && (
+            <> · <span style={{ color: 'var(--gold)' }}>{registered.size}</span> KATILIM</>
+          )}
         </div>
       </div>
 
@@ -43,9 +73,12 @@ function CalendarScreen({ onBellClick }) {
 
       {/* Event list */}
       <div style={{ padding: '8px 0 0' }}>
-        {filtered.map((e, i) => {
+        {filtered.map((e) => {
           const isOpen = openId === e.id;
-          const isReg = registered.has(e.id);
+          const isReg  = registered.has(e.id);
+          const liveCount = getCount(e);
+          const isFlashing = flashId === e.id;
+
           return (
             <div key={e.id} style={{
               padding: '22px 24px',
@@ -55,8 +88,9 @@ function CalendarScreen({ onBellClick }) {
               background: isOpen ? 'var(--navy-mid)' : 'transparent',
             }}
               onClick={() => setOpenId(isOpen ? null : e.id)}>
+
               <div style={{ display: 'grid', gridTemplateColumns: '64px 0.5px 1fr auto', gap: 16, alignItems: 'flex-start' }}>
-                {/* Date column */}
+                {/* Date */}
                 <div style={{ paddingTop: 4 }}>
                   <div style={{
                     fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic',
@@ -74,10 +108,20 @@ function CalendarScreen({ onBellClick }) {
                     color: 'var(--ivory)', lineHeight: 1.2, fontWeight: 500,
                   }}>{e.title}</div>
                   <div className="byline" style={{ marginTop: 8 }}>
-                    {e.place}{e.count > 0 && <> &nbsp;·&nbsp; <span style={{ color: 'var(--gold)' }}>{e.count}</span> KATILIMCI</>}
+                    {e.place}
+                    {liveCount > 0 && (
+                      <>
+                        &nbsp;·&nbsp;
+                        <span style={{
+                          color: 'var(--gold)',
+                          transition: 'color 300ms',
+                          fontWeight: isFlashing ? 700 : 400,
+                        }}>{liveCount}</span> KATILIMCI
+                      </>
+                    )}
                   </div>
                 </div>
-                {/* Chevron + badge */}
+                {/* Badge + chevron */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
                   {isReg && (
                     <div style={{
@@ -98,10 +142,10 @@ function CalendarScreen({ onBellClick }) {
                     fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.6,
                   }}>{e.desc}</div>
                   <button
-                    onClick={(ev) => { ev.stopPropagation(); toggleReg(e.id); }}
+                    onClick={(ev) => handleToggle(ev, e.id)}
                     className={isReg ? 'btn btn-outline' : 'btn btn-fill'}
                     style={{ width: '100%', marginTop: 16 }}>
-                    {isReg ? 'KATILIMI İPTAL ET' : 'KATIL'}
+                    {isReg ? '✓ KATILIMI İPTAL ET' : 'KATIL →'}
                   </button>
                 </div>
               )}
@@ -110,10 +154,8 @@ function CalendarScreen({ onBellClick }) {
         })}
       </div>
 
-      {/* Footer signature */}
-      <div style={{
-        padding: '36px 24px 24px', textAlign: 'center', borderTop: '0.5px solid var(--gold-line)',
-      }}>
+      {/* Footer */}
+      <div style={{ padding: '36px 24px 24px', textAlign: 'center', borderTop: '0.5px solid var(--gold-line)' }}>
         <div className="byline">
           12 AYDA <span style={{ color: 'var(--gold)' }}>10 ETKİNLİK</span> · GENÇ TETSİAD 2026 PROGRAMI
         </div>

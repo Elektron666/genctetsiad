@@ -36,33 +36,42 @@ const EVENTS = [
 const EVENT_FILTERS = ['TÜMÜ', 'FUAR', 'ÜNİVERSİTE', 'SAHA GEZİSİ', 'SOSYAL', 'TEKNOLOJİ', 'ARAŞTIRMA', 'YARIŞMA', 'ZİRVE'];
 
 const MEMBERS = [
-  { id: 0, initials: 'RÖ', name: 'Resul Öden', firm: 'ÖDEN TEKSTİL', city: 'İstanbul',
-    sector: 'Ev Tekstili · Yönetim', bio: 'Genç TETSİAD Başkanı. Yeni neslin sektördeki en somut sesi.',
-    role: 'GENÇ TETSİAD BAŞKANI', gold: true },
-  { id: 1, initials: 'FÖ', name: 'Fatih Özdemir', firm: 'ORMEN TEKSTİL', city: 'Ankara',
-    sector: 'Döşemelik', bio: 'Aile şirketinin ikinci kuşağı. Genç TETSİAD’ın gönüllü mimarı.',
-    role: 'KONSEPT MİMARI', gold: true },
-  { id: 2, initials: 'EY', name: 'Elif Yıldız', firm: 'YILDIZ EV TEKSTİL', city: 'Denizli',
-    sector: 'Havlu · Bornoz', bio: 'İhracat operasyonu ve sürdürülebilir pamuk üzerine çalışıyor.',
-    role: 'YÖNETİM', gold: false },
-  { id: 3, initials: 'MK', name: 'Mert Kaya', firm: 'KAYA HALI', city: 'Gaziantep',
-    sector: 'Makine Halı', bio: 'Üçüncü kuşak halı üreticisi. Anadolu desenlerinin dijital arşivi üzerine projeleri var.',
-    role: 'ÜYE', gold: false },
-  { id: 4, initials: 'ZA', name: 'Zeynep Aydın', firm: 'AYDIN PERDE', city: 'Bursa',
-    sector: 'Perdelik', bio: 'Mimarlardan gelen taleplere göre özel dokuma koleksiyonları geliştiriyor.',
-    role: 'ÜYE', gold: false },
-  { id: 5, initials: 'CO', name: 'Can Oktay', firm: 'OKTAY İPLİK', city: 'Uşak',
-    sector: 'İplik', bio: 'Geri dönüşümlü iplik teknolojileri ve LCA raporlama.',
-    role: 'YÖNETİM', gold: false },
-  { id: 6, initials: 'SD', name: 'Selin Demir', firm: 'DEMİR AKSESUAR', city: 'İstanbul',
-    sector: 'Aksesuar', bio: 'Trend araştırması ve görsel kimlik. MSGSÜ tekstil mezunu.',
-    role: 'ÜYE', gold: false },
-  { id: 7, initials: 'AT', name: 'Ahmet Tan', firm: 'TAN DOKUMA', city: 'Kahramanmaraş',
-    sector: 'Dokuma', bio: 'Klasik atkı dokuma; küçük üretim, butik koleksiyon.',
-    role: 'ÜYE', gold: false },
-  { id: 8, initials: 'NK', name: 'Nazlı Karaca', firm: 'İTÜ', city: 'İstanbul',
-    sector: 'Öğrenci · Tekstil Müh.', bio: 'Lisans 3. sınıf. Genç TETSİAD’ın ilk öğrenci üyelerinden.',
-    role: 'ÖĞRENCİ', gold: false, student: true },
+  { id: 0, initials: ‘RÖ’, name: ‘Resul Öden’, firm: ‘ÖDEN TEKSTİL’, city: ‘İstanbul’,
+    sector: ‘Ev Tekstili’, position: ‘Genel Müdür’, bio: ‘Genç TETSİAD Başkanı. Yeni neslin sektördeki en somut sesi.’,
+    role: ‘GENÇ TETSİAD BAŞKANI’, gold: true,
+    memberNo: ‘GT-2026-0001’, events: 12, certs: 4, connections: 87 },
+  { id: 1, initials: ‘FÖ’, name: ‘Fatih Özdemir’, firm: ‘ORMEN TEKSTİL’, city: ‘Ankara’,
+    sector: ‘Döşemelik’, position: ‘Yönetici · 2. Kuşak’, bio: ‘Aile şirketinin ikinci kuşağı. Genç TETSİAD\’ın gönüllü mimarı.’,
+    role: ‘KONSEPT MİMARI’, gold: true,
+    memberNo: ‘GT-2026-0342’, events: 8, certs: 2, connections: 34 },
+  { id: 2, initials: ‘EY’, name: ‘Elif Yıldız’, firm: ‘YILDIZ EV TEKSTİL’, city: ‘Denizli’,
+    sector: ‘Havlu · Bornoz’, position: ‘İhracat Müdürü’, bio: ‘İhracat operasyonu ve sürdürülebilir pamuk üzerine çalışıyor.’,
+    role: ‘YÖNETİM’, gold: false,
+    memberNo: ‘GT-2026-0088’, events: 6, certs: 3, connections: 52 },
+  { id: 3, initials: ‘MK’, name: ‘Mert Kaya’, firm: ‘KAYA HALI’, city: ‘Gaziantep’,
+    sector: ‘Makine Halı’, position: ‘Ortak’, bio: ‘Üçüncü kuşak halı üreticisi. Anadolu desenlerinin dijital arşivi üzerine projeleri var.’,
+    role: ‘ÜYE’, gold: false,
+    memberNo: ‘GT-2026-0205’, events: 3, certs: 1, connections: 18 },
+  { id: 4, initials: ‘ZA’, name: ‘Zeynep Aydın’, firm: ‘AYDIN PERDE’, city: ‘Bursa’,
+    sector: ‘Perdelik’, position: ‘Tasarım Direktörü’, bio: ‘Mimarlardan gelen taleplere göre özel dokuma koleksiyonları geliştiriyor.’,
+    role: ‘ÜYE’, gold: false,
+    memberNo: ‘GT-2026-0176’, events: 5, certs: 1, connections: 27 },
+  { id: 5, initials: ‘CO’, name: ‘Can Oktay’, firm: ‘OKTAY İPLİK’, city: ‘Uşak’,
+    sector: ‘İplik’, position: ‘AR-GE Müdürü’, bio: ‘Geri dönüşümlü iplik teknolojileri ve LCA raporlama.’,
+    role: ‘YÖNETİM’, gold: false,
+    memberNo: ‘GT-2026-0114’, events: 7, certs: 2, connections: 41 },
+  { id: 6, initials: ‘SD’, name: ‘Selin Demir’, firm: ‘DEMİR AKSESUAR’, city: ‘İstanbul’,
+    sector: ‘Aksesuar’, position: ‘Kurucu’, bio: ‘Trend araştırması ve görsel kimlik. MSGSÜ tekstil mezunu.’,
+    role: ‘ÜYE’, gold: false,
+    memberNo: ‘GT-2026-0389’, events: 4, certs: 0, connections: 22 },
+  { id: 7, initials: ‘AT’, name: ‘Ahmet Tan’, firm: ‘TAN DOKUMA’, city: ‘Kahramanmaraş’,
+    sector: ‘Dokuma’, position: ‘İşletme Sahibi’, bio: ‘Klasik atkı dokuma; küçük üretim, butik koleksiyon.’,
+    role: ‘ÜYE’, gold: false,
+    memberNo: ‘GT-2026-0452’, events: 2, certs: 1, connections: 14 },
+  { id: 8, initials: ‘NK’, name: ‘Nazlı Karaca’, firm: ‘İTÜ’, city: ‘İstanbul’,
+    sector: ‘Öğrenci · Tekstil Müh.’, position: ‘Lisans 3. Sınıf’, bio: ‘Genç TETSİAD\’ın ilk öğrenci üyelerinden. Bitirme projesi: akıllı kumaş.’,
+    role: ‘ÖĞRENCİ’, gold: false, student: true,
+    memberNo: ‘GT-2026-0501’, events: 2, certs: 0, connections: 9 },
 ];
 
 const COURSES = [
@@ -225,7 +234,51 @@ const EXPORTS = {
   ],
 };
 
+/* ETKİNLİK bildirimleri */
+const EVENT_NOTIFICATIONS = [
+  { id: 'en1', type: 'event', initials: 'GT', authorRole: 'GENÇ TETSİAD',
+    title: 'HOMETEX kaydınız onaylandı',
+    body: '14 Mayıs HOMETEX Fuar Çalışması — katılımınız teyit edildi. Detaylar e-posta ile gönderildi.',
+    time: '1 saat önce', date: '21 MAYIS · 13:22', priority: 'high' },
+  { id: 'en2', type: 'event', initials: 'GT', authorRole: 'SİSTEM',
+    title: 'İTÜ etkinliğine 12 kontenjan kaldı',
+    body: '22 Mayıs İTÜ Tasarım Etkinlikleri için kayıt kapanıyor. Hızlı olun.',
+    time: '3 saat önce', date: '21 MAYIS · 11:02', priority: 'high' },
+  { id: 'en3', type: 'event', initials: 'AY', authorRole: 'HOMETEX KOMİTE',
+    title: 'Fuar refakatçi listesi kapanıyor',
+    body: 'Yurt dışı alıcı refakatçi programı için 5 koltuk kaldı.',
+    time: '3 gün önce', date: '18 MAYIS · 16:40', priority: 'normal' },
+];
+
+/* SİSTEM bildirimleri */
+const SYSTEM_NOTIFICATIONS = [
+  { id: 'sn1', type: 'system', initials: 'GT', authorRole: 'SİSTEM',
+    title: 'Profiliniz tamamlandı',
+    body: 'Üyelik bilgileriniz onaylandı. Üyelik numaranız: GT-2026-0342',
+    time: '1 hafta önce', date: '14 MAYIS · 09:00', priority: 'normal' },
+  { id: 'sn2', type: 'system', initials: 'MŞ', authorRole: 'TETSİAD BAŞKANI',
+    title: 'Bağlantı isteği',
+    body: 'Murat Şahinler sizinle bağlantı kurmak istiyor.',
+    time: '2 gün önce', date: '19 MAYIS · 15:30', priority: 'high' },
+  { id: 'sn3', type: 'system', initials: 'GT', authorRole: 'SİSTEM',
+    title: 'KVKK taahhüdü imza bekleniyor',
+    body: '2030 Yeşil Dönüşüm Taahhüdü dijital imzaya açıldı. Son tarih: 30 Haziran.',
+    time: '5 gün önce', date: '16 MAYIS · 10:15', priority: 'normal' },
+];
+
+/* Sektör seçenekleri — kayıt formu */
+const SECTORS = [
+  'Döşemelik', 'Perdelik', 'Havlu · Bornoz', 'Makine Halı',
+  'El Dokuma', 'İplik', 'Aksesuar', 'Desen Tasarımı', 'Diğer',
+];
+
+const CITIES = [
+  'İstanbul', 'Ankara', 'Bursa', 'Denizli', 'Gaziantep',
+  'İzmir', 'Kahramanmaraş', 'Uşak', 'Kayseri', 'Diğer',
+];
+
 Object.assign(window, {
   EVENTS, EVENT_FILTERS, MEMBERS, COURSES, MENTORS, ACTIVITIES, GOALS, COMMISSIONS, UNIS,
   PRESIDENT, PILLARS, NEWS, ANNOUNCEMENTS, SUSTAINABILITY, EXPORTS,
+  EVENT_NOTIFICATIONS, SYSTEM_NOTIFICATIONS, SECTORS, CITIES,
 });

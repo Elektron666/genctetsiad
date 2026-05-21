@@ -1,6 +1,27 @@
 /* screen-home.jsx — Main cover screen */
 
-function HomeScreen({ onBellClick, openDrawer }) {
+/* Animated counter hook — counts from 0 to target */
+function useCounter(target, duration = 1200, delay = 0) {
+  const [val, setVal] = React.useState(0);
+  React.useEffect(() => {
+    let startTime = null;
+    let raf;
+    const tick = (now) => {
+      if (!startTime) startTime = now + delay;
+      const elapsed = now - startTime;
+      if (elapsed < 0) { raf = requestAnimationFrame(tick); return; }
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      setVal(Math.round(eased * target));
+      if (progress < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration, delay]);
+  return val;
+}
+
+function HomeScreen({ onBellClick, openDrawer, registeredEvents }) {
   const banner = ANNOUNCEMENTS.find(a => a.pinned) || ANNOUNCEMENTS[0];
   return (
     <div className="screen phone-scroll no-scrollbar" style={{ paddingBottom: 100 }}>
@@ -223,30 +244,8 @@ function HomeScreen({ onBellClick, openDrawer }) {
         </div>
       </section>
 
-      {/* Stats strip */}
-      <section style={{
-        marginTop: 36, padding: '24px 16px', background: 'var(--navy-deep)',
-        borderTop: '0.5px solid var(--gold-line)', borderBottom: '0.5px solid var(--gold-line)',
-        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
-      }}>
-        {[
-          { n: '1.500', s: '+', l: 'ÜYE' },
-          { n: '55', s: '', l: 'İL' },
-          { n: '40', s: '', l: 'ÜLKE' },
-          { n: '10', s: '', l: 'ETKİNLİK' },
-        ].map((x, i) => (
-          <div key={i} style={{
-            textAlign: 'center',
-            borderRight: i < 3 ? '0.5px solid var(--gold-line)' : '',
-          }}>
-            <div style={{
-              fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic', fontWeight: 300,
-              fontSize: 30, color: 'var(--gold)', lineHeight: 1,
-            }}>{x.n}<span style={{ fontSize: 16 }}>{x.s}</span></div>
-            <div className="byline" style={{ marginTop: 8 }}>{x.l}</div>
-          </div>
-        ))}
-      </section>
+      {/* Stats strip — animated counters */}
+      <StatsStrip registeredEvents={registeredEvents} />
 
       {/* Haberler — Instagram feed */}
       <section style={{ padding: '40px 0 0' }}>
@@ -321,27 +320,37 @@ function HomeScreen({ onBellClick, openDrawer }) {
         <div className="no-scrollbar" style={{
           marginTop: 20, display: 'flex', gap: 16, overflowX: 'auto', padding: '0 24px',
         }}>
-          {EVENTS.slice(0, 4).map(e => (
-            <div key={e.id} style={{
-              flex: '0 0 230px', background: 'var(--navy-mid)', position: 'relative',
-            }} className="weave">
-              <ImageSlot id={`gt-event-${e.id}`} height={110} label={e.photoLabel} />
-              <div style={{ padding: '14px 16px 16px' }}>
-                <div className="lbl" style={{ fontSize: 8.5 }}>{e.tag}</div>
-                <div style={{
-                  marginTop: 8, fontFamily: 'Cormorant Garamond, serif',
-                  fontSize: 17, color: 'var(--ivory)', lineHeight: 1.15, minHeight: 40,
-                }}>{e.title}</div>
-                <div style={{ marginTop: 12, display: 'flex', alignItems: 'baseline', gap: 10 }}>
-                  <span style={{
-                    fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic',
-                    fontSize: 22, color: 'var(--gold)', fontWeight: 300, lineHeight: 1,
-                  }}>{e.day}</span>
-                  <span className="byline">{e.month}</span>
+          {EVENTS.slice(0, 4).map(e => {
+            const isReg = registeredEvents && registeredEvents.has(e.id);
+            return (
+              <div key={e.id} style={{
+                flex: '0 0 230px', background: 'var(--navy-mid)', position: 'relative',
+              }} className="weave">
+                {isReg && (
+                  <div style={{
+                    position: 'absolute', top: 8, right: 8, zIndex: 2,
+                    padding: '4px 8px', background: 'var(--gold)', color: 'var(--navy)',
+                    fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 7, letterSpacing: 1.5, fontWeight: 700,
+                  }}>KATILDIM</div>
+                )}
+                <ImageSlot id={`gt-event-${e.id}`} height={110} label={e.photoLabel} />
+                <div style={{ padding: '14px 16px 16px' }}>
+                  <div className="lbl" style={{ fontSize: 8.5 }}>{e.tag}</div>
+                  <div style={{
+                    marginTop: 8, fontFamily: 'Cormorant Garamond, serif',
+                    fontSize: 17, color: 'var(--ivory)', lineHeight: 1.15, minHeight: 40,
+                  }}>{e.title}</div>
+                  <div style={{ marginTop: 12, display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                    <span style={{
+                      fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic',
+                      fontSize: 22, color: 'var(--gold)', fontWeight: 300, lineHeight: 1,
+                    }}>{e.day}</span>
+                    <span className="byline">{e.month}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -477,6 +486,39 @@ function HomeScreen({ onBellClick, openDrawer }) {
 
 function toRoman(n) {
   return ['', 'I', 'II', 'III', 'IV', 'V', 'VI'][n] || String(n);
+}
+
+function StatsStrip({ registeredEvents }) {
+  const c1 = useCounter(1500, 1400, 0);
+  const c2 = useCounter(55,   1000, 200);
+  const c3 = useCounter(40,   900,  400);
+  const c4 = useCounter(10,   700,  600);
+  const vals = [
+    { n: c1 >= 1500 ? '1.500' : c1.toLocaleString('tr-TR'), s: '+', l: 'ÜYE' },
+    { n: c2, s: '', l: 'İL' },
+    { n: c3, s: '', l: 'ÜLKE' },
+    { n: c4, s: '', l: 'ETKİNLİK' },
+  ];
+  return (
+    <section style={{
+      marginTop: 36, padding: '24px 16px', background: 'var(--navy-deep)',
+      borderTop: '0.5px solid var(--gold-line)', borderBottom: '0.5px solid var(--gold-line)',
+      display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+    }}>
+      {vals.map((x, i) => (
+        <div key={i} style={{
+          textAlign: 'center',
+          borderRight: i < 3 ? '0.5px solid var(--gold-line)' : '',
+        }}>
+          <div style={{
+            fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic', fontWeight: 300,
+            fontSize: 30, color: 'var(--gold)', lineHeight: 1,
+          }}>{x.n}<span style={{ fontSize: 16 }}>{x.s}</span></div>
+          <div className="byline" style={{ marginTop: 8 }}>{x.l}</div>
+        </div>
+      ))}
+    </section>
+  );
 }
 
 window.HomeScreen = HomeScreen;
