@@ -360,6 +360,11 @@ const PRESIDENT = {
   firm: 'ÖDEN TEKSTİL · İSTANBUL',
   quote: 'Genç TETSİAD, sektörün geleceğini bugünden örmeye başlayan bir atölyedir. Üretirken öğrenmek, paylaşırken büyümek istiyoruz.',
   long: 'Türkiye ev tekstilinin dünyada hak ettiği yere ulaşması, yalnızca üretim gücüyle değil, genç kuşağın markalaşma, sürdürülebilirlik ve dijitalleşme alanında ortaya koyacağı vizyonla mümkün olacak. Bu uygulama, o vizyonu bir araya getiren ilk somut adım.',
+  message: [
+    'Ev tekstili sektörümüz onlarca yıldır dünya pazarında güçlü bir yer tutmaktadır. Ancak bu güç, artık yalnızca üretim kapasitesiyle ölçülmüyor. Tasarım, sürdürülebilirlik, dijitalleşme ve marka değeri; rekabeti şekillendiren yeni eksenler haline geldi.',
+    'Genç TETSİAD olarak tam da bu dönüşümün merkezinde yer almak istiyoruz. Türkiye\'nin dokuma geleneğini, genç kuşağın vizyonuyla birleştirdiğimizde ortaya çok güçlü bir sinerji çıkıyor. Sektörün önde gelen ailelerinden gelen genç temsilcileri, üniversite öğrencilerini ve yeni nesil girişimcileri aynı çatı altında buluşturuyoruz.',
+    'Bu platform, yalnızca bir uygulama değil; sektörün geleceğine yapılan somut bir yatırım. Her mentorluk programı, her fuar gezisi, her akademik iş birliği — hepsini birlikte inşa ediyoruz. Birlikte öğrenecek, birlikte büyüyeceğiz.',
+  ],
   photo: 'GENÇ TETSİAD BAŞKANI · KÜRSÜDE',
 };
 

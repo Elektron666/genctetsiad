@@ -285,33 +285,76 @@ function HomeScreen({ onBellClick, openDrawer, registeredEvents, onNavigate }) {
         </div>
       </section>
 
-      {/* Başkandan — Resul Öden full feature */}
-      <section className="weave" style={{
-        margin: '40px 0 0', padding: '32px 24px 28px',
-        background: 'linear-gradient(180deg, var(--navy), var(--navy-deep))',
-        borderTop: '0.5px solid var(--gold-line)', borderBottom: '0.5px solid var(--gold-line)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18, marginBottom: 22 }}>
-          <div style={{ flexShrink: 0, width: 110 }}>
-            <ImageSlot id="gt-baskandan-portrait" height={130} label="RÖ · Portre"
-              src="https://picsum.photos/seed/gt-ro-portrait/300/400" />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div className="lbl" style={{ marginBottom: 6 }}>BAŞKAN'DAN</div>
+      {/* ── BAŞKAN'DAN ─────────────────────────────────────────── */}
+      <section style={{ margin: '40px 0 0' }}>
+
+        {/* Section divider */}
+        <div style={{ padding: '0 24px 24px', display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ height: '0.5px', flex: 1, background: 'var(--gold-line)' }} />
+          <div className="lbl" style={{ fontSize: 7, letterSpacing: 3, color: 'var(--gold)' }}>BAŞKAN'DAN</div>
+          <div style={{ height: '0.5px', flex: 1, background: 'var(--gold-line)' }} />
+        </div>
+
+        {/* Full-width portrait with gradient overlay */}
+        <div style={{ position: 'relative' }}>
+          <ImageSlot id="gt-baskandan-portrait" height={340} label="Resul Öden · Başkan"
+            src="https://picsum.photos/seed/gt-ro-podium/800/700" />
+          <div style={{
+            position: 'absolute', inset: 0, pointerEvents: 'none',
+            background: 'linear-gradient(180deg, rgba(5,28,17,0.25) 0%, rgba(5,28,17,0.12) 45%, rgba(5,28,17,0.96) 100%)',
+          }} />
+          {/* Name + title over photo bottom */}
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '0 24px 24px' }}>
             <div style={{
-              fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic',
-              fontWeight: 300, fontSize: 30, color: 'var(--ivory)', lineHeight: 1.0,
-            }}>{PRESIDENT.name}</div>
-            <div className="byline" style={{ marginTop: 8, color: 'var(--gold)' }}>{PRESIDENT.title}</div>
+              fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic', fontWeight: 300,
+              fontSize: 38, color: 'var(--ivory)', lineHeight: 1, letterSpacing: '-0.5px',
+            }}>Resul Öden</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+              <div style={{ width: 28, height: '0.5px', background: 'var(--gold)' }} />
+              <div className="byline" style={{ color: 'var(--gold)', letterSpacing: 2 }}>{PRESIDENT.title}</div>
+            </div>
           </div>
         </div>
-        <div style={{
-          fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic',
-          fontSize: 16, color: 'var(--ivory)', lineHeight: 1.5, fontWeight: 300,
-        }}>{PRESIDENT.long}</div>
-        <div style={{ marginTop: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div className="signature" style={{ fontSize: 22, lineHeight: 1 }}>Resul Öden</div>
-          <span className="byline">{PRESIDENT.firm}</span>
+
+        {/* Message body */}
+        <div style={{ background: 'var(--navy-deep)', padding: '28px 24px 32px', borderBottom: '0.5px solid var(--gold-line)' }}>
+
+          {/* Pull quote with gold left border */}
+          <div style={{
+            marginBottom: 24, paddingLeft: 16,
+            borderLeft: '2px solid var(--gold)',
+          }}>
+            <div style={{
+              fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic', fontWeight: 300,
+              fontSize: 19, color: 'var(--ivory)', lineHeight: 1.5,
+            }}>"{PRESIDENT.quote}"</div>
+          </div>
+
+          {/* Paragraphs */}
+          {(PRESIDENT.message || [PRESIDENT.long]).map((para, i) => (
+            <div key={i} style={{
+              fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 12.5,
+              color: 'var(--text-muted)', lineHeight: 1.75, fontWeight: 300,
+              marginBottom: i < (PRESIDENT.message || []).length - 1 ? 16 : 0,
+            }}>{para}</div>
+          ))}
+
+          {/* Signature block */}
+          <div style={{
+            marginTop: 28, paddingTop: 22,
+            borderTop: '0.5px solid var(--gold-line)',
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
+          }}>
+            <div>
+              <div className="signature" style={{ fontSize: 28, lineHeight: 1, color: 'var(--gold)' }}>Resul Öden</div>
+              <div className="byline" style={{ marginTop: 8 }}>{PRESIDENT.title}</div>
+              <div className="byline" style={{ marginTop: 3, color: 'var(--gold)' }}>{PRESIDENT.firm}</div>
+            </div>
+            <div style={{
+              fontFamily: 'JetBrains Mono, monospace', fontSize: 9,
+              color: 'var(--text-muted)', letterSpacing: 1.5, textAlign: 'right',
+            }}>GENÇ<br/>TETSİAD<br/>2026</div>
+          </div>
         </div>
       </section>
 
