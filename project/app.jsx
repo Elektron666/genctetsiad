@@ -2,7 +2,7 @@
 
 const SCREENS = [
   { k: 'login',          label: 'GİRİŞ',          num: '00', sub: 'Login · OTP' },
-  { k: 'home',           label: 'KAPAK',           num: '01', sub: 'Manifesto & Haberler' },
+  { k: 'home',           label: 'ANA SAYFA',       num: '01', sub: 'Manifesto & Haberler' },
   { k: 'news',           label: 'GÜNDEM',          num: '02', sub: 'Haberler & Makaleler' },
   { k: 'calendar',       label: 'TAKVİM',          num: '03', sub: 'Etkinlikler · Katılım' },
   { k: 'directory',      label: 'REHBER',          num: '04', sub: 'Üye dizini' },
@@ -14,7 +14,7 @@ const SCREENS = [
 
 /* Tab bar: subset visible in bottom nav (no login/register/news/about — navigated via links) */
 const TABS = [
-  { k: 'home',           label: 'KAPAK' },
+  { k: 'home',           label: 'ANA SAYFA' },
   { k: 'calendar',       label: 'TAKVİM' },
   { k: 'directory',      label: 'REHBER' },
   { k: 'academy',        label: 'AKADEMİ' },
