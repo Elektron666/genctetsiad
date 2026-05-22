@@ -100,7 +100,8 @@ function HomeScreen({ onBellClick, openDrawer, registeredEvents, onNavigate }) {
 
       {/* LAST EVENT photo — featured president message */}
       <div style={{ position: 'relative', height: 280, marginTop: 0 }}>
-        <ImageSlot id="gt-president-hero" height={280} label="Resul Öden · Kürsüde" />
+        <ImageSlot id="gt-president-hero" height={280} label="Resul Öden · Kürsüde"
+          src="https://picsum.photos/seed/gt-president-stage/800/600" />
         <div style={{
           position: 'absolute', inset: 0,
           background: 'linear-gradient(180deg, rgba(7,51,35,0.0) 30%, rgba(7,51,35,0.92))',
@@ -282,7 +283,7 @@ function HomeScreen({ onBellClick, openDrawer, registeredEvents, onNavigate }) {
               flex: '0 0 240px', background: 'var(--navy-mid)',
               border: '0.5px solid var(--gold-line)', position: 'relative',
             }} className="weave">
-              <ImageSlot id={`gt-news-${n.id}`} height={120} label={n.photoLabel} />
+              <ImageSlot id={`gt-news-${n.id}`} height={120} label={n.photoLabel} src={n.src} />
               <div style={{ padding: '12px 14px 14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
                   <div className="lbl" style={{ fontSize: 8 }}>{n.tag}</div>
@@ -310,7 +311,8 @@ function HomeScreen({ onBellClick, openDrawer, registeredEvents, onNavigate }) {
       }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18, marginBottom: 22 }}>
           <div style={{ flexShrink: 0, width: 110 }}>
-            <ImageSlot id="gt-baskandan-portrait" height={130} label="RÖ · Portre" />
+            <ImageSlot id="gt-baskandan-portrait" height={130} label="RÖ · Portre"
+              src="https://picsum.photos/seed/gt-ro-portrait/300/400" />
           </div>
           <div style={{ flex: 1 }}>
             <div className="lbl" style={{ marginBottom: 6 }}>BAŞKAN'DAN</div>
@@ -354,7 +356,7 @@ function HomeScreen({ onBellClick, openDrawer, registeredEvents, onNavigate }) {
                     fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 7, letterSpacing: 1.5, fontWeight: 700,
                   }}>KATILDIM</div>
                 )}
-                <ImageSlot id={`gt-event-${e.id}`} height={110} label={e.photoLabel} />
+                <ImageSlot id={`gt-event-${e.id}`} height={110} label={e.photoLabel} src={e.src} />
                 <div style={{ padding: '14px 16px 16px' }}>
                   <div className="lbl" style={{ fontSize: 8.5 }}>{e.tag}</div>
                   <div style={{

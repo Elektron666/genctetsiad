@@ -20,7 +20,7 @@ function EventDetail({ event, registered, onToggle, onBack }) {
       </div>
 
       {/* Cover photo */}
-      <ImageSlot id={`gt-ev-det-${event.id}`} height={220} label={event.photoLabel} />
+      <ImageSlot id={`gt-ev-det-${event.id}`} height={220} label={event.photoLabel} src={event.src} />
 
       {/* Header */}
       <div style={{ padding: '22px 24px 20px', borderBottom: '0.5px solid var(--gold-line)' }}>

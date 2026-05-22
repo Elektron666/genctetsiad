@@ -73,12 +73,14 @@ function BellIcon({ count = 0, color = '#C4A265' }) {
 
 // User-fillable image slot — falls back to striped placeholder when empty.
 // The <image-slot> custom element handles drag/drop persistence.
-function ImageSlot({ id, height = 180, label = 'GÖRSEL', shape = 'rect', radius = 0 }) {
+// Pass `src` for a default image URL (user drop overrides it).
+function ImageSlot({ id, height = 180, label = 'GÖRSEL', shape = 'rect', radius = 0, src }) {
   return (
     <image-slot
       id={id}
       shape={shape}
       radius={radius}
+      src={src || undefined}
       placeholder={`↳ ${label.toUpperCase()}  ·  görseli buraya bırakın`}
       style={{
         display: 'block', width: '100%', height,

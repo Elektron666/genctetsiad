@@ -127,7 +127,7 @@ function ArticleView({ item, onBack }) {
       </div>
 
       {/* Cover */}
-      <ImageSlot id={`gt-art-${item.id}`} height={220} label={item.photoLabel} />
+      <ImageSlot id={`gt-art-${item.id}`} height={220} label={item.photoLabel} src={item.src} />
 
       {/* Article body */}
       <div style={{ padding: '24px 24px 40px' }}>
@@ -227,7 +227,7 @@ function NewsScreen({ onBellClick }) {
         <div onClick={() => setArticle(featured)} style={{
           cursor: 'pointer', borderBottom: '0.5px solid var(--gold-line)',
         }}>
-          <ImageSlot id={`gt-news-feat-${featured.id}`} height={200} label={featured.photoLabel} />
+          <ImageSlot id={`gt-news-feat-${featured.id}`} height={200} label={featured.photoLabel} src={featured.src} />
           <div style={{ padding: '18px 24px 22px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
               <div className="lbl" style={{ fontSize: 8, color: 'var(--gold)' }}>{featured.tag} · ÖNE ÇIKAN</div>
@@ -257,7 +257,7 @@ function NewsScreen({ onBellClick }) {
           cursor: 'pointer', alignItems: 'flex-start',
           transition: 'background 150ms',
         }}>
-          <ImageSlot id={`gt-news-th-${n.id}`} height={72} label={n.photoLabel} />
+          <ImageSlot id={`gt-news-th-${n.id}`} height={72} label={n.photoLabel} src={n.src} />
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
               <div className="lbl" style={{ fontSize: 7.5 }}>{n.tag}</div>
