@@ -1,23 +1,25 @@
 /* app.jsx — root. Stage of interactive phones. */
 
 const SCREENS = [
-  { k: 'login',     label: 'GİRİŞ',     num: '00', sub: 'Login · OTP' },
-  { k: 'home',      label: 'KAPAK',     num: '01', sub: 'Manifesto & Haberler' },
-  { k: 'news',      label: 'GÜNDEM',    num: '02', sub: 'Haberler & Makaleler' },
-  { k: 'calendar',  label: 'TAKVİM',   num: '03', sub: 'Etkinlikler · Katılım' },
-  { k: 'directory', label: 'REHBER',   num: '04', sub: 'Üye dizini' },
-  { k: 'academy',   label: 'AKADEMİ',  num: '05', sub: 'Eğitim · Mentorluk · Programlar' },
-  { k: 'profile',   label: 'KART',     num: '06', sub: 'Üyelik & QR Kartvizit' },
-  { k: 'about',     label: 'HAKKIMIZDA', num: '07', sub: 'İletişim & Sosyal Medya' },
+  { k: 'login',          label: 'GİRİŞ',          num: '00', sub: 'Login · OTP' },
+  { k: 'home',           label: 'KAPAK',           num: '01', sub: 'Manifesto & Haberler' },
+  { k: 'news',           label: 'GÜNDEM',          num: '02', sub: 'Haberler & Makaleler' },
+  { k: 'calendar',       label: 'TAKVİM',          num: '03', sub: 'Etkinlikler · Katılım' },
+  { k: 'directory',      label: 'REHBER',          num: '04', sub: 'Üye dizini' },
+  { k: 'academy',        label: 'AKADEMİ',         num: '05', sub: 'Eğitim · Mentorluk · Programlar' },
+  { k: 'profile',        label: 'KART',            num: '06', sub: 'Üyelik & QR Kartvizit' },
+  { k: 'about',          label: 'HAKKIMIZDA',      num: '07', sub: 'İletişim & Sosyal Medya' },
+  { k: 'sustainability', label: 'YEŞİL',           num: '08', sub: 'Sürdürülebilir Tekstil · AB & Türkiye' },
 ];
 
 /* Tab bar: subset visible in bottom nav (no login/register/news/about — navigated via links) */
 const TABS = [
-  { k: 'home',      label: 'KAPAK' },
-  { k: 'calendar',  label: 'TAKVİM' },
-  { k: 'directory', label: 'REHBER' },
-  { k: 'academy',   label: 'AKADEMİ' },
-  { k: 'profile',   label: 'KART' },
+  { k: 'home',           label: 'KAPAK' },
+  { k: 'calendar',       label: 'TAKVİM' },
+  { k: 'directory',      label: 'REHBER' },
+  { k: 'academy',        label: 'AKADEMİ' },
+  { k: 'profile',        label: 'KART' },
+  { k: 'sustainability', label: 'YEŞİL' },
 ];
 
 function ScreenRouter({ active, setActive, onBellClick, registeredEvents, onToggleRegistration }) {
@@ -31,13 +33,14 @@ function ScreenRouter({ active, setActive, onBellClick, registeredEvents, onTogg
     case 'directory': return <DirectoryScreen onBellClick={onBellClick} />;
     case 'academy':   return <AcademyScreen onBellClick={onBellClick} />;
     case 'profile':   return <ProfileScreen onSignOut={() => setActive('login')} onBellClick={onBellClick} onNavigate={nav} />;
-    case 'about':     return <AboutScreen onBellClick={onBellClick} />;
-    default:          return null;
+    case 'about':          return <AboutScreen onBellClick={onBellClick} />;
+    case 'sustainability': return <SustainabilityScreen onBellClick={onBellClick} onNavigate={nav} />;
+    default:               return null;
   }
 }
 
 function TabBar({ active, setActive }) {
-  const showTab = TABS.some(t => t.k === active) || active === 'news' || active === 'about';
+  const showTab = TABS.some(t => t.k === active) || active === 'news' || active === 'about' || active === 'sustainability';
   if (!showTab) return null;
   return (
     <div className="tabbar">

@@ -1,58 +1,114 @@
 /* screen-profile.jsx — Membership card + QR */
 
 function QRModal({ member, onClose }) {
-  /* SVG-based QR pattern — visual only, for demo */
-  const cells = React.useMemo(() => {
-    const grid = [];
-    const seed = member.id * 37 + member.memberNo.charCodeAt(3);
-    for (let r = 0; r < 13; r++) {
-      for (let c = 0; c < 13; c++) {
-        /* always-on finder patterns */
-        const finder = (r < 3 && c < 3) || (r < 3 && c > 9) || (r > 9 && c < 3);
-        const edge = (r === 0 || r === 12 || c === 0 || c === 12) && !finder;
-        const data = !finder && !edge && ((seed * (r + 1) * (c + 1) + r * 7 + c * 11) % 3 !== 0);
-        grid.push({ r, c, on: finder || data });
-      }
-    }
-    return grid;
-  }, [member.id]);
+  const phone = member.phone || '+90 312 473 04 60';
+  const vcard = [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    `FN:${member.name}`,
+    `ORG:${member.firm}`,
+    `TITLE:${member.position || member.role}`,
+    `TEL;TYPE=CELL:${phone}`,
+    `EMAIL:genctetsiad@tetsiad.org`,
+    `ADR:;;${member.city};;;Türkiye`,
+    `NOTE:GENÇ TETSİAD · ${member.memberNo} · tetsiad.org`,
+    'END:VCARD',
+  ].join('\n');
+
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&bgcolor=FFFFFF&color=073323&qzone=2&data=${encodeURIComponent(vcard)}`;
 
   return (
     <Modal open={true} onClose={onClose} title="Dijital Kartvizit">
       <div style={{ textAlign: 'center' }}>
-        {/* QR visual */}
+
+        {/* Branded QR card */}
         <div style={{
-          display: 'inline-block', padding: 16,
-          background: 'var(--ivory)', borderRadius: 2, marginBottom: 20,
+          position: 'relative', overflow: 'hidden',
+          padding: '20px 20px 14px',
+          background: 'linear-gradient(180deg, var(--navy-mid), var(--navy-deep))',
+          border: '0.5px solid var(--gold)',
+          marginBottom: 20,
         }}>
-          <svg width={104} height={104} viewBox="0 0 13 13">
-            {cells.map(({ r, c, on }) =>
-              on ? <rect key={`${r}-${c}`} x={c} y={r} width={1} height={1} fill="#073323" /> : null
-            )}
+          {/* Weave background */}
+          <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, opacity: 0.07, pointerEvents: 'none' }}>
+            <defs>
+              <pattern id="qr-weave" x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse">
+                <path d="M0 14L14 0M7 14L14 7M0 7L7 0" stroke="#C4A265" strokeWidth="0.5" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#qr-weave)" />
           </svg>
+
+          {/* Header row */}
+          <div style={{
+            position: 'relative', zIndex: 1,
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14,
+          }}>
+            <div className="lbl" style={{ fontSize: 7 }}>GENÇ TETSİAD</div>
+            <TetsiadLogo size={14} color="rgba(245,240,230,0.6)" />
+          </div>
+
+          {/* QR code — white background, dark green dots, scannable */}
+          <div style={{ position: 'relative', zIndex: 1, display: 'inline-block' }}>
+            <img
+              src={qrUrl}
+              alt={`QR · ${member.name}`}
+              width={180} height={180}
+              style={{ display: 'block', margin: '0 auto' }}
+              onError={e => { e.target.style.display = 'none'; }}
+            />
+          </div>
+
+          {/* Member code below QR */}
+          <div style={{
+            position: 'relative', zIndex: 1,
+            marginTop: 12,
+            fontFamily: 'JetBrains Mono, monospace', fontSize: 10,
+            color: 'var(--gold)', letterSpacing: 2.5,
+          }}>
+            {member.memberNo}
+          </div>
+
+          {/* Corner brackets decoration */}
+          <div style={{ position: 'absolute', top: 8, left: 8, width: 16, height: 16,
+            borderTop: '1.5px solid var(--gold)', borderLeft: '1.5px solid var(--gold)' }} />
+          <div style={{ position: 'absolute', top: 8, right: 8, width: 16, height: 16,
+            borderTop: '1.5px solid var(--gold)', borderRight: '1.5px solid var(--gold)' }} />
+          <div style={{ position: 'absolute', bottom: 8, left: 8, width: 16, height: 16,
+            borderBottom: '1.5px solid var(--gold)', borderLeft: '1.5px solid var(--gold)' }} />
+          <div style={{ position: 'absolute', bottom: 8, right: 8, width: 16, height: 16,
+            borderBottom: '1.5px solid var(--gold)', borderRight: '1.5px solid var(--gold)' }} />
         </div>
 
         {/* Member info */}
         <div style={{
           fontFamily: 'Cormorant Garamond, serif', fontSize: 22,
-          color: 'var(--ivory)', fontWeight: 500, marginBottom: 6,
+          color: 'var(--ivory)', fontWeight: 500, marginBottom: 4,
         }}>{member.name}</div>
-        <div className="byline" style={{ color: 'var(--gold)', marginBottom: 4 }}>{member.position || member.role}</div>
-        <div className="byline" style={{ marginBottom: 4 }}>{member.firm} · {member.city}</div>
-        <div className="byline" style={{ marginBottom: 16 }}>{member.sector}</div>
+        <div className="byline" style={{ color: 'var(--gold)', marginBottom: 3 }}>{member.position || member.role}</div>
+        <div className="byline" style={{ marginBottom: 3 }}>{member.firm} · {member.city}</div>
 
-        <div style={{ height: '0.5px', background: 'var(--gold-line)', marginBottom: 16 }} />
-
+        {/* Phone */}
         <div style={{
+          marginTop: 8, marginBottom: 12,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           fontFamily: 'JetBrains Mono, monospace', fontSize: 11,
-          color: 'var(--gold)', letterSpacing: 2,
-        }}>№ {member.memberNo}</div>
-
-        <div className="byline" style={{ marginTop: 8, color: 'var(--text-muted)' }}>
-          GENÇ TETSİAD · AKTİF ÜYE · 2026
+          color: 'var(--ivory)', letterSpacing: 1,
+        }}>
+          <span style={{ color: 'var(--gold)', fontSize: 9 }}>☎</span>
+          {phone}
         </div>
 
-        <button className="btn btn-outline" style={{ width: '100%', marginTop: 20 }} onClick={onClose}>
+        <div style={{ height: '0.5px', background: 'var(--gold-line)', marginBottom: 12 }} />
+
+        <div className="byline" style={{ color: 'var(--text-muted)' }}>
+          GENÇ TETSİAD · AKTİF ÜYE · 2026
+        </div>
+        <div className="byline" style={{ marginTop: 4, color: 'var(--text-muted)', fontSize: 8 }}>
+          QR'ı telefon kameranızla okutun — rehbere otomatik kaydedilir.
+        </div>
+
+        <button className="btn btn-outline" style={{ width: '100%', marginTop: 18 }} onClick={onClose}>
           KAPAT
         </button>
       </div>

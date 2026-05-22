@@ -34,7 +34,7 @@ function RegisterScreen({ onComplete, onBack }) {
     if (step !== 6) return;
     const year = 2026;
     const num  = String(Math.floor(400 + Math.random() * 500)).padStart(5, '0');
-    const full = `GT-${year}-${num}`;
+    const full = `TG-${year}-${num}`;
     setMemberCode(full);
     setTypedCode('');
     let i = 0;

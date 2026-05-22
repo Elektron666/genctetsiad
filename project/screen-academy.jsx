@@ -1,7 +1,7 @@
 /* screen-academy.jsx — Education + mentors */
 
 function AcademyScreen({ onBellClick }) {
-  const [tab, setTab] = React.useState('COURSES');
+  const [tab, setTab] = React.useState('PROGRAMS');
   const [expandedCourse, setExpandedCourse] = React.useState(null);
   const [expandedProgram, setExpandedProgram] = React.useState(null);
   const [mentorModal, setMentorModal] = React.useState(null);

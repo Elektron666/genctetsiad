@@ -25,57 +25,68 @@ function HomeScreen({ onBellClick, openDrawer, registeredEvents, onNavigate }) {
   const banner = ANNOUNCEMENTS.find(a => a.pinned) || ANNOUNCEMENTS[0];
   return (
     <div className="screen phone-scroll no-scrollbar" style={{ paddingBottom: 100 }}>
-      <AppHeader section="KAPAK" title={<>Değişim, <em style={{ fontStyle: 'italic' }}>burada.</em></>} count={ANNOUNCEMENTS.length} onBellClick={onBellClick} />
 
-      {/* Live announcement banner */}
-      <div style={{ marginTop: -4 }}>
-        <AnnouncementBanner ann={banner} onOpen={onBellClick} />
+      {/* ── FULL-SCREEN MAGAZINE COVER ─────────────────────── */}
+      <div style={{ position: 'relative', height: 580, flexShrink: 0 }}>
+        <ImageSlot id="gt-president-hero" height={580} label="Kapak · Resul Öden Kürsüde"
+          src="https://picsum.photos/seed/gt-president-stage/800/1000" />
+
+        {/* gradient — heavy at top + bottom, open in middle */}
+        <div style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: 'linear-gradient(180deg, rgba(5,28,17,0.88) 0%, rgba(5,28,17,0.08) 38%, rgba(5,28,17,0.12) 55%, rgba(5,28,17,0.94) 100%)',
+        }} />
+
+        {/* Top bar */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0,
+          padding: '52px 24px 0',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div className="lbl" style={{ fontSize: 7, letterSpacing: 2 }}>GENÇ TETSİAD · SAYI 01 · MAYIS 2026</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div onClick={onBellClick} style={{ cursor: 'pointer', padding: 4, margin: -4 }}>
+              <BellIcon count={ANNOUNCEMENTS.length} color="#D9C896" />
+            </div>
+            <TetsiadLogo size={20} color="#F5F0E6" />
+          </div>
+        </div>
+
+        {/* Main title block */}
+        <div style={{ position: 'absolute', bottom: 128, left: 24, right: 24 }}>
+          <div style={{
+            fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic', fontWeight: 300,
+            fontSize: 54, color: '#F5F0E6', lineHeight: 0.9, letterSpacing: '-1px',
+          }}>
+            Değişim<br/>
+            gençlerle<br/>
+            <span style={{ color: 'var(--gold)' }}>olacak.</span>
+          </div>
+          <div style={{
+            marginTop: 14, fontFamily: 'Plus Jakarta Sans, sans-serif',
+            fontSize: 11, color: 'rgba(245,240,230,0.65)', lineHeight: 1.5, maxWidth: 260,
+          }}>
+            Türkiye ev tekstilinin genç iş insanları platformu.
+          </div>
+        </div>
+
+        {/* CTA row + scroll hint */}
+        <div style={{ position: 'absolute', bottom: 28, left: 24, right: 24 }}>
+          <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+            <button className="btn btn-fill" style={{ flex: 1 }}>BAŞVUR</button>
+            <button className="btn btn-outline" style={{ flex: 1 }}>MANİFESTO</button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, opacity: 0.45 }}>
+            <div style={{ flex: 1, height: '0.5px', background: 'rgba(217,200,150,0.6)' }} />
+            <span style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 7, letterSpacing: 2.5, color: 'var(--gold)' }}>AŞAĞI KAYDIRIN</span>
+            <div style={{ flex: 1, height: '0.5px', background: 'rgba(217,200,150,0.6)' }} />
+          </div>
+        </div>
       </div>
 
-      {/* HERO */}
-      <div className="weave" style={{ position: 'relative', padding: '20px 24px 28px', background: 'var(--navy)' }}>
-        <div className="lbl" style={{ marginBottom: 22 }}>SAYI / 01 · 2026</div>
-        <div style={{
-          fontFamily: 'Cormorant Garamond, serif',
-          fontStyle: 'italic',
-          fontWeight: 300,
-          fontSize: 48,
-          lineHeight: 1.0,
-          color: 'var(--ivory)',
-          letterSpacing: '-0.5px',
-        }}>
-          Değişim<br/>
-          gençlerle<br/>
-          <span style={{ color: 'var(--gold)' }}>olacak.</span>
-        </div>
-
-        <div style={{
-          marginTop: 24, fontFamily: 'Plus Jakarta Sans, sans-serif',
-          fontSize: 12, lineHeight: 1.65, color: 'var(--text-muted)', maxWidth: 290,
-        }}>
-          1991'den beri Türkiye ev tekstilinin omurgasını kuran TETSİAD,
-          yeni kuşak iş insanlarını <span style={{ color: 'var(--ivory)' }}>Genç TETSİAD</span> çatısı
-          altında bir araya getiriyor. Üretimden markaya, fuardan kampüse
-          — bir sonraki on yılı birlikte tasarlıyoruz.
-        </div>
-
-        <div style={{ display: 'flex', gap: 12, marginTop: 24, alignItems: 'center' }}>
-          <button className="btn btn-fill">BAŞVUR</button>
-          <button className="btn btn-outline">MANİFESTO</button>
-        </div>
-
-        {/* Byline / signature */}
-        <div style={{
-          marginTop: 32, paddingTop: 18, borderTop: '0.5px solid var(--gold-line)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14,
-        }}>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div className="byline" style={{ marginBottom: 4 }}>KONSEPT &amp; TASARIM</div>
-            <div className="signature" style={{ fontSize: 22, lineHeight: 1, whiteSpace: 'nowrap' }}>Fatih Özdemir</div>
-            <div className="byline" style={{ marginTop: 4 }}>ORMEN TEKSTİL · ANKARA</div>
-          </div>
-          <Monogram initials="FÖ" gold size="lg" />
-        </div>
+      {/* Live announcement banner (below cover) */}
+      <div style={{ marginTop: 0 }}>
+        <AnnouncementBanner ann={banner} onOpen={onBellClick} />
       </div>
 
       {/* Quick access 3 cards */}
@@ -98,42 +109,13 @@ function HomeScreen({ onBellClick, openDrawer, registeredEvents, onNavigate }) {
         ))}
       </div>
 
-      {/* LAST EVENT photo — featured president message */}
-      <div style={{ position: 'relative', height: 280, marginTop: 0 }}>
-        <ImageSlot id="gt-president-hero" height={280} label="Resul Öden · Kürsüde"
-          src="https://picsum.photos/seed/gt-president-stage/800/600" />
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'linear-gradient(180deg, rgba(7,51,35,0.0) 30%, rgba(7,51,35,0.92))',
-          padding: '0 24px 22px',
-          display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-          pointerEvents: 'none',
-        }}>
-          <div className="lbl" style={{ marginBottom: 6 }}>{PRESIDENT.title}</div>
-          <div style={{
-            fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic',
-            fontSize: 22, color: 'var(--ivory)', lineHeight: 1.18, fontWeight: 300,
-          }}>
-            "{PRESIDENT.quote}"
-          </div>
-          <div style={{
-            marginTop: 12, display: 'flex', alignItems: 'center', gap: 12,
-          }}>
-            <Monogram initials={PRESIDENT.initials} gold size="sm" />
-            <div>
-              <div style={{
-                fontFamily: 'Cormorant Garamond, serif', fontSize: 15,
-                color: 'var(--ivory)', lineHeight: 1, fontWeight: 500,
-              }}>{PRESIDENT.name}</div>
-              <div className="byline" style={{ marginTop: 4 }}>{PRESIDENT.firm}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Sustainability pillars */}
       <section style={{ padding: '36px 24px 0' }}>
-        <SectionLabel num={1}>SÜRDÜRÜLEBİLİR TEKSTİL · 4 SÜTUN</SectionLabel>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 18 }}>
+          <SectionLabel num={1}>SÜRDÜRÜLEBİLİR TEKSTİL · 4 SÜTUN</SectionLabel>
+          <span className="byline" style={{ color: 'var(--gold)', cursor: 'pointer' }}
+            onClick={() => onNavigate && onNavigate('sustainability')}>DETAY ↗</span>
+        </div>
         <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           {PILLARS.map(p => (
             <div key={p.id} style={{

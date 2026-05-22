@@ -171,91 +171,39 @@ function ArticleView({ item, onBack }) {
   );
 }
 
-function NewsScreen({ onBellClick }) {
-  const [source, setSource] = React.useState('haberler');
-  const [tagFilter, setTagFilter] = React.useState('TÜMÜ');
-  const [article, setArticle] = React.useState(null);
+const GT_TAGS = new Set(['GENÇ TETSİAD', 'GENEL KURUL', 'EĞİTİM', 'İŞBİRLİĞİ']);
 
-  if (article) return <ArticleView item={article} onBack={() => setArticle(null)} />;
-
-  const allTags = ['TÜMÜ', ...Array.from(new Set(NEWS.map(n => n.tag)))];
-  const filtered = tagFilter === 'TÜMÜ' ? NEWS : NEWS.filter(n => n.tag === tagFilter);
-  const featured = filtered[0];
-  const rest = filtered.slice(1);
-
+function NewsList({ items, onArticle }) {
+  const featured = items[0];
+  const rest = items.slice(1);
+  if (items.length === 0) {
+    return (
+      <div style={{ padding: '48px 24px', textAlign: 'center' }}>
+        <div className="byline" style={{ color: 'var(--text-muted)' }}>SONUÇ BULUNAMADI</div>
+      </div>
+    );
+  }
   return (
-    <div className="screen phone-scroll no-scrollbar" style={{ paddingBottom: 100 }}>
-      <AppHeader section="GÜNDEM"
-        title={<>Sektörden <em style={{ fontStyle: 'italic' }}>haberler.</em></>}
-        count={ANNOUNCEMENTS.length} onBellClick={onBellClick} />
-
-      {/* Source selector */}
-      <div style={{ display: 'flex', padding: '0 24px 16px', gap: 8 }}>
-        {[['haberler', 'HABERLER'], ['instagram', 'INSTAGRAM']].map(([k, lbl]) => (
-          <button key={k}
-            onClick={() => setSource(k)}
-            style={{
-              flex: 1, padding: '9px 0',
-              background: source === k ? 'var(--gold)' : 'transparent',
-              border: `0.5px solid ${source === k ? 'var(--gold)' : 'var(--gold-line)'}`,
-              color: source === k ? 'var(--navy-deep)' : 'var(--text-muted)',
-              fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600,
-              fontSize: 9, letterSpacing: 1.5,
-              cursor: 'pointer', transition: 'all 150ms',
-            }}>{lbl}</button>
-        ))}
-      </div>
-
-      {/* Instagram feed */}
-      {source === 'instagram' && <InstagramFeed />}
-
-      {/* Haberler content */}
-      {source === 'haberler' && <>
-
-      {/* Tag filters */}
-      <div className="no-scrollbar" style={{
-        display: 'flex', gap: 8, overflowX: 'auto', padding: '0 24px 18px',
-      }}>
-        {allTags.map(t => (
-          <button key={t} className={`pill ${tagFilter === t ? 'active' : ''}`}
-            onClick={() => setTagFilter(t)}>{t}</button>
-        ))}
-      </div>
-
-      {/* Featured */}
+    <>
       {featured && (
-        <div onClick={() => setArticle(featured)} style={{
-          cursor: 'pointer', borderBottom: '0.5px solid var(--gold-line)',
-        }}>
+        <div onClick={() => onArticle(featured)} style={{ cursor: 'pointer', borderBottom: '0.5px solid var(--gold-line)' }}>
           <ImageSlot id={`gt-news-feat-${featured.id}`} height={200} label={featured.photoLabel} src={featured.src} />
           <div style={{ padding: '18px 24px 22px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
               <div className="lbl" style={{ fontSize: 8, color: 'var(--gold)' }}>{featured.tag} · ÖNE ÇIKAN</div>
               <div className="byline">{featured.date}</div>
             </div>
-            <div style={{
-              fontFamily: 'Cormorant Garamond, serif', fontSize: 22,
-              color: 'var(--ivory)', lineHeight: 1.2, fontWeight: 500,
-            }}>{featured.title}</div>
-            <div style={{
-              marginTop: 10, fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 12,
-              color: 'var(--text-muted)', lineHeight: 1.55,
-            }}>{featured.excerpt}</div>
-            <div style={{ marginTop: 14 }}>
-              <span className="byline" style={{ color: 'var(--gold)' }}>DEVAMINI OKU →</span>
-            </div>
+            <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 22, color: 'var(--ivory)', lineHeight: 1.2, fontWeight: 500 }}>{featured.title}</div>
+            <div style={{ marginTop: 10, fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.55 }}>{featured.excerpt}</div>
+            <div style={{ marginTop: 14 }}><span className="byline" style={{ color: 'var(--gold)' }}>DEVAMINI OKU →</span></div>
           </div>
         </div>
       )}
-
-      {/* Rest of list */}
       {rest.map(n => (
-        <div key={n.id} onClick={() => setArticle(n)} style={{
-          padding: '16px 24px',
-          borderBottom: '0.5px solid var(--gold-line)',
+        <div key={n.id} onClick={() => onArticle(n)} style={{
+          padding: '16px 24px', borderBottom: '0.5px solid var(--gold-line)',
           display: 'grid', gridTemplateColumns: '88px 1fr', gap: 14,
           cursor: 'pointer', alignItems: 'flex-start',
-          transition: 'background 150ms',
         }}>
           <ImageSlot id={`gt-news-th-${n.id}`} height={72} label={n.photoLabel} src={n.src} />
           <div>
@@ -263,34 +211,82 @@ function NewsScreen({ onBellClick }) {
               <div className="lbl" style={{ fontSize: 7.5 }}>{n.tag}</div>
               <div className="byline" style={{ fontSize: 7 }}>{n.date}</div>
             </div>
-            <div style={{
-              fontFamily: 'Cormorant Garamond, serif', fontSize: 15.5,
-              color: 'var(--ivory)', lineHeight: 1.2, fontWeight: 500,
-            }}>{n.title}</div>
-            <div style={{
-              marginTop: 6, fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 10,
-              color: 'var(--text-muted)', lineHeight: 1.4,
-              display: '-webkit-box', WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical', overflow: 'hidden',
-            }}>{n.excerpt}</div>
+            <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 15.5, color: 'var(--ivory)', lineHeight: 1.2, fontWeight: 500 }}>{n.title}</div>
+            <div style={{ marginTop: 6, fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 10, color: 'var(--text-muted)', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{n.excerpt}</div>
           </div>
         </div>
       ))}
+    </>
+  );
+}
 
-      {filtered.length === 0 && (
-        <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-          <div className="byline" style={{ color: 'var(--text-muted)' }}>SONUÇ BULUNAMADI</div>
-        </div>
-      )}
+function NewsScreen({ onBellClick }) {
+  const [source, setSource] = React.useState('gt');
+  const [article, setArticle] = React.useState(null);
 
-      {/* Footer */}
-      <div style={{ padding: '28px 24px', textAlign: 'center', borderTop: '0.5px solid var(--gold-line)' }}>
-        <div className="byline">
-          {filtered.length} HABER · <span style={{ color: 'var(--gold)' }}>@genctetsiad</span>
-        </div>
+  if (article) return <ArticleView item={article} onBack={() => setArticle(null)} />;
+
+  const gtNews = NEWS.filter(n => GT_TAGS.has(n.tag));
+  const sektorNews = NEWS.filter(n => !GT_TAGS.has(n.tag));
+
+  const SOURCES = [
+    { k: 'gt', lbl: 'GENÇ TETSİAD', count: gtNews.length },
+    { k: 'sektor', lbl: 'SEKTÖR', count: sektorNews.length },
+    { k: 'instagram', lbl: 'INSTAGRAM', count: null },
+  ];
+
+  return (
+    <div className="screen phone-scroll no-scrollbar" style={{ paddingBottom: 100 }}>
+      <AppHeader section="GÜNDEM"
+        title={<>Sektörden <em style={{ fontStyle: 'italic' }}>haberler.</em></>}
+        count={ANNOUNCEMENTS.length} onBellClick={onBellClick} />
+
+      {/* 3-way source selector */}
+      <div style={{ display: 'flex', padding: '0 24px 16px', gap: 6 }}>
+        {SOURCES.map(({ k, lbl, count }) => (
+          <button key={k} onClick={() => setSource(k)} style={{
+            flex: 1, padding: '9px 4px',
+            background: source === k ? 'var(--gold)' : 'transparent',
+            border: `0.5px solid ${source === k ? 'var(--gold)' : 'var(--gold-line)'}`,
+            color: source === k ? 'var(--navy-deep)' : 'var(--text-muted)',
+            fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600,
+            fontSize: 8, letterSpacing: 0.8, cursor: 'pointer', transition: 'all 150ms',
+          }}>
+            {lbl}
+            {count !== null && (
+              <span style={{ marginLeft: 4, fontSize: 7, color: source === k ? 'var(--navy-deep)' : 'var(--gold)', fontWeight: 700 }}>
+                {count}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
-      </>}
+      {source === 'instagram' && <InstagramFeed />}
+
+      {source === 'gt' && (
+        <>
+          <div style={{ padding: '0 24px 12px' }}>
+            <div className="lbl" style={{ fontSize: 7, color: 'var(--text-muted)' }}>KOMİSYON HABERLERİ · {gtNews.length} MAKALE</div>
+          </div>
+          <NewsList items={gtNews} onArticle={setArticle} />
+          <div style={{ padding: '28px 24px', textAlign: 'center', borderTop: '0.5px solid var(--gold-line)' }}>
+            <div className="byline">{gtNews.length} HABER · <span style={{ color: 'var(--gold)' }}>@genctetsiad</span></div>
+          </div>
+        </>
+      )}
+
+      {source === 'sektor' && (
+        <>
+          <div style={{ padding: '0 24px 12px' }}>
+            <div className="lbl" style={{ fontSize: 7, color: 'var(--text-muted)' }}>SEKTÖR & PİYASA HABERLERİ · {sektorNews.length} MAKALE</div>
+          </div>
+          <NewsList items={sektorNews} onArticle={setArticle} />
+          <div style={{ padding: '28px 24px', textAlign: 'center', borderTop: '0.5px solid var(--gold-line)' }}>
+            <div className="byline">{sektorNews.length} HABER · <span style={{ color: 'var(--gold)' }}>TETSİAD.ORG</span></div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
