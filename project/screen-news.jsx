@@ -1,5 +1,113 @@
 /* screen-news.jsx — Haberler & Gündem */
 
+function InstagramFeed() {
+  const [loaded, setLoaded] = React.useState({});
+
+  return (
+    <div style={{ paddingBottom: 24 }}>
+      {/* Feed header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '0 24px 18px',
+        borderBottom: '0.5px solid var(--gold-line)',
+        marginBottom: 0,
+      }}>
+        <div style={{
+          width: 28, height: 28, borderRadius: 8,
+          background: 'linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <rect x="2" y="2" width="20" height="20" rx="5" ry="5" stroke="white" strokeWidth="2"/>
+            <circle cx="12" cy="12" r="5" stroke="white" strokeWidth="2"/>
+            <circle cx="17.5" cy="6.5" r="1.5" fill="white"/>
+          </svg>
+        </div>
+        <div>
+          <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: 600, color: 'var(--ivory)', letterSpacing: 0.5 }}>
+            @genctetsiad · @tetsiad
+          </div>
+          <div className="byline" style={{ fontSize: 8, marginTop: 1 }}>Canlı Instagram akışı · {INSTAGRAM_POSTS.length} gönderi</div>
+        </div>
+      </div>
+
+      {INSTAGRAM_POSTS.map((post, i) => (
+        <div key={post.id} style={{ borderBottom: '0.5px solid var(--gold-line)' }}>
+          {/* Post header */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '14px 24px 10px',
+          }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: '50%',
+              background: post.account === 'genctetsiad'
+                ? 'linear-gradient(135deg,var(--green-dark),var(--green))'
+                : 'linear-gradient(135deg,var(--navy-mid),var(--green))',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: '1.5px solid var(--gold)',
+              flexShrink: 0,
+            }}>
+              <span style={{ fontSize: 9, fontFamily: 'JetBrains Mono', color: 'var(--gold)', fontWeight: 500 }}>
+                {post.account === 'genctetsiad' ? 'GT' : 'T'}
+              </span>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: 600, color: 'var(--ivory)' }}>
+                @{post.account}
+              </div>
+              <div className="byline" style={{ fontSize: 8, marginTop: 1 }}>
+                {post.type === 'reel' ? '▶ REEL' : '◼ GÖNDERI'}
+              </div>
+            </div>
+            <a href={`https://www.instagram.com/${post.type === 'reel' ? 'reel' : 'p'}/${post.id}/`}
+              target="_blank" rel="noopener noreferrer"
+              style={{ textDecoration: 'none' }}
+              onClick={e => e.stopPropagation()}>
+              <span className="byline" style={{ color: 'var(--gold)', fontSize: 9 }}>AÇ ↗</span>
+            </a>
+          </div>
+
+          {/* Caption */}
+          <div style={{
+            padding: '0 24px 12px',
+            fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)',
+            lineHeight: 1.55,
+          }}>{post.caption}</div>
+
+          {/* Embedded iframe */}
+          <div style={{ position: 'relative', background: 'var(--navy-mid)', minHeight: 120 }}>
+            {!loaded[post.id] && (
+              <div style={{
+                position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center', gap: 10, zIndex: 2,
+                background: 'var(--navy-mid)',
+              }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: '50%',
+                  border: '2px solid var(--gold-line)', borderTopColor: 'var(--gold)',
+                  animation: 'spin 1s linear infinite',
+                }} />
+                <div className="byline" style={{ fontSize: 8, color: 'var(--text-muted)' }}>YÜKLENIYOR</div>
+              </div>
+            )}
+            <iframe
+              src={`https://www.instagram.com/${post.type === 'reel' ? 'reel' : 'p'}/${post.id}/embed/captioned/`}
+              width="100%"
+              height={post.type === 'reel' ? 540 : 480}
+              frameBorder="0"
+              scrolling="no"
+              allowTransparency="true"
+              style={{ display: 'block', border: 0 }}
+              onLoad={() => setLoaded(s => ({ ...s, [post.id]: true }))}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ArticleView({ item, onBack }) {
   return (
     <div className="screen phone-scroll no-scrollbar" style={{ paddingBottom: 60 }}>
@@ -64,6 +172,7 @@ function ArticleView({ item, onBack }) {
 }
 
 function NewsScreen({ onBellClick }) {
+  const [source, setSource] = React.useState('haberler');
   const [tagFilter, setTagFilter] = React.useState('TÜMÜ');
   const [article, setArticle] = React.useState(null);
 
@@ -79,6 +188,29 @@ function NewsScreen({ onBellClick }) {
       <AppHeader section="GÜNDEM"
         title={<>Sektörden <em style={{ fontStyle: 'italic' }}>haberler.</em></>}
         count={ANNOUNCEMENTS.length} onBellClick={onBellClick} />
+
+      {/* Source selector */}
+      <div style={{ display: 'flex', padding: '0 24px 16px', gap: 8 }}>
+        {[['haberler', 'HABERLER'], ['instagram', 'INSTAGRAM']].map(([k, lbl]) => (
+          <button key={k}
+            onClick={() => setSource(k)}
+            style={{
+              flex: 1, padding: '9px 0',
+              background: source === k ? 'var(--gold)' : 'transparent',
+              border: `0.5px solid ${source === k ? 'var(--gold)' : 'var(--gold-line)'}`,
+              color: source === k ? 'var(--navy-deep)' : 'var(--text-muted)',
+              fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600,
+              fontSize: 9, letterSpacing: 1.5,
+              cursor: 'pointer', transition: 'all 150ms',
+            }}>{lbl}</button>
+        ))}
+      </div>
+
+      {/* Instagram feed */}
+      {source === 'instagram' && <InstagramFeed />}
+
+      {/* Haberler content */}
+      {source === 'haberler' && <>
 
       {/* Tag filters */}
       <div className="no-scrollbar" style={{
@@ -157,6 +289,8 @@ function NewsScreen({ onBellClick }) {
           {filtered.length} HABER · <span style={{ color: 'var(--gold)' }}>@genctetsiad</span>
         </div>
       </div>
+
+      </>}
     </div>
   );
 }

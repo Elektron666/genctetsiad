@@ -526,9 +526,26 @@ const PROGRAMS = [
   },
 ];
 
+/* ── INSTAGRAM POSTS ──────────────────────────────────────── */
+const INSTAGRAM_POSTS = [
+  { id: 'DUQkWi0jeys', type: 'reel', account: 'genctetsiad',
+    caption: 'Genç TETSİAD Bursa tanışma yemeğinde Seha Dokuma da yerini aldı.' },
+  { id: 'DVHBHFXjOQv', type: 'reel', account: 'genctetsiad',
+    caption: 'Genç TETSİAD İhracat Geliştirme Komisyonu Üyesi Osman ile buluşma.' },
+  { id: 'DPezklmiRQd', type: 'reel', account: 'tetsiad',
+    caption: 'Dünyanın başkenti İstanbul\'da TETSİAD üyelerimiz ile özel bir buluşma.' },
+  { id: 'DN0Pmyq2p0h', type: 'reel', account: 'tetsiad',
+    caption: 'Sektörümüzü ileri taşıyacak başkan adayımız Murat Şahinler ile gündem değerlendirmesi.' },
+  { id: 'DBQp_85tnrS', type: 'post', account: 'tetsiad',
+    caption: 'Başkanımız ve sektörümüzün üst düzey isimleri bir arada.' },
+  { id: 'C0Tb2SgNXtj', type: 'post', account: 'tetsiad',
+    caption: 'TETSİAD Üye Buluşmaları kapsamında İzmir\'de güçlü bir buluşma.' },
+];
+
 /* ── EXPORTS ──────────────────────────────────────────────── */
 Object.assign(window, {
   EVENTS, EVENT_FILTERS, MEMBERS, COURSES, MENTORS, ACTIVITIES, GOALS, COMMISSIONS, UNIS,
   PRESIDENT, ABOUT, PILLARS, NEWS, ANNOUNCEMENTS, SUSTAINABILITY, EXPORTS,
   EVENT_NOTIFICATIONS, SYSTEM_NOTIFICATIONS, SECTORS, CITIES, PROGRAMS,
+  INSTAGRAM_POSTS,
 });
