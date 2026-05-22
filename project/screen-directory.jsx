@@ -3,7 +3,19 @@
 function DirectoryScreen({ onBellClick }) {
   const [q, setQ] = React.useState('');
   const [roleFilter, setRoleFilter] = React.useState('TÜMÜ');
-  const [openId, setOpenId] = React.useState(1); // FÖ open by default
+  const [openId, setOpenId] = React.useState(1);
+  const [msgTarget, setMsgTarget] = React.useState(null);
+  const [msgText, setMsgText] = React.useState('');
+  const [sentIds, setSentIds] = React.useState(new Set());
+  const { toasts, show: showToast, remove: removeToast } = useToast();
+
+  const sendMsg = () => {
+    if (!msgText.trim() || !msgTarget) return;
+    setSentIds(s => new Set([...s, msgTarget.id]));
+    const name = msgTarget.name;
+    setMsgTarget(null); setMsgText('');
+    showToast(`${name} adlı üyeye mesaj gönderildi.`, 'success');
+  };
 
   const ROLE_FILTERS = ['TÜMÜ', 'YÖNETİM', 'ÜYE', 'ÖĞRENCİ'];
 
@@ -142,7 +154,10 @@ function DirectoryScreen({ onBellClick }) {
                         ))}
                       </div>
                       <div style={{ display: 'flex', gap: 10 }}>
-                        <button className="btn btn-fill" style={{ flex: 1, padding: '12px 16px' }}>MESAJ</button>
+                        <button className="btn btn-fill" style={{ flex: 1, padding: '12px 16px' }}
+                          onClick={e => { e.stopPropagation(); setMsgTarget(m); }}>
+                          {sentIds.has(m.id) ? '✓ MESAJ GÖNDERİLDİ' : 'MESAJ'}
+                        </button>
                         <button className="btn btn-outline" style={{ flex: 1, padding: '12px 16px' }}>PROFİL</button>
                       </div>
                     </div>
@@ -161,6 +176,40 @@ function DirectoryScreen({ onBellClick }) {
           {roleFilter !== 'TÜMÜ' && <> · <span style={{ color: 'var(--gold)' }}>{roleFilter}</span> FİLTRESİ AKTİF</>}
         </div>
       </div>
+
+      {/* Message composer modal */}
+      {msgTarget && (
+        <Modal open={true} onClose={() => { setMsgTarget(null); setMsgText(''); }}
+          title={`${msgTarget.name} · Mesaj`}>
+          <div style={{ marginBottom: 16 }}>
+            <div className="byline" style={{ color: 'var(--gold)', marginBottom: 2 }}>{msgTarget.position || msgTarget.role}</div>
+            <div className="byline">{msgTarget.firm} · {msgTarget.city}</div>
+          </div>
+          <div style={{ height: '0.5px', background: 'var(--gold-line)', marginBottom: 18 }} />
+          <div className="lbl" style={{ marginBottom: 10, color: 'var(--text-muted)' }}>MESAJINIZ</div>
+          <textarea
+            value={msgText}
+            onChange={e => setMsgText(e.target.value.slice(0, 500))}
+            placeholder="Mesajınızı yazın..."
+            style={{
+              width: '100%', background: 'transparent',
+              border: '0.5px solid var(--gold-line)', padding: '12px 14px',
+              fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic',
+              fontSize: 15, color: 'var(--ivory)', lineHeight: 1.5,
+              resize: 'none', outline: 'none', minHeight: 100, boxSizing: 'border-box',
+            }}
+          />
+          <div className="byline" style={{ marginTop: 6, textAlign: 'right' }}>
+            <span style={{ color: msgText.length >= 450 ? 'var(--gold)' : 'var(--text-muted)' }}>{msgText.length}</span> / 500
+          </div>
+          <button className={`btn btn-fill ${!msgText.trim() ? 'btn-disabled' : ''}`}
+            style={{ width: '100%', marginTop: 18 }} onClick={sendMsg}>
+            GÖNDER
+          </button>
+        </Modal>
+      )}
+
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

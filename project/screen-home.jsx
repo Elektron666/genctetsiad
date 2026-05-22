@@ -21,7 +21,7 @@ function useCounter(target, duration = 1200, delay = 0) {
   return val;
 }
 
-function HomeScreen({ onBellClick, openDrawer, registeredEvents }) {
+function HomeScreen({ onBellClick, openDrawer, registeredEvents, onNavigate }) {
   const banner = ANNOUNCEMENTS.find(a => a.pinned) || ANNOUNCEMENTS[0];
   return (
     <div className="screen phone-scroll no-scrollbar" style={{ paddingBottom: 100 }}>
@@ -76,6 +76,26 @@ function HomeScreen({ onBellClick, openDrawer, registeredEvents }) {
           </div>
           <Monogram initials="FÖ" gold size="lg" />
         </div>
+      </div>
+
+      {/* Quick access 3 cards */}
+      <div style={{ padding: '0 24px 0', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: -4, marginBottom: 0 }}>
+        {[
+          { icon: '◈', label: 'Üyelere\nUlaş', sub: 'Rehber', screen: 'directory' },
+          { icon: '◆', label: 'Sektörel\nGelişim', sub: 'Akademi', screen: 'academy' },
+          { icon: '◉', label: 'Trendleri\nKeşfet', sub: 'Gündem', screen: 'news' },
+        ].map(card => (
+          <div key={card.screen} onClick={() => onNavigate && onNavigate(card.screen)}
+            className="weave" style={{
+              padding: '16px 12px 14px', cursor: 'pointer',
+              background: 'rgba(217,200,150,0.06)', border: '0.5px solid var(--gold-line)',
+              textAlign: 'center',
+            }}>
+            <div style={{ fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic', fontSize: 24, color: 'var(--gold)', lineHeight: 1, marginBottom: 8 }}>{card.icon}</div>
+            <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 13, color: 'var(--ivory)', lineHeight: 1.2, fontWeight: 500, whiteSpace: 'pre-line', marginBottom: 6 }}>{card.label}</div>
+            <div className="byline" style={{ fontSize: 7 }}>{card.sub}</div>
+          </div>
+        ))}
       </div>
 
       {/* LAST EVENT photo — featured president message */}
@@ -251,7 +271,8 @@ function HomeScreen({ onBellClick, openDrawer, registeredEvents }) {
       <section style={{ padding: '40px 0 0' }}>
         <div style={{ padding: '0 24px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
           <SectionLabel num={5}>HABERLER · @tetsiad.dernek</SectionLabel>
-          <span className="byline" style={{ color: 'var(--gold)', cursor: 'pointer' }}>TÜMÜ ↗</span>
+          <span className="byline" style={{ color: 'var(--gold)', cursor: 'pointer' }}
+            onClick={() => onNavigate && onNavigate('news')}>TÜMÜ ↗</span>
         </div>
         <div className="no-scrollbar" style={{
           marginTop: 18, display: 'flex', gap: 12, overflowX: 'auto', padding: '4px 24px 0',

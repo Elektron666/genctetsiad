@@ -1,0 +1,36 @@
+{
+  "name": "Genç TETSİAD",
+  "short_name": "G·TETSİAD",
+  "description": "Türkiye ev tekstilinin genç iş insanları platformu.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#073323",
+  "theme_color": "#0F6B45",
+  "lang": "tr",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "screenshots": [
+    { "src": "screenshot-home.png", "sizes": "390x844", "type": "image/png", "label": "Ana Sayfa" },
+    { "src": "screenshot-academy.png", "sizes": "390x844", "type": "image/png", "label": "Akademi" }
+  ]
+}

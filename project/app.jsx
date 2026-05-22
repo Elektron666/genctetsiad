@@ -1,30 +1,44 @@
-/* app.jsx — root. Stage of 6 interactive phones. */
+/* app.jsx — root. Stage of interactive phones. */
 
 const SCREENS = [
-  { k: 'login',    label: 'GİRİŞ',   num: '00', sub: 'Login · OTP' },
-  { k: 'home',     label: 'KAPAK',   num: '01', sub: 'Manifesto & Haberler' },
-  { k: 'calendar', label: 'TAKVİM',  num: '02', sub: 'Etkinlikler · Katılım' },
-  { k: 'directory',label: 'REHBER',  num: '03', sub: 'Üye dizini' },
-  { k: 'academy',  label: 'AKADEMİ', num: '04', sub: 'Eğitim · Mentorluk' },
-  { k: 'profile',  label: 'KART',    num: '05', sub: 'Üyelik & Ayarlar' },
+  { k: 'login',     label: 'GİRİŞ',     num: '00', sub: 'Login · OTP' },
+  { k: 'home',      label: 'KAPAK',     num: '01', sub: 'Manifesto & Haberler' },
+  { k: 'news',      label: 'GÜNDEM',    num: '02', sub: 'Haberler & Makaleler' },
+  { k: 'calendar',  label: 'TAKVİM',   num: '03', sub: 'Etkinlikler · Katılım' },
+  { k: 'directory', label: 'REHBER',   num: '04', sub: 'Üye dizini' },
+  { k: 'academy',   label: 'AKADEMİ',  num: '05', sub: 'Eğitim · Mentorluk · Programlar' },
+  { k: 'profile',   label: 'KART',     num: '06', sub: 'Üyelik & QR Kartvizit' },
+  { k: 'about',     label: 'HAKKIMIZDA', num: '07', sub: 'İletişim & Sosyal Medya' },
 ];
 
-const TABS = SCREENS.slice(1); // 5 tabs (no login)
+/* Tab bar: subset visible in bottom nav (no login/register/news/about — navigated via links) */
+const TABS = [
+  { k: 'home',      label: 'KAPAK' },
+  { k: 'calendar',  label: 'TAKVİM' },
+  { k: 'directory', label: 'REHBER' },
+  { k: 'academy',   label: 'AKADEMİ' },
+  { k: 'profile',   label: 'KART' },
+];
 
 function ScreenRouter({ active, setActive, onBellClick, registeredEvents, onToggleRegistration }) {
+  const nav = (screen) => setActive(screen);
   switch (active) {
     case 'login':     return <LoginScreen onSignIn={() => setActive('home')} onRegister={() => setActive('register')} />;
     case 'register':  return <RegisterScreen onComplete={() => setActive('login')} onBack={() => setActive('login')} />;
-    case 'home':      return <HomeScreen onBellClick={onBellClick} registeredEvents={registeredEvents} />;
+    case 'home':      return <HomeScreen onBellClick={onBellClick} registeredEvents={registeredEvents} onNavigate={nav} />;
+    case 'news':      return <NewsScreen onBellClick={onBellClick} />;
     case 'calendar':  return <CalendarScreen onBellClick={onBellClick} registeredEvents={registeredEvents} onToggleRegistration={onToggleRegistration} />;
     case 'directory': return <DirectoryScreen onBellClick={onBellClick} />;
     case 'academy':   return <AcademyScreen onBellClick={onBellClick} />;
-    case 'profile':   return <ProfileScreen onSignOut={() => setActive('login')} onBellClick={onBellClick} />;
+    case 'profile':   return <ProfileScreen onSignOut={() => setActive('login')} onBellClick={onBellClick} onNavigate={nav} />;
+    case 'about':     return <AboutScreen onBellClick={onBellClick} />;
     default:          return null;
   }
 }
 
 function TabBar({ active, setActive }) {
+  const showTab = TABS.some(t => t.k === active) || active === 'news' || active === 'about';
+  if (!showTab) return null;
   return (
     <div className="tabbar">
       {TABS.map(t => (
@@ -38,9 +52,9 @@ function TabBar({ active, setActive }) {
   );
 }
 
-/* Demo auto-tour: cycles through all tab screens every 7s */
+/* Demo auto-tour */
 function useDemoTour(enabled, setActive) {
-  const tourScreens = ['home', 'calendar', 'directory', 'academy', 'profile'];
+  const tourScreens = ['home', 'news', 'calendar', 'directory', 'academy', 'profile', 'about'];
   const idxRef = React.useRef(0);
   React.useEffect(() => {
     if (!enabled) return;
@@ -118,16 +132,14 @@ function App() {
       {!t.presentationMode && (
         <div className="stage-header">
           <div>
-            <div className="stage-eyebrow">PROTOTİP · 1.0 · YALNIZCA DAVETLİ</div>
-            <h1 className="stage-title">
-              Genç <em>TETSİAD.</em>
-            </h1>
+            <div className="stage-eyebrow">PROTOTİP · v1.0 · YALNIZCA DAVETLİ</div>
+            <h1 className="stage-title">Genç <em>TETSİAD.</em></h1>
             <div style={{
               marginTop: 12, fontFamily: 'Plus Jakarta Sans, sans-serif',
               fontSize: 13, color: 'var(--text-muted)', maxWidth: 540, lineHeight: 1.55,
             }}>
-              Türkiye ev tekstilinin genç iş insanları için sürdürülebilir, sessiz lüks bir
-              mobil deneyim — her ekran tam etkileşimli; tab bar üzerinden sekmeler arasında geçiş yapabilirsiniz.
+              08 tam etkileşimli ekran — Haberler, Takvim, Rehber, Akademi (3T · TBA · Altın Mekik · UTGİK),
+              QR Kartvizit, Etkinlik Detay, Makale Okuma, Hakkımızda.
             </div>
           </div>
           <div className="stage-meta">
@@ -136,6 +148,7 @@ function App() {
             <div>KONSEPT <strong>FATİH ÖZDEMİR</strong></div>
             <div>STÜDYO <strong>ORMEN TEKSTİL · ANKARA</strong></div>
             <div>HEDEF <strong>iOS · Android</strong></div>
+            <div>SÜRÜM <strong>v1.0</strong></div>
           </div>
         </div>
       )}
@@ -160,7 +173,6 @@ function App() {
         </div>
       )}
 
-      {/* Tweaks panel */}
       <TweaksPanel title="Tweaks">
         <TweakSection label="Sunum">
           <TweakToggle label="Sunum modu (başlık gizle)" value={t.presentationMode}
@@ -178,11 +190,9 @@ function App() {
               options={SCREENS.map(s => ({ value: s.k, label: `${s.num} · ${s.label}` }))} />
           )}
           <TweakSlider label="Telefon genişliği" value={t.phoneWidth}
-            min={340} max={460} step={4}
-            onChange={v => setT('phoneWidth', v)} />
+            min={340} max={460} step={4} onChange={v => setT('phoneWidth', v)} />
           <TweakSlider label="Telefon yüksekliği" value={t.phoneHeight}
-            min={720} max={920} step={4}
-            onChange={v => setT('phoneHeight', v)} />
+            min={720} max={920} step={4} onChange={v => setT('phoneHeight', v)} />
         </TweakSection>
 
         <TweakSection label="Aksan rengi">
