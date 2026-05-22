@@ -28,8 +28,8 @@ function HomeScreen({ onBellClick, openDrawer, registeredEvents, onNavigate }) {
 
       {/* ── FULL-SCREEN MAGAZINE COVER ─────────────────────── */}
       <div style={{ position: 'relative', height: 580, flexShrink: 0 }}>
-        <ImageSlot id="gt-president-hero" height={580} label="Kapak · Resul Öden Kürsüde"
-          src="https://picsum.photos/seed/gt-president-stage/800/1000" />
+        <ImageSlot id="gt-president-hero" height={580} label="Kapak · Genç TETSİAD Fabrika Ziyareti"
+          src="uploads/fabrika-ziyareti-grup.jpg" />
 
         {/* gradient — heavy at top + bottom, open in middle */}
         <div style={{
@@ -297,8 +297,8 @@ function HomeScreen({ onBellClick, openDrawer, registeredEvents, onNavigate }) {
 
         {/* Full-width portrait with gradient overlay */}
         <div style={{ position: 'relative' }}>
-          <ImageSlot id="gt-baskandan-portrait" height={340} label="Resul Öden · Başkan"
-            src="https://picsum.photos/seed/gt-ro-podium/800/700" />
+          <ImageSlot id="gt-baskandan-portrait" height={340} label="A. Resul Öden · Başkan"
+            src="uploads/resul-oden-roportaj.jpg" />
           <div style={{
             position: 'absolute', inset: 0, pointerEvents: 'none',
             background: 'linear-gradient(180deg, rgba(5,28,17,0.25) 0%, rgba(5,28,17,0.12) 45%, rgba(5,28,17,0.96) 100%)',

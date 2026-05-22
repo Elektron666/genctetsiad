@@ -5,12 +5,12 @@ const PH = (seed, w=800, h=500) => `https://picsum.photos/seed/${seed}/${w}/${h}
 const EVENTS = [
   { id: 1, day: 22, month: 'NİSAN', tag: 'SAHA GEZİSİ', title: 'İstanbul Fabrika Ziyareti',
     place: 'İstanbul · Beylikdüzü OSB', count: 38, photoLabel: 'FABRİKA İÇİ',
-    src: PH('gt-factory-istanbul'),
+    src: 'uploads/fabrika-ziyareti-grup.jpg',
     speakers: [{ initials: 'AK', name: 'Ahmet Kurt', role: 'Üretim Direktörü' }, { initials: 'SY', name: 'Selin Yıldız', role: 'Kalite Müdürü, İpliksan' }],
     desc: 'Beylikdüzü OSB\'deki iki büyük üretim tesisinde tam günlük teknik gezi. Dokuma, baskı ve konfeksiyon hatları canlı çalışırken incelenecek. Mühendis rehberler eşliğinde Tier-1 tedarik zinciri operasyonu.' },
   { id: 2, day: 14, month: 'MAYIS', tag: 'FUAR', title: 'HOMETEX Fuar Çalışması',
     place: 'CNR Expo · İstanbul', count: 120, photoLabel: 'HOMETEX HALL',
-    src: PH('gt-hometex-2026'),
+    src: 'uploads/hometex-2026-acilis.jpg',
     speakers: [{ initials: 'RÖ', name: 'Resul Öden', role: 'Genç TETSİAD Başkanı' }, { initials: 'AY', name: 'Aylin Yıldız', role: 'HOMETEX Komite Başkanı' }, { initials: 'MŞ', name: 'Murat Şahinler', role: 'TETSİAD Başkanı' }],
     desc: 'Türkiye ev tekstilinin yıllık vitrini. Genç üyeler için özel stand turu, yurt dışı alıcı görüşmeleri ve networking programı. İlk kez Genç TETSİAD kendi sergi alanı ile katılıyor.' },
   { id: 3, day: 22, month: 'MAYIS', tag: 'ÜNİVERSİTE', title: 'İTÜ Tasarım Etkinlikleri',
@@ -357,7 +357,7 @@ const PRESIDENT = {
   initials: 'RÖ',
   name: 'Resul Öden',
   title: 'GENÇ TETSİAD BAŞKANI',
-  firm: 'ÖDEN TEKSTİL · İSTANBUL',
+  firm: 'ROSSA HOME · İSTANBUL',
   quote: 'Genç TETSİAD, sektörün geleceğini bugünden örmeye başlayan bir atölyedir. Üretirken öğrenmek, paylaşırken büyümek istiyoruz.',
   long: 'Türkiye ev tekstilinin dünyada hak ettiği yere ulaşması, yalnızca üretim gücüyle değil, genç kuşağın markalaşma, sürdürülebilirlik ve dijitalleşme alanında ortaya koyacağı vizyonla mümkün olacak. Bu uygulama, o vizyonu bir araya getiren ilk somut adım.',
   message: [
