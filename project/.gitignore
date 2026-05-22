@@ -1,0 +1,7 @@
+# Local vendor copies (used only in sandboxed CI environments where CDN is blocked)
+react.development.js
+react-dom.development.js
+babel.min.js
+
+# Local test entry point (uses above vendor files instead of CDN)
+test-index.html

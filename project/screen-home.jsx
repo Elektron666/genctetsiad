@@ -1,97 +1,121 @@
 /* screen-home.jsx — Main cover screen */
 
-function HomeScreen({ onBellClick, openDrawer }) {
+/* Animated counter hook — counts from 0 to target */
+function useCounter(target, duration = 1200, delay = 0) {
+  const [val, setVal] = React.useState(0);
+  React.useEffect(() => {
+    let startTime = null;
+    let raf;
+    const tick = (now) => {
+      if (!startTime) startTime = now + delay;
+      const elapsed = now - startTime;
+      if (elapsed < 0) { raf = requestAnimationFrame(tick); return; }
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      setVal(Math.round(eased * target));
+      if (progress < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration, delay]);
+  return val;
+}
+
+function HomeScreen({ onBellClick, openDrawer, registeredEvents, onNavigate }) {
   const banner = ANNOUNCEMENTS.find(a => a.pinned) || ANNOUNCEMENTS[0];
   return (
     <div className="screen phone-scroll no-scrollbar" style={{ paddingBottom: 100 }}>
-      <AppHeader section="KAPAK" title={<>Değişim, <em style={{ fontStyle: 'italic' }}>burada.</em></>} count={ANNOUNCEMENTS.length} onBellClick={onBellClick} />
 
-      {/* Live announcement banner */}
-      <div style={{ marginTop: -4 }}>
+      {/* ── FULL-SCREEN MAGAZINE COVER ─────────────────────── */}
+      <div style={{ position: 'relative', height: 580, flexShrink: 0 }}>
+        <ImageSlot id="gt-president-hero" height={580} label="Kapak · Resul Öden Kürsüde"
+          src="https://picsum.photos/seed/gt-president-stage/800/1000" />
+
+        {/* gradient — heavy at top + bottom, open in middle */}
+        <div style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: 'linear-gradient(180deg, rgba(5,28,17,0.88) 0%, rgba(5,28,17,0.08) 38%, rgba(5,28,17,0.12) 55%, rgba(5,28,17,0.94) 100%)',
+        }} />
+
+        {/* Top bar */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0,
+          padding: '52px 24px 0',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div className="lbl" style={{ fontSize: 7, letterSpacing: 2 }}>GENÇ TETSİAD · SAYI 01 · MAYIS 2026</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div onClick={onBellClick} style={{ cursor: 'pointer', padding: 4, margin: -4 }}>
+              <BellIcon count={ANNOUNCEMENTS.length} color="#D9C896" />
+            </div>
+            <TetsiadLogo size={20} color="#F5F0E6" />
+          </div>
+        </div>
+
+        {/* Main title block */}
+        <div style={{ position: 'absolute', bottom: 128, left: 24, right: 24 }}>
+          <div style={{
+            fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic', fontWeight: 300,
+            fontSize: 54, color: '#F5F0E6', lineHeight: 0.9, letterSpacing: '-1px',
+          }}>
+            Değişim<br/>
+            gençlerle<br/>
+            <span style={{ color: 'var(--gold)' }}>olacak.</span>
+          </div>
+          <div style={{
+            marginTop: 14, fontFamily: 'Plus Jakarta Sans, sans-serif',
+            fontSize: 11, color: 'rgba(245,240,230,0.65)', lineHeight: 1.5, maxWidth: 260,
+          }}>
+            Türkiye ev tekstilinin genç iş insanları platformu.
+          </div>
+        </div>
+
+        {/* CTA row + scroll hint */}
+        <div style={{ position: 'absolute', bottom: 28, left: 24, right: 24 }}>
+          <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+            <button className="btn btn-fill" style={{ flex: 1 }}>BAŞVUR</button>
+            <button className="btn btn-outline" style={{ flex: 1 }}>MANİFESTO</button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, opacity: 0.45 }}>
+            <div style={{ flex: 1, height: '0.5px', background: 'rgba(217,200,150,0.6)' }} />
+            <span style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 7, letterSpacing: 2.5, color: 'var(--gold)' }}>AŞAĞI KAYDIRIN</span>
+            <div style={{ flex: 1, height: '0.5px', background: 'rgba(217,200,150,0.6)' }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Live announcement banner (below cover) */}
+      <div style={{ marginTop: 0 }}>
         <AnnouncementBanner ann={banner} onOpen={onBellClick} />
       </div>
 
-      {/* HERO */}
-      <div className="weave" style={{ position: 'relative', padding: '20px 24px 28px', background: 'var(--navy)' }}>
-        <div className="lbl" style={{ marginBottom: 22 }}>SAYI / 01 · 2026</div>
-        <div style={{
-          fontFamily: 'Cormorant Garamond, serif',
-          fontStyle: 'italic',
-          fontWeight: 300,
-          fontSize: 48,
-          lineHeight: 1.0,
-          color: 'var(--ivory)',
-          letterSpacing: '-0.5px',
-        }}>
-          Değişim<br/>
-          gençlerle<br/>
-          <span style={{ color: 'var(--gold)' }}>olacak.</span>
-        </div>
-
-        <div style={{
-          marginTop: 24, fontFamily: 'Plus Jakarta Sans, sans-serif',
-          fontSize: 12, lineHeight: 1.65, color: 'var(--text-muted)', maxWidth: 290,
-        }}>
-          1991'den beri Türkiye ev tekstilinin omurgasını kuran TETSİAD,
-          yeni kuşak iş insanlarını <span style={{ color: 'var(--ivory)' }}>Genç TETSİAD</span> çatısı
-          altında bir araya getiriyor. Üretimden markaya, fuardan kampüse
-          — bir sonraki on yılı birlikte tasarlıyoruz.
-        </div>
-
-        <div style={{ display: 'flex', gap: 12, marginTop: 24, alignItems: 'center' }}>
-          <button className="btn btn-fill">BAŞVUR</button>
-          <button className="btn btn-outline">MANİFESTO</button>
-        </div>
-
-        {/* Byline / signature */}
-        <div style={{
-          marginTop: 32, paddingTop: 18, borderTop: '0.5px solid var(--gold-line)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14,
-        }}>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div className="byline" style={{ marginBottom: 4 }}>KONSEPT &amp; TASARIM</div>
-            <div className="signature" style={{ fontSize: 22, lineHeight: 1, whiteSpace: 'nowrap' }}>Fatih Özdemir</div>
-            <div className="byline" style={{ marginTop: 4 }}>ORMEN TEKSTİL · ANKARA</div>
+      {/* Quick access 3 cards */}
+      <div style={{ padding: '0 24px 0', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: -4, marginBottom: 0 }}>
+        {[
+          { icon: '◈', label: 'Üyelere\nUlaş', sub: 'Rehber', screen: 'directory' },
+          { icon: '◆', label: 'Sektörel\nGelişim', sub: 'Akademi', screen: 'academy' },
+          { icon: '◉', label: 'Trendleri\nKeşfet', sub: 'Gündem', screen: 'news' },
+        ].map(card => (
+          <div key={card.screen} onClick={() => onNavigate && onNavigate(card.screen)}
+            className="weave" style={{
+              padding: '16px 12px 14px', cursor: 'pointer',
+              background: 'rgba(217,200,150,0.06)', border: '0.5px solid var(--gold-line)',
+              textAlign: 'center',
+            }}>
+            <div style={{ fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic', fontSize: 24, color: 'var(--gold)', lineHeight: 1, marginBottom: 8 }}>{card.icon}</div>
+            <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 13, color: 'var(--ivory)', lineHeight: 1.2, fontWeight: 500, whiteSpace: 'pre-line', marginBottom: 6 }}>{card.label}</div>
+            <div className="byline" style={{ fontSize: 7 }}>{card.sub}</div>
           </div>
-          <Monogram initials="FÖ" gold size="lg" />
-        </div>
-      </div>
-
-      {/* LAST EVENT photo — featured president message */}
-      <div style={{ position: 'relative', height: 280, marginTop: 0 }}>
-        <ImageSlot id="gt-president-hero" height={280} label="Resul Öden · Kürsüde" />
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'linear-gradient(180deg, rgba(7,51,35,0.0) 30%, rgba(7,51,35,0.92))',
-          padding: '0 24px 22px',
-          display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-          pointerEvents: 'none',
-        }}>
-          <div className="lbl" style={{ marginBottom: 6 }}>{PRESIDENT.title}</div>
-          <div style={{
-            fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic',
-            fontSize: 22, color: 'var(--ivory)', lineHeight: 1.18, fontWeight: 300,
-          }}>
-            "{PRESIDENT.quote}"
-          </div>
-          <div style={{
-            marginTop: 12, display: 'flex', alignItems: 'center', gap: 12,
-          }}>
-            <Monogram initials={PRESIDENT.initials} gold size="sm" />
-            <div>
-              <div style={{
-                fontFamily: 'Cormorant Garamond, serif', fontSize: 15,
-                color: 'var(--ivory)', lineHeight: 1, fontWeight: 500,
-              }}>{PRESIDENT.name}</div>
-              <div className="byline" style={{ marginTop: 4 }}>{PRESIDENT.firm}</div>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Sustainability pillars */}
       <section style={{ padding: '36px 24px 0' }}>
-        <SectionLabel num={1}>SÜRDÜRÜLEBİLİR TEKSTİL · 4 SÜTUN</SectionLabel>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 18 }}>
+          <SectionLabel num={1}>SÜRDÜRÜLEBİLİR TEKSTİL · 4 SÜTUN</SectionLabel>
+          <span className="byline" style={{ color: 'var(--gold)', cursor: 'pointer' }}
+            onClick={() => onNavigate && onNavigate('sustainability')}>DETAY ↗</span>
+        </div>
         <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           {PILLARS.map(p => (
             <div key={p.id} style={{
@@ -223,36 +247,15 @@ function HomeScreen({ onBellClick, openDrawer }) {
         </div>
       </section>
 
-      {/* Stats strip */}
-      <section style={{
-        marginTop: 36, padding: '24px 16px', background: 'var(--navy-deep)',
-        borderTop: '0.5px solid var(--gold-line)', borderBottom: '0.5px solid var(--gold-line)',
-        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
-      }}>
-        {[
-          { n: '1.500', s: '+', l: 'ÜYE' },
-          { n: '55', s: '', l: 'İL' },
-          { n: '40', s: '', l: 'ÜLKE' },
-          { n: '10', s: '', l: 'ETKİNLİK' },
-        ].map((x, i) => (
-          <div key={i} style={{
-            textAlign: 'center',
-            borderRight: i < 3 ? '0.5px solid var(--gold-line)' : '',
-          }}>
-            <div style={{
-              fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic', fontWeight: 300,
-              fontSize: 30, color: 'var(--gold)', lineHeight: 1,
-            }}>{x.n}<span style={{ fontSize: 16 }}>{x.s}</span></div>
-            <div className="byline" style={{ marginTop: 8 }}>{x.l}</div>
-          </div>
-        ))}
-      </section>
+      {/* Stats strip — animated counters */}
+      <StatsStrip registeredEvents={registeredEvents} />
 
       {/* Haberler — Instagram feed */}
       <section style={{ padding: '40px 0 0' }}>
         <div style={{ padding: '0 24px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
           <SectionLabel num={5}>HABERLER · @tetsiad.dernek</SectionLabel>
-          <span className="byline" style={{ color: 'var(--gold)', cursor: 'pointer' }}>TÜMÜ ↗</span>
+          <span className="byline" style={{ color: 'var(--gold)', cursor: 'pointer' }}
+            onClick={() => onNavigate && onNavigate('news')}>TÜMÜ ↗</span>
         </div>
         <div className="no-scrollbar" style={{
           marginTop: 18, display: 'flex', gap: 12, overflowX: 'auto', padding: '4px 24px 0',
@@ -262,7 +265,7 @@ function HomeScreen({ onBellClick, openDrawer }) {
               flex: '0 0 240px', background: 'var(--navy-mid)',
               border: '0.5px solid var(--gold-line)', position: 'relative',
             }} className="weave">
-              <ImageSlot id={`gt-news-${n.id}`} height={120} label={n.photoLabel} />
+              <ImageSlot id={`gt-news-${n.id}`} height={120} label={n.photoLabel} src={n.src} />
               <div style={{ padding: '12px 14px 14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
                   <div className="lbl" style={{ fontSize: 8 }}>{n.tag}</div>
@@ -290,7 +293,8 @@ function HomeScreen({ onBellClick, openDrawer }) {
       }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18, marginBottom: 22 }}>
           <div style={{ flexShrink: 0, width: 110 }}>
-            <ImageSlot id="gt-baskandan-portrait" height={130} label="RÖ · Portre" />
+            <ImageSlot id="gt-baskandan-portrait" height={130} label="RÖ · Portre"
+              src="https://picsum.photos/seed/gt-ro-portrait/300/400" />
           </div>
           <div style={{ flex: 1 }}>
             <div className="lbl" style={{ marginBottom: 6 }}>BAŞKAN'DAN</div>
@@ -321,27 +325,37 @@ function HomeScreen({ onBellClick, openDrawer }) {
         <div className="no-scrollbar" style={{
           marginTop: 20, display: 'flex', gap: 16, overflowX: 'auto', padding: '0 24px',
         }}>
-          {EVENTS.slice(0, 4).map(e => (
-            <div key={e.id} style={{
-              flex: '0 0 230px', background: 'var(--navy-mid)', position: 'relative',
-            }} className="weave">
-              <ImageSlot id={`gt-event-${e.id}`} height={110} label={e.photoLabel} />
-              <div style={{ padding: '14px 16px 16px' }}>
-                <div className="lbl" style={{ fontSize: 8.5 }}>{e.tag}</div>
-                <div style={{
-                  marginTop: 8, fontFamily: 'Cormorant Garamond, serif',
-                  fontSize: 17, color: 'var(--ivory)', lineHeight: 1.15, minHeight: 40,
-                }}>{e.title}</div>
-                <div style={{ marginTop: 12, display: 'flex', alignItems: 'baseline', gap: 10 }}>
-                  <span style={{
-                    fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic',
-                    fontSize: 22, color: 'var(--gold)', fontWeight: 300, lineHeight: 1,
-                  }}>{e.day}</span>
-                  <span className="byline">{e.month}</span>
+          {EVENTS.slice(0, 4).map(e => {
+            const isReg = registeredEvents && registeredEvents.has(e.id);
+            return (
+              <div key={e.id} style={{
+                flex: '0 0 230px', background: 'var(--navy-mid)', position: 'relative',
+              }} className="weave">
+                {isReg && (
+                  <div style={{
+                    position: 'absolute', top: 8, right: 8, zIndex: 2,
+                    padding: '4px 8px', background: 'var(--gold)', color: 'var(--navy)',
+                    fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 7, letterSpacing: 1.5, fontWeight: 700,
+                  }}>KATILDIM</div>
+                )}
+                <ImageSlot id={`gt-event-${e.id}`} height={110} label={e.photoLabel} src={e.src} />
+                <div style={{ padding: '14px 16px 16px' }}>
+                  <div className="lbl" style={{ fontSize: 8.5 }}>{e.tag}</div>
+                  <div style={{
+                    marginTop: 8, fontFamily: 'Cormorant Garamond, serif',
+                    fontSize: 17, color: 'var(--ivory)', lineHeight: 1.15, minHeight: 40,
+                  }}>{e.title}</div>
+                  <div style={{ marginTop: 12, display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                    <span style={{
+                      fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic',
+                      fontSize: 22, color: 'var(--gold)', fontWeight: 300, lineHeight: 1,
+                    }}>{e.day}</span>
+                    <span className="byline">{e.month}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -477,6 +491,39 @@ function HomeScreen({ onBellClick, openDrawer }) {
 
 function toRoman(n) {
   return ['', 'I', 'II', 'III', 'IV', 'V', 'VI'][n] || String(n);
+}
+
+function StatsStrip({ registeredEvents }) {
+  const c1 = useCounter(1500, 1400, 0);
+  const c2 = useCounter(55,   1000, 200);
+  const c3 = useCounter(40,   900,  400);
+  const c4 = useCounter(10,   700,  600);
+  const vals = [
+    { n: c1 >= 1500 ? '1.500' : c1.toLocaleString('tr-TR'), s: '+', l: 'ÜYE' },
+    { n: c2, s: '', l: 'İL' },
+    { n: c3, s: '', l: 'ÜLKE' },
+    { n: c4, s: '', l: 'ETKİNLİK' },
+  ];
+  return (
+    <section style={{
+      marginTop: 36, padding: '24px 16px', background: 'var(--navy-deep)',
+      borderTop: '0.5px solid var(--gold-line)', borderBottom: '0.5px solid var(--gold-line)',
+      display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+    }}>
+      {vals.map((x, i) => (
+        <div key={i} style={{
+          textAlign: 'center',
+          borderRight: i < 3 ? '0.5px solid var(--gold-line)' : '',
+        }}>
+          <div style={{
+            fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic', fontWeight: 300,
+            fontSize: 30, color: 'var(--gold)', lineHeight: 1,
+          }}>{x.n}<span style={{ fontSize: 16 }}>{x.s}</span></div>
+          <div className="byline" style={{ marginTop: 8 }}>{x.l}</div>
+        </div>
+      ))}
+    </section>
+  );
 }
 
 window.HomeScreen = HomeScreen;
