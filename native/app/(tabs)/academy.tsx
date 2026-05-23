@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Fonts } from '@/theme';
+import { useToast } from '@/components/Toast';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -428,15 +429,17 @@ function CoursesTab() {
 function MentorsTab() {
   const [pendingIds, setPendingIds] = useState<Set<number>>(new Set());
   const [modalMentor, setModalMentor] = useState<Mentor | null>(null);
+  const { show: showToast, ToastComponent } = useToast();
 
   const handleSent = () => {
     if (modalMentor) {
       setPendingIds((prev) => new Set([...prev, modalMentor.id]));
+      showToast(`${modalMentor.name} için başvuru gönderildi`, 'success');
     }
   };
 
   return (
-    <>
+    <View style={{ flex: 1 }}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.tabContent}
@@ -465,7 +468,8 @@ function MentorsTab() {
           onSent={handleSent}
         />
       )}
-    </>
+      {ToastComponent}
+    </View>
   );
 }
 
