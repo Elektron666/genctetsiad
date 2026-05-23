@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Fonts } from '@/theme';
+import { useAppContext } from '@/context/AppContext';
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
@@ -368,30 +369,16 @@ function EventDetail({
 // ─── CalendarScreen ───────────────────────────────────────────────────────────
 
 export default function CalendarScreen() {
-  const [registered, setRegistered] = useState<Set<number>>(
-    new Set(PRESET_REGISTERED)
-  );
+  const { registeredEvents, toggleEvent } = useAppContext();
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
-
-  const toggleRegistered = (id: number) => {
-    setRegistered((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
 
   if (selectedEvent) {
     return (
       <SafeAreaView style={styles.container} edges={[]}>
         <EventDetail
           event={selectedEvent}
-          registered={registered.has(selectedEvent.id)}
-          onToggle={() => toggleRegistered(selectedEvent.id)}
+          registered={registeredEvents.has(selectedEvent.id)}
+          onToggle={() => toggleEvent(selectedEvent.id)}
           onBack={() => setSelectedEvent(null)}
         />
       </SafeAreaView>
@@ -411,7 +398,7 @@ export default function CalendarScreen() {
           <Text style={styles.statsInfo}>
             <Text style={styles.goldNum}>{EVENTS.length}</Text>
             {' ETKİNLİK · '}
-            <Text style={styles.goldNum}>{registered.size}</Text>
+            <Text style={styles.goldNum}>{registeredEvents.size}</Text>
             {' KATILIM'}
           </Text>
         </View>
@@ -424,8 +411,8 @@ export default function CalendarScreen() {
           <EventCard
             key={event.id}
             event={event}
-            registered={registered.has(event.id)}
-            onToggle={() => toggleRegistered(event.id)}
+            registered={registeredEvents.has(event.id)}
+            onToggle={() => toggleEvent(event.id)}
             onPress={() => setSelectedEvent(event)}
           />
         ))}

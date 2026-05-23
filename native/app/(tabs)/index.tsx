@@ -8,12 +8,14 @@ import {
   StyleSheet,
   Dimensions,
   Platform,
+  Modal,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Fonts, FontSize } from '@/theme';
+import { useAppContext } from '@/context/AppContext';
 
 // ── Data ───────────────────────────────────────────────────────────────────
 
@@ -190,7 +192,77 @@ const statsStyles = StyleSheet.create({
 
 // ── Main screen ────────────────────────────────────────────────────────────
 
+type NotifTab = 'TÜMÜ' | 'DUYURU' | 'ETKİNLİK' | 'SİSTEM';
+
+function NotificationDrawer({ onClose }: { onClose: () => void }) {
+  const { notifications, markRead, markAllRead } = useAppContext();
+  const [tab, setTab] = useState<NotifTab>('TÜMÜ');
+
+  const filtered = tab === 'TÜMÜ'
+    ? notifications
+    : notifications.filter(n => n.category === tab);
+
+  const tabs: NotifTab[] = ['TÜMÜ', 'DUYURU', 'ETKİNLİK', 'SİSTEM'];
+  const catColor = (cat: string) => {
+    if (cat === 'ETKİNLİK') return Colors.gold;
+    if (cat === 'SİSTEM') return 'rgba(217,200,150,0.55)';
+    return Colors.textMuted;
+  };
+
+  return (
+    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
+      <View style={notifStyles.overlay}>
+        <View style={notifStyles.sheet}>
+          {/* Handle */}
+          <View style={notifStyles.handle} />
+
+          {/* Header */}
+          <View style={notifStyles.header}>
+            <Text style={notifStyles.title}>BİLDİRİMLER</Text>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity onPress={markAllRead} activeOpacity={0.7}>
+                <Text style={notifStyles.markAll}>Tümünü okundu işaretle</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onClose} activeOpacity={0.7}>
+                <Text style={notifStyles.closeBtn}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Tab bar */}
+          <View style={notifStyles.tabs}>
+            {tabs.map(t => (
+              <TouchableOpacity key={t} style={[notifStyles.tab, tab === t && notifStyles.tabActive]} onPress={() => setTab(t)}>
+                <Text style={[notifStyles.tabText, tab === t && notifStyles.tabTextActive]}>{t}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* List */}
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+            {filtered.map(n => (
+              <TouchableOpacity key={n.id} style={[notifStyles.item, !n.read && notifStyles.itemUnread]} onPress={() => markRead(n.id)} activeOpacity={0.8}>
+                {!n.read && <View style={notifStyles.unreadDot} />}
+                <View style={notifStyles.itemContent}>
+                  <View style={notifStyles.itemTop}>
+                    <Text style={[notifStyles.itemCat, { color: catColor(n.category) }]}>{n.category}</Text>
+                    <Text style={notifStyles.itemDate}>{n.date}</Text>
+                  </View>
+                  <Text style={notifStyles.itemTitle}>{n.title}</Text>
+                  <Text style={notifStyles.itemBody}>{n.body}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function HomeScreen() {
+  const { registeredEvents, unreadCount } = useAppContext();
+  const [notifOpen, setNotifOpen] = useState(false);
   const banner = ANNOUNCEMENTS.find((a) => a.pinned) ?? ANNOUNCEMENTS[0];
 
   const handleQuickCard = (target: string) => {
@@ -235,15 +307,15 @@ export default function HomeScreen() {
           {/* Top bar */}
           <View style={styles.coverTopBar}>
             <Text style={styles.coverTopBarLabel}>GENÇ TETSİAD · 2026</Text>
-            <TouchableOpacity style={styles.bellButton} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.bellButton} activeOpacity={0.7} onPress={() => setNotifOpen(true)}>
               {/* Bell icon — drawn inline */}
               <View style={styles.bellIcon}>
                 <View style={styles.bellBody} />
                 <View style={styles.bellBase} />
-                {ANNOUNCEMENTS.length > 0 && (
+                {unreadCount > 0 && (
                   <View style={styles.bellBadge}>
                     <Text style={styles.bellBadgeText}>
-                      {ANNOUNCEMENTS.length}
+                      {unreadCount}
                     </Text>
                   </View>
                 )}
@@ -265,7 +337,7 @@ export default function HomeScreen() {
           {/* CTA buttons */}
           <View style={styles.coverCTAWrap}>
             <View style={styles.coverCTARow}>
-              <TouchableOpacity style={styles.btnFill} activeOpacity={0.8}>
+              <TouchableOpacity style={styles.btnFill} activeOpacity={0.8} onPress={() => router.push('/(auth)/register')}>
                 <Text style={styles.btnFillText}>BAŞVUR</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.btnOutline} activeOpacity={0.8}>
@@ -401,23 +473,36 @@ export default function HomeScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.eventsScroll}
           >
-            {EVENTS.slice(0, 4).map((ev) => (
-              <View key={ev.id} style={styles.eventCard}>
-                <Image
-                  source={typeof ev.src === 'string' ? { uri: ev.src } : ev.src}
-                  style={styles.eventCardImage}
-                  resizeMode="cover"
-                />
-                <View style={styles.eventCardBody}>
-                  <Text style={styles.eventTag}>{ev.tag}</Text>
-                  <Text style={styles.eventTitle}>{ev.title}</Text>
-                  <View style={styles.eventDateRow}>
-                    <Text style={styles.eventDay}>{ev.day}</Text>
-                    <Text style={styles.eventMonth}>{ev.month}</Text>
+            {EVENTS.slice(0, 4).map((ev) => {
+              const joined = registeredEvents.has(ev.id);
+              return (
+                <TouchableOpacity
+                  key={ev.id}
+                  style={styles.eventCard}
+                  activeOpacity={0.85}
+                  onPress={() => router.push('/(tabs)/calendar')}
+                >
+                  <Image
+                    source={typeof ev.src === 'string' ? { uri: ev.src } : ev.src}
+                    style={styles.eventCardImage}
+                    resizeMode="cover"
+                  />
+                  {joined && (
+                    <View style={styles.eventJoinedBadge}>
+                      <Text style={styles.eventJoinedText}>✓ KATILDIM</Text>
+                    </View>
+                  )}
+                  <View style={styles.eventCardBody}>
+                    <Text style={styles.eventTag}>{ev.tag}</Text>
+                    <Text style={styles.eventTitle}>{ev.title}</Text>
+                    <View style={styles.eventDateRow}>
+                      <Text style={styles.eventDay}>{ev.day}</Text>
+                      <Text style={styles.eventMonth}>{ev.month}</Text>
+                    </View>
                   </View>
-                </View>
-              </View>
-            ))}
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
         </View>
 
@@ -427,8 +512,7 @@ export default function HomeScreen() {
           <View style={styles.footerLogoRow}>
             <View style={styles.footerLogoLine} />
             <View style={styles.footerLogoCenter}>
-              <Text style={styles.footerLogoMain}>TETSİAD</Text>
-              <Text style={styles.footerLogoSub}>GENÇ KOMİSYONU</Text>
+              <Text style={styles.footerLogoMain}>GENÇ TETSİAD</Text>
             </View>
             <View style={styles.footerLogoLine} />
           </View>
@@ -445,7 +529,7 @@ export default function HomeScreen() {
             </View>
             <View style={styles.footerCol}>
               <Text style={styles.footerColLabel}>YAYINLAYAN</Text>
-              <Text style={styles.footerColItalic}>{'Genç TETSİAD\nKomisyonu'}</Text>
+              <Text style={styles.footerColItalic}>{'Genç TETSİAD'}</Text>
               <Text style={styles.footerColDetail}>TETSİAD ALT YAPILANMA</Text>
             </View>
           </View>
@@ -459,6 +543,8 @@ export default function HomeScreen() {
         </View>
 
       </ScrollView>
+
+      {notifOpen && <NotificationDrawer onClose={() => setNotifOpen(false)} />}
     </SafeAreaView>
   );
 }
@@ -484,7 +570,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   coverImage: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
     width: '100%',
     height: '100%',
   },
@@ -892,6 +979,22 @@ const styles = StyleSheet.create({
     borderColor: Colors.goldLine,
     overflow: 'hidden',
   },
+  eventJoinedBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: Colors.gold,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    zIndex: 10,
+  },
+  eventJoinedText: {
+    fontFamily: Fonts.jakarta,
+    fontSize: 7,
+    fontWeight: '700',
+    color: Colors.navy,
+    letterSpacing: 1,
+  },
   eventCardImage: {
     width: '100%',
     height: 110,
@@ -1021,5 +1124,138 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     letterSpacing: 1.5,
     textAlign: 'center',
+  },
+});
+
+// ── Notification drawer styles ──────────────────────────────────────────────
+
+const notifStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(3,15,9,0.88)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: Colors.navyDeep,
+    borderTopWidth: 0.5,
+    borderTopColor: Colors.goldLine,
+    maxHeight: '85%',
+    paddingHorizontal: 0,
+    paddingTop: 12,
+  },
+  handle: {
+    width: 36,
+    height: 3,
+    backgroundColor: Colors.goldLine,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 14,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.goldLine,
+  },
+  title: {
+    fontFamily: Fonts.jakarta,
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.ivory,
+    letterSpacing: 2,
+  },
+  markAll: {
+    fontFamily: Fonts.jakarta,
+    fontSize: 9,
+    color: Colors.textMuted,
+    letterSpacing: 0.5,
+  },
+  closeBtn: {
+    fontFamily: Fonts.jakarta,
+    fontSize: 16,
+    color: Colors.textMuted,
+    paddingLeft: 4,
+  },
+  tabs: {
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    gap: 6,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.goldLine,
+  },
+  tab: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 0.5,
+    borderColor: Colors.goldLine,
+  },
+  tabActive: {
+    backgroundColor: Colors.gold,
+    borderColor: Colors.gold,
+  },
+  tabText: {
+    fontFamily: Fonts.jakarta,
+    fontSize: 7,
+    fontWeight: '600',
+    letterSpacing: 1,
+    color: Colors.textMuted,
+  },
+  tabTextActive: {
+    color: Colors.navy,
+  },
+  item: {
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.goldLine,
+  },
+  itemUnread: {
+    backgroundColor: 'rgba(217,200,150,0.04)',
+  },
+  unreadDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.gold,
+    marginTop: 6,
+    marginRight: 10,
+    flexShrink: 0,
+  },
+  itemContent: {
+    flex: 1,
+  },
+  itemTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  itemCat: {
+    fontFamily: Fonts.jakarta,
+    fontSize: 7,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+  },
+  itemDate: {
+    fontFamily: Fonts.mono,
+    fontSize: 8,
+    color: Colors.textMuted,
+  },
+  itemTitle: {
+    fontFamily: Fonts.jakarta,
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    color: Colors.ivory,
+    marginBottom: 4,
+  },
+  itemBody: {
+    fontFamily: Fonts.jakarta,
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    lineHeight: 16,
   },
 });
