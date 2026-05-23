@@ -39,6 +39,9 @@ jobs:
 
       - name: EAS Build (Android)
         working-directory: native
-        run: eas build --platform android --profile ${{ inputs.profile }} --non-interactive
+        run: |
+          set -x
+          eas build --platform android --profile ${{ inputs.profile }} --non-interactive 2>&1
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EAS_NO_VCS: "1"
