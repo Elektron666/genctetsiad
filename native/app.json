@@ -26,7 +26,20 @@
       "versionCode": 1
     },
     "scheme": "genctetsiad",
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "minSdkVersion": 24,
+            "kotlinVersion": "2.0.21"
+          }
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true
     },
