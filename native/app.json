@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Genç TETSİAD",
+    "slug": "genc-tetsiad",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#051C11"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "org.tetsiad.genc",
+      "buildNumber": "1"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#051C11"
+      },
+      "package": "org.tetsiad.genc",
+      "versionCode": 1
+    },
+    "scheme": "genctetsiad",
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
