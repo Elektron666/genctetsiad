@@ -20,7 +20,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: native
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Publish to Expo
         uses: expo/expo-github-action@v8

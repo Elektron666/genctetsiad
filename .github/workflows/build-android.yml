@@ -26,7 +26,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: native
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - uses: expo/expo-github-action@v8
         with:
