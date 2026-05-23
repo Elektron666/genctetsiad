@@ -507,9 +507,69 @@ const cardStyles = StyleSheet.create({
 
 // ── ProfileScreen ─────────────────────────────────────────────────────────────
 
+function MemberPickerModal({ current, onSelect, onClose }: { current: number; onSelect: (idx: number) => void; onClose: () => void }) {
+  return (
+    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
+      <View style={pickerStyles.overlay}>
+        <View style={pickerStyles.sheet}>
+          <View style={pickerStyles.handle} />
+          <Text style={pickerStyles.title}>ÜYE SEÇ</Text>
+          <View style={pickerStyles.divider} />
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+            {MEMBERS.map((m, i) => (
+              <TouchableOpacity
+                key={m.id}
+                style={[pickerStyles.row, i === current && pickerStyles.rowActive]}
+                onPress={() => { onSelect(i); onClose(); }}
+                activeOpacity={0.7}
+              >
+                <View style={[pickerStyles.avatar, i === current && pickerStyles.avatarActive]}>
+                  <Text style={[pickerStyles.avatarText, i === current && pickerStyles.avatarTextActive]}>
+                    {getInitials(m.name)}
+                  </Text>
+                </View>
+                <View style={pickerStyles.info}>
+                  <Text style={[pickerStyles.name, i === current && pickerStyles.nameActive]}>{m.name}</Text>
+                  <Text style={pickerStyles.role}>{m.role} · {m.firm}</Text>
+                </View>
+                {i === current && <Text style={pickerStyles.check}>✓</Text>}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <TouchableOpacity style={pickerStyles.cancelBtn} onPress={onClose} activeOpacity={0.8}>
+            <Text style={pickerStyles.cancelText}>İPTAL</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const pickerStyles = StyleSheet.create({
+  overlay:    { flex: 1, backgroundColor: 'rgba(3,15,9,0.90)', justifyContent: 'flex-end' },
+  sheet:      { backgroundColor: Colors.navyDeep, borderTopWidth: 0.5, borderTopColor: Colors.goldLine, paddingTop: 12, maxHeight: '75%' },
+  handle:     { width: 36, height: 3, backgroundColor: Colors.goldLine, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
+  title:      { fontFamily: Fonts.jakarta, fontSize: FontSize.xs, fontWeight: '700', color: Colors.ivory, letterSpacing: 2, textAlign: 'center', paddingBottom: 14, paddingHorizontal: 24 },
+  divider:    { height: 0.5, backgroundColor: Colors.goldLine, marginBottom: 4 },
+  row:        { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 14, gap: 14, borderBottomWidth: 0.5, borderBottomColor: Colors.goldLine },
+  rowActive:  { backgroundColor: 'rgba(217,200,150,0.06)' },
+  avatar:     { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: Colors.goldLine, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.navyMid },
+  avatarActive:{ borderColor: Colors.gold },
+  avatarText: { fontFamily: Fonts.mono, fontSize: 10, color: Colors.textMuted },
+  avatarTextActive: { color: Colors.gold },
+  info:       { flex: 1 },
+  name:       { fontFamily: Fonts.cormorant, fontSize: 17, color: Colors.ivory, fontWeight: '500', marginBottom: 2 },
+  nameActive: { color: Colors.gold },
+  role:       { fontFamily: Fonts.jakarta, fontSize: FontSize.xs - 1, color: Colors.textMuted, letterSpacing: 0.5 },
+  check:      { fontFamily: Fonts.mono, fontSize: 14, color: Colors.gold },
+  cancelBtn:  { marginHorizontal: 24, marginVertical: 16, paddingVertical: 14, borderWidth: 0.5, borderColor: Colors.goldLine, alignItems: 'center' },
+  cancelText: { fontFamily: Fonts.jakarta, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 2 },
+});
+
 export default function ProfileScreen() {
   const [memberIdx, setMemberIdx] = useState(0);
   const [showQR, setShowQR] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
   const member = MEMBERS[memberIdx];
 
   const handleSwitcher = () => {
@@ -525,8 +585,7 @@ export default function ProfileScreen() {
         }
       );
     } else {
-      // On Android, cycle through members
-      setMemberIdx((prev) => (prev + 1) % MEMBERS.length);
+      setShowPicker(true);
     }
   };
 
@@ -544,6 +603,13 @@ export default function ProfileScreen() {
         title="Üyelik & QR Kartvizit"
         onSwitcher={handleSwitcher}
       />
+      {showPicker && (
+        <MemberPickerModal
+          current={memberIdx}
+          onSelect={setMemberIdx}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
 
       <ScrollView
         style={styles.scroll}
