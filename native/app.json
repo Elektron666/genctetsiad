@@ -35,7 +35,8 @@
             "compileSdkVersion": 35,
             "targetSdkVersion": 35,
             "minSdkVersion": 24,
-            "kotlinVersion": "2.0.21"
+            "kotlinVersion": "2.0.21",
+            "enableNewArchitecture": false
           }
         }
       ]
