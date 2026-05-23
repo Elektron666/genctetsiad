@@ -56,7 +56,7 @@ export default function SustainabilityScreen() {
 
       {/* Hero image */}
       <View style={{ height: 200, position: 'relative' }}>
-        <Image source={{ uri: 'https://picsum.photos/seed/gt-green-factory/800/400' }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <Image source={require('../../assets/images/hometex-2026-acilis.jpg')} style={StyleSheet.absoluteFill} resizeMode="cover" />
         <LinearGradient colors={['transparent', Colors.navy]} style={StyleSheet.absoluteFill} />
       </View>
 

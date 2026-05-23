@@ -30,6 +30,11 @@ const PRESIDENT = {
   ],
 };
 
+const IMG_FABRIKA   = require('../../assets/images/fabrika-ziyareti-grup.jpg');
+const IMG_HOMETEX   = require('../../assets/images/hometex-2026-acilis.jpg');
+const IMG_KOMITE    = require('../../assets/images/bolge-komite-toplantisi.jpg');
+const IMG_PRESIDENT = require('../../assets/images/resul-oden-roportaj.jpg');
+
 const EVENTS = [
   {
     id: 1,
@@ -37,7 +42,7 @@ const EVENTS = [
     month: 'NİSAN',
     tag: 'SAHA GEZİSİ',
     title: 'İstanbul Fabrika Ziyareti',
-    src: 'https://picsum.photos/seed/gt-ev1/400/300',
+    src: IMG_FABRIKA,
   },
   {
     id: 2,
@@ -45,15 +50,15 @@ const EVENTS = [
     month: 'MAYIS',
     tag: 'FUAR',
     title: 'HOMETEX Fuar Çalışması',
-    src: 'https://picsum.photos/seed/gt-ev2/400/300',
+    src: IMG_HOMETEX,
   },
   {
     id: 3,
     day: 22,
     month: 'MAYIS',
-    tag: 'ÜNİVERSİTE',
-    title: 'İTÜ Tasarım Etkinlikleri',
-    src: 'https://picsum.photos/seed/gt-ev3/400/300',
+    tag: 'KOMITE',
+    title: 'Bölge Komite Toplantısı',
+    src: IMG_KOMITE,
   },
   {
     id: 4,
@@ -209,7 +214,7 @@ export default function HomeScreen() {
         {/* ── A. COVER IMAGE ──────────────────────────────────── */}
         <View style={styles.cover}>
           <Image
-            source={{ uri: 'https://picsum.photos/seed/gt-factory-group/800/600' }}
+            source={IMG_FABRIKA}
             style={styles.coverImage}
             resizeMode="cover"
           />
@@ -326,7 +331,7 @@ export default function HomeScreen() {
           {/* Portrait image with gradient */}
           <View style={styles.portraitWrap}>
             <Image
-              source={{ uri: 'https://picsum.photos/seed/gt-president/600/700' }}
+              source={IMG_PRESIDENT}
               style={styles.portraitImage}
               resizeMode="cover"
             />
@@ -399,7 +404,7 @@ export default function HomeScreen() {
             {EVENTS.slice(0, 4).map((ev) => (
               <View key={ev.id} style={styles.eventCard}>
                 <Image
-                  source={{ uri: ev.src }}
+                  source={typeof ev.src === 'string' ? { uri: ev.src } : ev.src}
                   style={styles.eventCardImage}
                   resizeMode="cover"
                 />
