@@ -39,6 +39,6 @@ jobs:
 
       - name: EAS Build (Android)
         working-directory: native
-        run: eas build --platform android --profile ${{ inputs.profile }} --non-interactive --output ./build.apk || (cat ~/.expo/eas-build-local.log 2>/dev/null; exit 1)
+        run: eas build --platform android --profile ${{ inputs.profile }} --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
