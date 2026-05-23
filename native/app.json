@@ -29,6 +29,7 @@
     "scheme": "genctetsiad",
     "plugins": [
       "expo-router",
+      "./gradle-config-plugin",
       [
         "expo-build-properties",
         {
