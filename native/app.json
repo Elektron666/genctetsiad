@@ -7,12 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": false,
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#051C11"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "org.tetsiad.genc",
@@ -30,6 +24,14 @@
     "plugins": [
       "expo-router",
       "./gradle-config-plugin",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#051C11"
+        }
+      ],
       [
         "expo-build-properties",
         {
