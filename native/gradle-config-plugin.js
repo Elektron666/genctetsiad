@@ -1,4 +1,13 @@
-const { withGradleProperties, withProjectBuildGradle, withAppBuildGradle } = require('@expo/config-plugins');
+const {
+  withGradleProperties,
+  withProjectBuildGradle,
+  withAppBuildGradle,
+  withMainActivity,
+  withMainApplication,
+} = require('@expo/config-plugins');
+
+const APP_PACKAGE = 'org.tetsiad.genc';
+const SLUG_PACKAGE = 'com.gentetsiad';
 
 const KOTLIN_VERSION = '2.1.20';
 const COMPILE_SDK = 36;
@@ -60,9 +69,31 @@ function withGradlePropsConfig(config) {
   });
 }
 
+// expo prebuild generates Kotlin files with package derived from slug (com.gentetsiad)
+// but namespace/applicationId is org.tetsiad.genc — BuildConfig lives in that namespace.
+// Fix both files so they compile without unresolved-reference errors.
+function withFixedPackageDeclarations(config) {
+  config = withMainActivity(config, (cfg) => {
+    cfg.modResults.contents = cfg.modResults.contents.replace(
+      `package ${SLUG_PACKAGE}`,
+      `package ${APP_PACKAGE}`
+    );
+    return cfg;
+  });
+  config = withMainApplication(config, (cfg) => {
+    cfg.modResults.contents = cfg.modResults.contents.replace(
+      `package ${SLUG_PACKAGE}`,
+      `package ${APP_PACKAGE}`
+    );
+    return cfg;
+  });
+  return config;
+}
+
 module.exports = function withGradleConfig(config) {
   config = withGradlePropsConfig(config);
   config = withRootExtValues(config);
   config = withBuildConfigFeature(config);
+  config = withFixedPackageDeclarations(config);
   return config;
 };
