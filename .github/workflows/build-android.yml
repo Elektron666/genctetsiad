@@ -51,69 +51,55 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
+          set +e
           echo "=================================================="
           echo "📋 FETCHING ACTUAL BUILD ERROR FROM EAS API"
           echo "=================================================="
 
-          # Get most recent build ID for this project
-          BUILD_INFO=$(eas build:list --limit 1 --json --non-interactive 2>/dev/null)
-          BUILD_ID=$(echo "$BUILD_INFO" | jq -r '.[0].id // empty')
+          BUILD_INFO=$(eas build:list --limit 1 --json --non-interactive 2>&1)
+          echo "BUILD_INFO raw: $BUILD_INFO"
+          BUILD_ID=$(echo "$BUILD_INFO" | jq -r '.[0].id // empty' 2>/dev/null)
 
           if [ -z "$BUILD_ID" ]; then
-            echo "❌ Could not fetch build ID"
+            echo "❌ Could not parse Build ID from: $BUILD_INFO"
             exit 0
           fi
 
           echo "🔍 Build ID: $BUILD_ID"
-          echo ""
 
-          # Get full build details
-          BUILD_VIEW=$(eas build:view "$BUILD_ID" --json --non-interactive 2>/dev/null)
+          BUILD_VIEW=$(eas build:view "$BUILD_ID" --json --non-interactive 2>&1)
 
           echo "::group::📦 Build status"
-          echo "$BUILD_VIEW" | jq '{status, platform, error, completedAt}'
+          echo "$BUILD_VIEW" | jq '{status, platform, error, completedAt}' 2>/dev/null || echo "$BUILD_VIEW"
           echo "::endgroup::"
 
-          # Try the logsUrl field
-          LOGS_URL=$(echo "$BUILD_VIEW" | jq -r '.artifacts.logsS3KeyPrefix // .artifacts.logsUrl // .logFiles // empty')
-
-          echo "::group::🔗 Available URLs"
-          echo "$BUILD_VIEW" | jq '.artifacts // {}'
-          echo "::endgroup::"
-
-          # Show error message from the build
           echo "::group::❌ ERROR DETAILS"
-          echo "$BUILD_VIEW" | jq -r '.error // "no error field"'
+          echo "$BUILD_VIEW" | jq -r '.error // "no error field"' 2>/dev/null
           echo "::endgroup::"
 
-          # If logsUrl available, download and extract
-          DOWNLOAD_URL=$(echo "$BUILD_VIEW" | jq -r '.artifacts.logsUrl // empty')
+          DOWNLOAD_URL=$(echo "$BUILD_VIEW" | jq -r '.artifacts.logsUrl // empty' 2>/dev/null)
           if [ -n "$DOWNLOAD_URL" ] && [ "$DOWNLOAD_URL" != "null" ]; then
             echo "📥 Downloading logs from: $DOWNLOAD_URL"
             curl -fsSL "$DOWNLOAD_URL" -o build-logs.tar.gz 2>&1 || echo "Download failed"
             if [ -f build-logs.tar.gz ]; then
               mkdir -p extracted-logs
               tar -xzf build-logs.tar.gz -C extracted-logs 2>&1 || echo "Extract failed"
-              echo "::group::📁 Log files"
-              find extracted-logs -type f | head -20
-              echo "::endgroup::"
-              echo "::group::🔥 GRADLE LOG (last 200 lines)"
-              find extracted-logs -name "*gradle*" -o -name "*build*log*" | head -3 | while read f; do
+              echo "::group::🔥 GRADLE LOG (last 300 lines)"
+              find extracted-logs -name "*gradle*" -o -name "*build*log*" 2>/dev/null | head -3 | while read f; do
                 echo "--- $f ---"
-                tail -200 "$f"
+                tail -300 "$f"
               done
               echo "::endgroup::"
-              echo "::group::🔥 ALL LOGS (last 100 lines each)"
-              find extracted-logs -name "*.log" -o -name "*.txt" | while read f; do
+              echo "::group::🔥 ALL LOGS (last 150 lines each)"
+              find extracted-logs -name "*.log" -o -name "*.txt" 2>/dev/null | while read f; do
                 echo "--- $f ---"
-                tail -100 "$f"
+                tail -150 "$f"
                 echo ""
               done
               echo "::endgroup::"
             fi
           else
-            echo "ℹ️  No logsUrl available, dumping raw build object:"
             echo "::group::📄 Full build JSON"
-            echo "$BUILD_VIEW" | jq '.'
+            echo "$BUILD_VIEW" | jq '.' 2>/dev/null || echo "$BUILD_VIEW"
             echo "::endgroup::"
           fi
