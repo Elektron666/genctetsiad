@@ -57,58 +57,36 @@ jobs:
           echo "=================================================="
 
           BUILD_INFO=$(eas build:list --limit 1 --json --non-interactive 2>&1)
-          echo "BUILD_INFO raw: $BUILD_INFO"
           BUILD_ID=$(echo "$BUILD_INFO" | jq -r '.[0].id // empty' 2>/dev/null)
-
-          if [ -z "$BUILD_ID" ]; then
-            echo "❌ Could not parse Build ID from: $BUILD_INFO"
-            exit 0
-          fi
-
           echo "🔍 Build ID: $BUILD_ID"
 
-          BUILD_VIEW=$(eas build:view "$BUILD_ID" --json --non-interactive 2>&1)
-
-          echo "::group::📦 Build status"
-          echo "$BUILD_VIEW" | jq '{status, platform, error, completedAt}' 2>/dev/null || echo "$BUILD_VIEW"
-          echo "::endgroup::"
-
-          echo "::group::❌ ERROR DETAILS"
-          echo "$BUILD_VIEW" | jq -r '.error // "no error field"' 2>/dev/null
-          echo "::endgroup::"
-
-          # EAS 'logFiles' array'i veya 'artifacts.logsUrl' içinde log URL'leri olabilir
-          LOG_URLS=$(echo "$BUILD_VIEW" | jq -r '(.logFiles // []) + ([.artifacts.logsUrl] // []) | .[] | select(. != null and . != "")' 2>/dev/null)
-
-          if [ -z "$LOG_URLS" ]; then
-            echo "❌ Hiç log URL bulunamadı"
-            echo "::group::📄 Full build JSON"
-            echo "$BUILD_VIEW" | jq '.' 2>/dev/null || echo "$BUILD_VIEW"
-            echo "::endgroup::"
+          if [ -z "$BUILD_ID" ]; then
+            echo "❌ BUILD_INFO: $BUILD_INFO"
             exit 0
           fi
 
-          mkdir -p logs
-          i=0
-          echo "$LOG_URLS" | while read URL; do
-            i=$((i+1))
-            FILE="logs/log-$i"
-            echo "📥 [$i] $URL"
-            curl -fsSL "$URL" -o "$FILE.raw" 2>&1 || { echo "  download failed"; continue; }
+          # logFiles URL'lerini BUILD_INFO'dan hemen al (URL'ler kısa süre geçerli)
+          LOG_URL=$(echo "$BUILD_INFO" | jq -r '.[0].logFiles[0] // empty' 2>/dev/null)
 
-            # txt mi tar.gz mi tespit et
-            if file "$FILE.raw" | grep -q "gzip"; then
-              mv "$FILE.raw" "$FILE.tar.gz"
-              tar -xzf "$FILE.tar.gz" -C logs 2>&1 || echo "  extract failed"
-            else
-              mv "$FILE.raw" "$FILE.txt"
-            fi
-          done
-
-          echo "::group::🔥 BUILD LOG (full content)"
-          find logs -type f \( -name "*.txt" -o -name "*.log" \) | while read f; do
-            echo ""
-            echo "════════════════ $f ════════════════"
-            cat "$f"
-          done
+          echo "::group::❌ EAS Error"
+          echo "$BUILD_INFO" | jq -r '.[0].error' 2>/dev/null
           echo "::endgroup::"
+
+          if [ -n "$LOG_URL" ]; then
+            echo "📥 Downloading log: $LOG_URL"
+            curl -fsSL "$LOG_URL" -o build.log.txt 2>&1
+            if [ -f build.log.txt ] && [ -s build.log.txt ]; then
+              echo "✅ Log downloaded: $(wc -c < build.log.txt) bytes"
+              echo "::group::🔥 FULL BUILD LOG"
+              cat build.log.txt
+              echo "::endgroup::"
+              echo "::group::🎯 GRADLE ERRORS ONLY"
+              grep -E "^(FAILURE|e:|error:|ERROR|> Task|BUILD FAILED|Exception|Caused by)" build.log.txt || echo "(no grep match)"
+              echo "::endgroup::"
+            else
+              echo "❌ Log download failed"
+            fi
+          else
+            echo "❌ No logFiles URL in BUILD_INFO"
+            echo "BUILD_INFO: $BUILD_INFO"
+          fi
