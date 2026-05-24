@@ -77,29 +77,38 @@ jobs:
           echo "$BUILD_VIEW" | jq -r '.error // "no error field"' 2>/dev/null
           echo "::endgroup::"
 
-          DOWNLOAD_URL=$(echo "$BUILD_VIEW" | jq -r '.artifacts.logsUrl // empty' 2>/dev/null)
-          if [ -n "$DOWNLOAD_URL" ] && [ "$DOWNLOAD_URL" != "null" ]; then
-            echo "📥 Downloading logs from: $DOWNLOAD_URL"
-            curl -fsSL "$DOWNLOAD_URL" -o build-logs.tar.gz 2>&1 || echo "Download failed"
-            if [ -f build-logs.tar.gz ]; then
-              mkdir -p extracted-logs
-              tar -xzf build-logs.tar.gz -C extracted-logs 2>&1 || echo "Extract failed"
-              echo "::group::🔥 GRADLE LOG (last 300 lines)"
-              find extracted-logs -name "*gradle*" -o -name "*build*log*" 2>/dev/null | head -3 | while read f; do
-                echo "--- $f ---"
-                tail -300 "$f"
-              done
-              echo "::endgroup::"
-              echo "::group::🔥 ALL LOGS (last 150 lines each)"
-              find extracted-logs -name "*.log" -o -name "*.txt" 2>/dev/null | while read f; do
-                echo "--- $f ---"
-                tail -150 "$f"
-                echo ""
-              done
-              echo "::endgroup::"
-            fi
-          else
+          # EAS 'logFiles' array'i veya 'artifacts.logsUrl' içinde log URL'leri olabilir
+          LOG_URLS=$(echo "$BUILD_VIEW" | jq -r '(.logFiles // []) + ([.artifacts.logsUrl] // []) | .[] | select(. != null and . != "")' 2>/dev/null)
+
+          if [ -z "$LOG_URLS" ]; then
+            echo "❌ Hiç log URL bulunamadı"
             echo "::group::📄 Full build JSON"
             echo "$BUILD_VIEW" | jq '.' 2>/dev/null || echo "$BUILD_VIEW"
             echo "::endgroup::"
+            exit 0
           fi
+
+          mkdir -p logs
+          i=0
+          echo "$LOG_URLS" | while read URL; do
+            i=$((i+1))
+            FILE="logs/log-$i"
+            echo "📥 [$i] $URL"
+            curl -fsSL "$URL" -o "$FILE.raw" 2>&1 || { echo "  download failed"; continue; }
+
+            # txt mi tar.gz mi tespit et
+            if file "$FILE.raw" | grep -q "gzip"; then
+              mv "$FILE.raw" "$FILE.tar.gz"
+              tar -xzf "$FILE.tar.gz" -C logs 2>&1 || echo "  extract failed"
+            else
+              mv "$FILE.raw" "$FILE.txt"
+            fi
+          done
+
+          echo "::group::🔥 BUILD LOG (full content)"
+          find logs -type f \( -name "*.txt" -o -name "*.log" \) | while read f; do
+            echo ""
+            echo "════════════════ $f ════════════════"
+            cat "$f"
+          done
+          echo "::endgroup::"
