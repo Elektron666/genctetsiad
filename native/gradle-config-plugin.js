@@ -1,18 +1,23 @@
 const { withGradleProperties, withProjectBuildGradle } = require('@expo/config-plugins');
 
 const KOTLIN_VERSION = '2.1.20';
+const COMPILE_SDK = 36;
+const TARGET_SDK = 36;
 
 function withKotlinExt(config) {
   return withProjectBuildGradle(config, (config) => {
     let src = config.modResults.contents;
 
-    // expo-root-project plugin extra.kotlinVersion okuyor, gradle property değil.
-    // ext.kotlinVersion'ı zaten varsa override et, yoksa ekle.
-    if (/ext\.kotlinVersion\s*=/.test(src)) {
-      src = src.replace(/ext\.kotlinVersion\s*=\s*['"][^'"]*['"]/, `ext.kotlinVersion = '${KOTLIN_VERSION}'`);
-    } else {
-      // İlk satıra ekle, plugin apply'lerinden önce çalışsın diye
-      src = `ext.kotlinVersion = '${KOTLIN_VERSION}'\n\n${src}`;
+    // ExpoRootProjectPlugin ext.* değerlerini 'setIfNotExist' ile okuyor —
+    // plugin apply'den ÖNCE ext'e yazarsak doğru versiyonlar kullanılır.
+    const injections = [
+      `ext.kotlinVersion = '${KOTLIN_VERSION}'`,
+      `ext.compileSdkVersion = ${COMPILE_SDK}`,
+      `ext.targetSdkVersion = ${TARGET_SDK}`,
+    ].filter((line) => !src.includes(line.split('=')[0].trim()));
+
+    if (injections.length > 0) {
+      src = injections.join('\n') + '\n\n' + src;
     }
 
     config.modResults.contents = src;
