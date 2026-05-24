@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, KeyboardAvoidingView, Platform, Animated,
+  ScrollView, KeyboardAvoidingView, Platform, Animated, Share,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -308,7 +308,15 @@ export default function RegisterScreen() {
               </Text>
 
               <TouchableOpacity
-                style={[s.ctaButton, { marginTop: 32, width: '100%' }]}
+                style={[s.ctaButton, s.ctaOutline, { marginTop: 24, width: '100%' }]}
+                onPress={() => Share.share({ message: memberCode })}
+                activeOpacity={0.8}
+              >
+                <Text style={[s.ctaText, { color: Colors.gold }]}>KODU PAYLAŞ / KOPYALA</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[s.ctaButton, { marginTop: 10, width: '100%' }]}
                 onPress={() => router.replace('/(auth)/login')}
                 activeOpacity={0.8}
               >
@@ -403,6 +411,7 @@ const s = StyleSheet.create({
 
   bottomBar:      { paddingHorizontal: 24, paddingBottom: Platform.OS === 'ios' ? 8 : 16, paddingTop: 12, borderTopWidth: 0.5, borderTopColor: Colors.goldLine },
   ctaButton:      { backgroundColor: Colors.gold, paddingVertical: 16, alignItems: 'center' },
+  ctaOutline:     { backgroundColor: 'transparent', borderWidth: 0.5, borderColor: Colors.gold },
   ctaDisabled:    { opacity: 0.4 },
   ctaText:        { fontFamily: Fonts.jakarta, fontSize: FontSize.xs, fontWeight: '700', color: Colors.navyDeep, letterSpacing: 3 },
 });

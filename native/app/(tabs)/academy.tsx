@@ -13,6 +13,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Fonts } from '@/theme';
 import { useToast } from '@/components/Toast';
+import { useAppContext } from '@/context/AppContext';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -427,13 +428,13 @@ function CoursesTab() {
 // ─── MENTÖRLER tab ────────────────────────────────────────────────────────────
 
 function MentorsTab() {
-  const [pendingIds, setPendingIds] = useState<Set<number>>(new Set());
+  const { mentorRequests, addMentorRequest } = useAppContext();
   const [modalMentor, setModalMentor] = useState<Mentor | null>(null);
   const { show: showToast, ToastComponent } = useToast();
 
   const handleSent = () => {
     if (modalMentor) {
-      setPendingIds((prev) => new Set([...prev, modalMentor.id]));
+      addMentorRequest(modalMentor.id);
       showToast(`${modalMentor.name} için başvuru gönderildi`, 'success');
     }
   };
@@ -448,7 +449,7 @@ function MentorsTab() {
           <MentorCard
             key={m.id}
             mentor={m}
-            pending={pendingIds.has(m.id)}
+            pending={mentorRequests.has(m.id)}
             onApply={() => setModalMentor(m)}
           />
         ))}
@@ -463,6 +464,7 @@ function MentorsTab() {
 
       {modalMentor && (
         <MentorApplyModal
+          key={modalMentor.id}
           mentor={modalMentor}
           onClose={() => setModalMentor(null)}
           onSent={handleSent}

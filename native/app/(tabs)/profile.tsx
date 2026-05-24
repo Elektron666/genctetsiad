@@ -14,6 +14,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient';
 import QRCode from 'react-native-qrcode-svg';
 import { Colors, Fonts, FontSize } from '@/theme';
+import { useAppContext } from '@/context/AppContext';
 
 // ── Data ────────────────────────────────────────────────────────────────────
 
@@ -572,6 +573,8 @@ export default function ProfileScreen() {
   const [showPicker, setShowPicker] = useState(false);
   const member = MEMBERS[memberIdx];
 
+  const { registeredEvents, enrolledCourses, mentorRequests } = useAppContext();
+
   const handleSwitcher = () => {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
@@ -589,11 +592,12 @@ export default function ProfileScreen() {
     }
   };
 
+  const fmt = (n: number) => String(n).padStart(2, '0');
   const STATS = [
-    { value: '08', label: 'ETKİNLİK' },
-    { value: '03', label: 'KURS' },
-    { value: '01', label: 'MENTORLUK' },
-    { value: '24', label: 'BAĞLANTI' },
+    { value: fmt(registeredEvents.size), label: 'ETKİNLİK' },
+    { value: fmt(enrolledCourses.size),  label: 'KURS' },
+    { value: fmt(mentorRequests.size),   label: 'MENTORLUK' },
+    { value: '24',                       label: 'BAĞLANTI' },
   ];
 
   return (
