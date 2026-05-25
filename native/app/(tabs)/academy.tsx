@@ -14,6 +14,10 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Colors, Fonts } from '@/theme';
 import { useToast } from '@/components/Toast';
 import { useAppContext } from '@/context/AppContext';
+import { useAuthContext } from '@/context/AuthContext';
+import { useCourses } from '@/hooks/useCourses';
+import { useMembers } from '@/hooks/useMembers';
+import type { Course as SupabaseCourse, CourseLevel } from '@/types/database';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -94,6 +98,27 @@ const MENTORS: Mentor[] = [
   { id: 3, name: 'Murat Demir', title: 'Kurucu', firm: 'DEMIR DESIGN', expertise: 'Marka ve Tasarım', initials: 'MD' },
   { id: 4, name: 'Fatma Kara', title: 'İhracat Direktörü', firm: 'KARA TEKSTİL', expertise: 'Uluslararası Ticaret', initials: 'FK' },
 ];
+
+const LEVEL_LABELS: Record<CourseLevel, string> = {
+  beginner:     'BAŞLANGIÇ',
+  intermediate: 'ORTA',
+  advanced:     'İLERİ',
+};
+
+function supabaseToCourse(c: SupabaseCourse): Course {
+  return {
+    id:       parseInt(c.id, 10) || 0,
+    title:    c.title,
+    tag:      c.instructor ?? 'EĞİTİM',
+    level:    LEVEL_LABELS[c.level ?? 'beginner'],
+    duration: c.duration_hours ? `${c.duration_hours} SAAT` : '—',
+    progress: c.enrollment?.progress ?? 0,
+  };
+}
+
+function initials(name: string) {
+  return name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+}
 
 // ─── AppHeader ─────────────────────────────────────────────────────────────────
 
@@ -405,19 +430,25 @@ function ProgramsTab() {
 // ─── KURSLAR tab ──────────────────────────────────────────────────────────────
 
 function CoursesTab() {
+  const { session } = useAuthContext();
+  const { courses: supabaseCourses } = useCourses(session?.user.id);
+  const displayCourses = supabaseCourses.length > 0
+    ? supabaseCourses.map(supabaseToCourse)
+    : COURSES;
+
   return (
     <ScrollView
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.tabContent}
     >
       <View style={styles.coursesGrid}>
-        {COURSES.map((c) => (
+        {displayCourses.map((c) => (
           <CourseCard key={c.id} course={c} />
         ))}
       </View>
       <View style={styles.tabFooter}>
         <Text style={styles.tabFooterText}>
-          {'06 KATEGORİ · TÜM ÜYELERE '}
+          {`${String(displayCourses.length).padStart(2, '0')} KATEGORİ · TÜM ÜYELERE `}
           <Text style={{ color: Colors.gold }}>ÜCRETSİZ</Text>
         </Text>
       </View>
@@ -429,8 +460,20 @@ function CoursesTab() {
 
 function MentorsTab() {
   const { mentorRequests, addMentorRequest } = useAppContext();
+  const { mentors: supabaseMentors } = useMembers();
   const [modalMentor, setModalMentor] = useState<Mentor | null>(null);
   const { show: showToast, ToastComponent } = useToast();
+
+  const displayMentors: Mentor[] = supabaseMentors.length > 0
+    ? supabaseMentors.map((p, i) => ({
+        id:        i + 1,
+        name:      p.full_name,
+        title:     p.position ?? p.role,
+        firm:      p.company ?? '—',
+        expertise: p.mentor_bio ?? p.sector ?? '—',
+        initials:  initials(p.full_name),
+      }))
+    : MENTORS;
 
   const handleSent = () => {
     if (modalMentor) {
@@ -445,7 +488,7 @@ function MentorsTab() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.tabContent}
       >
-        {MENTORS.map((m) => (
+        {displayMentors.map((m) => (
           <MentorCard
             key={m.id}
             mentor={m}

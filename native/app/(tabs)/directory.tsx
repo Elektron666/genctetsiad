@@ -1,35 +1,69 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  Modal, StyleSheet, Linking, FlatList,
+  Modal, StyleSheet, Linking, FlatList, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Fonts, FontSize } from '@/theme';
+import { useMembers } from '@/hooks/useMembers';
+import type { Profile, MemberRole } from '@/types/database';
 
-const MEMBERS = [
-  { id:1,  name:'Resul Öden',       role:'Başkan',          firm:'ROSSA HOME',             city:'İstanbul', memberNo:'TG-2026-0001', phone:'+90 532 101 00 01', sector:'Ev Tekstili' },
-  { id:2,  name:'Fatih Özdemir',    role:'Yönetim Kurulu',  firm:'ORMEN TEKSTİL',          city:'Ankara',   memberNo:'TG-2026-0002', phone:'+90 542 312 04 60', sector:'Dokuma' },
-  { id:3,  name:'Elif Yıldız',      role:'Üye',             firm:'YILDIZ HOME',            city:'Bursa',    memberNo:'TG-2026-0003', phone:'+90 505 234 56 78', sector:'Tasarım' },
-  { id:4,  name:'Kerem Bayraktar',  role:'Üye',             firm:'BAYRAKTAR TEKSTİL',      city:'İstanbul', memberNo:'TG-2026-0004', phone:'+90 533 456 78 90', sector:'İhracat' },
-  { id:5,  name:'Ayşe Kaya',        role:'Öğrenci Üye',     firm:'İTÜ Tekstil Müh.',       city:'İstanbul', memberNo:'TG-2026-0005', phone:'+90 544 567 89 01', sector:'Öğrenci' },
-  { id:6,  name:'Mert Arslan',      role:'Yönetim Kurulu',  firm:'ARSLAN TEKSTİL',         city:'Denizli',  memberNo:'TG-2026-0006', phone:'+90 532 678 90 12', sector:'Dokuma' },
-  { id:7,  name:'Selin Çelik',      role:'Üye',             firm:'ÇELİK HOME',             city:'İstanbul', memberNo:'TG-2026-0007', phone:'+90 506 789 01 23', sector:'Ev Tekstili' },
-  { id:8,  name:'Burak Öztürk',     role:'Üye',             firm:'ÖZTÜRK BOYA',            city:'Bursa',    memberNo:'TG-2026-0008', phone:'+90 535 890 12 34', sector:'Boya & Terbiye' },
-  { id:9,  name:'Zeynep Şahin',     role:'Öğrenci Üye',     firm:'Uludağ Üniversitesi',    city:'Bursa',    memberNo:'TG-2026-0009', phone:'+90 545 901 23 45', sector:'Öğrenci' },
-  { id:10, name:'Emre Yılmaz',      role:'Üye',             firm:'YILMAZ DOKUMA',          city:'K.Maraş',  memberNo:'TG-2026-0010', phone:'+90 532 012 34 56', sector:'Dokuma' },
-  { id:11, name:'Hande Kılıç',      role:'Üye',             firm:'KILIÇ TEKSTİL',          city:'İstanbul', memberNo:'TG-2026-0011', phone:'+90 507 123 45 67', sector:'İhracat' },
-  { id:12, name:'Oğuz Aydın',       role:'Yönetim Kurulu',  firm:'AYDIN GROUP',            city:'İzmir',    memberNo:'TG-2026-0012', phone:'+90 533 234 56 78', sector:'Ev Tekstili' },
-  { id:13, name:'Ceren Doğan',      role:'Üye',             firm:'DOĞAN TEKSTİL',          city:'Gaziantep',memberNo:'TG-2026-0013', phone:'+90 543 345 67 89', sector:'Dokuma' },
-  { id:14, name:'Alp Çakır',        role:'Öğrenci Üye',     firm:'İTÜ Tekstil Müh.',       city:'İstanbul', memberNo:'TG-2026-0014', phone:'+90 535 456 78 90', sector:'Öğrenci' },
-  { id:15, name:'Nisan Güler',      role:'Üye',             firm:'GÜLER HOME DESIGN',      city:'İstanbul', memberNo:'TG-2026-0015', phone:'+90 506 567 89 01', sector:'Tasarım' },
-  { id:16, name:'Tarık Erdoğan',    role:'Yönetim Kurulu',  firm:'ERDOĞAN TEKSTİL',        city:'Denizli',  memberNo:'TG-2026-0016', phone:'+90 542 678 90 12', sector:'İhracat' },
-  { id:17, name:'Büşra Kara',       role:'Üye',             firm:'KARA BOYA',              city:'Bursa',    memberNo:'TG-2026-0017', phone:'+90 532 789 01 23', sector:'Boya & Terbiye' },
-  { id:18, name:'Ege Demir',        role:'Öğrenci Üye',     firm:'Pamukkale Üniversitesi', city:'Denizli',  memberNo:'TG-2026-0018', phone:'+90 507 890 12 34', sector:'Öğrenci' },
-  { id:19, name:'Görkem Yıldırım',  role:'Üye',             firm:'YILDIRIM EV TEKSTİLİ',   city:'İstanbul', memberNo:'TG-2026-0019', phone:'+90 534 901 23 45', sector:'Ev Tekstili' },
-];
+type Member = {
+  id: string;
+  name: string;
+  role: string;
+  firm: string;
+  city: string;
+  memberNo: string;
+  phone: string;
+  sector: string;
+};
 
-type Member = typeof MEMBERS[0];
 type FilterKey = 'TÜMÜ' | 'YÖNETİM' | 'ÜYE' | 'ÖĞRENCİ';
+
+const ROLE_LABELS: Record<MemberRole, string> = {
+  pending:   'Onay Bekliyor',
+  member:    'Üye',
+  student:   'Öğrenci Üye',
+  board:     'Yönetim Kurulu',
+  president: 'Başkan',
+  admin:     'Admin',
+};
+
+function profileToMember(p: Profile): Member {
+  return {
+    id:       p.id,
+    name:     p.full_name,
+    role:     ROLE_LABELS[p.role] ?? p.role,
+    firm:     p.company ?? '—',
+    city:     p.city ?? '—',
+    memberNo: p.member_code ?? '—',
+    phone:    p.phone ?? '—',
+    sector:   p.sector ?? '—',
+  };
+}
+
+const FALLBACK_MEMBERS: Member[] = [
+  { id:'1',  name:'Resul Öden',       role:'Başkan',          firm:'ROSSA HOME',             city:'İstanbul', memberNo:'GT-2026-00001', phone:'+90 532 101 00 01', sector:'Ev Tekstili' },
+  { id:'2',  name:'Fatih Özdemir',    role:'Yönetim Kurulu',  firm:'ORMEN TEKSTİL',          city:'Ankara',   memberNo:'GT-2026-00002', phone:'+90 542 312 04 60', sector:'Dokuma' },
+  { id:'3',  name:'Elif Yıldız',      role:'Üye',             firm:'YILDIZ HOME',            city:'Bursa',    memberNo:'GT-2026-00003', phone:'+90 505 234 56 78', sector:'Tasarım' },
+  { id:'4',  name:'Kerem Bayraktar',  role:'Üye',             firm:'BAYRAKTAR TEKSTİL',      city:'İstanbul', memberNo:'GT-2026-00004', phone:'+90 533 456 78 90', sector:'İhracat' },
+  { id:'5',  name:'Ayşe Kaya',        role:'Öğrenci Üye',     firm:'İTÜ Tekstil Müh.',       city:'İstanbul', memberNo:'GT-2026-00005', phone:'+90 544 567 89 01', sector:'Öğrenci' },
+  { id:'6',  name:'Mert Arslan',      role:'Yönetim Kurulu',  firm:'ARSLAN TEKSTİL',         city:'Denizli',  memberNo:'GT-2026-00006', phone:'+90 532 678 90 12', sector:'Dokuma' },
+  { id:'7',  name:'Selin Çelik',      role:'Üye',             firm:'ÇELİK HOME',             city:'İstanbul', memberNo:'GT-2026-00007', phone:'+90 506 789 01 23', sector:'Ev Tekstili' },
+  { id:'8',  name:'Burak Öztürk',     role:'Üye',             firm:'ÖZTÜRK BOYA',            city:'Bursa',    memberNo:'GT-2026-00008', phone:'+90 535 890 12 34', sector:'Boya & Terbiye' },
+  { id:'9',  name:'Zeynep Şahin',     role:'Öğrenci Üye',     firm:'Uludağ Üniversitesi',    city:'Bursa',    memberNo:'GT-2026-00009', phone:'+90 545 901 23 45', sector:'Öğrenci' },
+  { id:'10', name:'Emre Yılmaz',      role:'Üye',             firm:'YILMAZ DOKUMA',          city:'K.Maraş',  memberNo:'GT-2026-00010', phone:'+90 532 012 34 56', sector:'Dokuma' },
+  { id:'11', name:'Hande Kılıç',      role:'Üye',             firm:'KILIÇ TEKSTİL',          city:'İstanbul', memberNo:'GT-2026-00011', phone:'+90 507 123 45 67', sector:'İhracat' },
+  { id:'12', name:'Oğuz Aydın',       role:'Yönetim Kurulu',  firm:'AYDIN GROUP',            city:'İzmir',    memberNo:'GT-2026-00012', phone:'+90 533 234 56 78', sector:'Ev Tekstili' },
+  { id:'13', name:'Ceren Doğan',      role:'Üye',             firm:'DOĞAN TEKSTİL',          city:'Gaziantep',memberNo:'GT-2026-00013', phone:'+90 543 345 67 89', sector:'Dokuma' },
+  { id:'14', name:'Alp Çakır',        role:'Öğrenci Üye',     firm:'İTÜ Tekstil Müh.',       city:'İstanbul', memberNo:'GT-2026-00014', phone:'+90 535 456 78 90', sector:'Öğrenci' },
+  { id:'15', name:'Nisan Güler',      role:'Üye',             firm:'GÜLER HOME DESIGN',      city:'İstanbul', memberNo:'GT-2026-00015', phone:'+90 506 567 89 01', sector:'Tasarım' },
+  { id:'16', name:'Tarık Erdoğan',    role:'Yönetim Kurulu',  firm:'ERDOĞAN TEKSTİL',        city:'Denizli',  memberNo:'GT-2026-00016', phone:'+90 542 678 90 12', sector:'İhracat' },
+  { id:'17', name:'Büşra Kara',       role:'Üye',             firm:'KARA BOYA',              city:'Bursa',    memberNo:'GT-2026-00017', phone:'+90 532 789 01 23', sector:'Boya & Terbiye' },
+  { id:'18', name:'Ege Demir',        role:'Öğrenci Üye',     firm:'Pamukkale Üniversitesi', city:'Denizli',  memberNo:'GT-2026-00018', phone:'+90 507 890 12 34', sector:'Öğrenci' },
+  { id:'19', name:'Görkem Yıldırım',  role:'Üye',             firm:'YILDIRIM EV TEKSTİLİ',  city:'İstanbul', memberNo:'GT-2026-00019', phone:'+90 534 901 23 45', sector:'Ev Tekstili' },
+];
 
 function initials(name: string) {
   return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
@@ -41,8 +75,13 @@ export default function DirectoryScreen() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Member | null>(null);
 
+  const { members: supabaseMembers, loading } = useMembers();
+  const allMembers: Member[] = supabaseMembers.length > 0
+    ? supabaseMembers.map(profileToMember)
+    : FALLBACK_MEMBERS;
+
   const filtered = useMemo(() => {
-    let list = MEMBERS;
+    let list = allMembers;
     if (filter === 'YÖNETİM') list = list.filter(m => m.role === 'Başkan' || m.role === 'Yönetim Kurulu');
     else if (filter === 'ÜYE')      list = list.filter(m => m.role === 'Üye');
     else if (filter === 'ÖĞRENCİ') list = list.filter(m => m.role === 'Öğrenci Üye');
@@ -51,7 +90,8 @@ export default function DirectoryScreen() {
       list = list.filter(m => m.name.toLowerCase().includes(q) || m.firm.toLowerCase().includes(q));
     }
     return list;
-  }, [filter, search]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, search, allMembers.length]);
 
   const FILTERS: FilterKey[] = ['TÜMÜ', 'YÖNETİM', 'ÜYE', 'ÖĞRENCİ'];
 
@@ -81,7 +121,10 @@ export default function DirectoryScreen() {
         ))}
       </View>
 
-      <Text style={styles.count}>{filtered.length} ÜYE</Text>
+      <View style={styles.countRow}>
+        <Text style={styles.count}>{filtered.length} ÜYE</Text>
+        {loading && <ActivityIndicator size="small" color={Colors.gold} style={{ marginLeft: 8 }} />}
+      </View>
 
       <FlatList
         data={filtered}
@@ -156,7 +199,8 @@ const styles = StyleSheet.create({
   pillActive:     { backgroundColor: Colors.gold, borderColor: Colors.gold },
   pillText:       { fontFamily: Fonts.jakarta, fontSize: 7, fontWeight: '600', letterSpacing: 1, color: Colors.textMuted },
   pillTextActive: { color: Colors.navy },
-  count:          { fontFamily: Fonts.mono, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 1.5, paddingHorizontal: 24, paddingVertical: 10 },
+  countRow:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 10 },
+  count:          { fontFamily: Fonts.mono, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 1.5 },
   separator:      { height: 0.5, backgroundColor: Colors.goldLine },
   row:            { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 16, gap: 14 },
   avatar:         { width: 48, height: 48, borderRadius: 24, borderWidth: 1.5, borderColor: Colors.gold, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.navyMid },

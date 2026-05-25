@@ -7,11 +7,13 @@ import {
   ImageBackground,
   StyleSheet,
   Animated,
-  Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Fonts } from '@/theme';
 import { useAppContext } from '@/context/AppContext';
+import { useAuthContext } from '@/context/AuthContext';
+import { useEvents } from '@/hooks/useEvents';
+import type { Event as SupabaseEvent } from '@/types/database';
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
@@ -101,6 +103,24 @@ const EVENTS: EventItem[] = [
     desc: 'Genç TETSİAD yönetim kurulu aylık toplantısı.',
   },
 ];
+
+const MONTHS_TR = ['OCAK', 'ŞUBAT', 'MART', 'NİSAN', 'MAYIS', 'HAZİRAN', 'TEMMUZ', 'AĞUSTOS', 'EYLÜL', 'EKİM', 'KASIM', 'ARALIK'];
+
+function supabaseToEventItem(e: SupabaseEvent): EventItem {
+  const date = new Date(e.starts_at);
+  return {
+    id:       parseInt(e.id, 10) || 0,
+    day:      date.getDate(),
+    month:    MONTHS_TR[date.getMonth()] ?? '',
+    tag:      e.city ?? 'ETKİNLİK',
+    title:    e.title,
+    place:    [e.location, e.city].filter(Boolean).join(' · ') || '—',
+    count:    e.attendee_count ?? 0,
+    src:      e.image_url ?? `https://picsum.photos/seed/${e.id}/800/400`,
+    speakers: [],
+    desc:     e.description ?? '',
+  };
+}
 
 const PRESET_REGISTERED = new Set([2, 5]);
 
@@ -370,15 +390,42 @@ function EventDetail({
 
 export default function CalendarScreen() {
   const { registeredEvents, toggleEvent } = useAppContext();
+  const { session } = useAuthContext();
+  const { events: supabaseEvents, toggleAttendance } = useEvents(session?.user.id);
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
+
+  const displayEvents: EventItem[] = supabaseEvents.length > 0
+    ? supabaseEvents.map(supabaseToEventItem)
+    : EVENTS;
+
+  const isRegistered = (event: EventItem): boolean => {
+    if (supabaseEvents.length > 0) {
+      const se = supabaseEvents.find((e) => supabaseToEventItem(e).id === event.id);
+      return se?.is_attending ?? false;
+    }
+    return registeredEvents.has(event.id);
+  };
+
+  const handleToggle = (event: EventItem) => {
+    if (supabaseEvents.length > 0) {
+      const se = supabaseEvents.find((e) => supabaseToEventItem(e).id === event.id);
+      if (se) toggleAttendance(se.id);
+    } else {
+      toggleEvent(event.id);
+    }
+  };
+
+  const attendanceCount = supabaseEvents.length > 0
+    ? supabaseEvents.filter((e) => e.is_attending).length
+    : registeredEvents.size;
 
   if (selectedEvent) {
     return (
       <SafeAreaView style={styles.container} edges={[]}>
         <EventDetail
           event={selectedEvent}
-          registered={registeredEvents.has(selectedEvent.id)}
-          onToggle={() => toggleEvent(selectedEvent.id)}
+          registered={isRegistered(selectedEvent)}
+          onToggle={() => handleToggle(selectedEvent)}
           onBack={() => setSelectedEvent(null)}
         />
       </SafeAreaView>
@@ -396,9 +443,9 @@ export default function CalendarScreen() {
         <View style={styles.statsRow}>
           <Text style={styles.statsYear}>2026</Text>
           <Text style={styles.statsInfo}>
-            <Text style={styles.goldNum}>{EVENTS.length}</Text>
+            <Text style={styles.goldNum}>{displayEvents.length}</Text>
             {' ETKİNLİK · '}
-            <Text style={styles.goldNum}>{registeredEvents.size}</Text>
+            <Text style={styles.goldNum}>{attendanceCount}</Text>
             {' KATILIM'}
           </Text>
         </View>
@@ -407,12 +454,12 @@ export default function CalendarScreen() {
         <View style={styles.goldDivider} />
 
         {/* Event cards */}
-        {EVENTS.map((event) => (
+        {displayEvents.map((event) => (
           <EventCard
             key={event.id}
             event={event}
-            registered={registeredEvents.has(event.id)}
-            onToggle={() => toggleEvent(event.id)}
+            registered={isRegistered(event)}
+            onToggle={() => handleToggle(event)}
             onPress={() => setSelectedEvent(event)}
           />
         ))}
@@ -421,7 +468,7 @@ export default function CalendarScreen() {
         <View style={styles.listFooter}>
           <Text style={styles.footerText}>
             {'12 AYDA '}
-            <Text style={{ color: Colors.gold }}>10 ETKİNLİK</Text>
+            <Text style={{ color: Colors.gold }}>{displayEvents.length} ETKİNLİK</Text>
             {' · GENÇ TETSİAD 2026'}
           </Text>
         </View>
