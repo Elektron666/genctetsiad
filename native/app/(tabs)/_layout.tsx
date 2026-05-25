@@ -8,9 +8,16 @@ import {
   AcademyIcon,
   CardIcon,
   SustainabilityIcon,
+  AdminIcon,
 } from '@/components/TabIcons';
+import { useAuthContext } from '@/context/AuthContext';
+
+const ADMIN_ROLES = new Set(['admin', 'board', 'president']);
 
 export default function TabLayout() {
+  const { profile } = useAuthContext();
+  const isAdmin = ADMIN_ROLES.has(profile?.role ?? '');
+
   return (
     <Tabs
       screenOptions={{
@@ -73,6 +80,14 @@ export default function TabLayout() {
         options={{
           title: 'YEŞİL',
           tabBarIcon: ({ color }) => <SustainabilityIcon color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="admin"
+        options={{
+          href: isAdmin ? undefined : null,
+          title: 'YÖNETİM',
+          tabBarIcon: ({ color }) => <AdminIcon color={color} />,
         }}
       />
     </Tabs>
