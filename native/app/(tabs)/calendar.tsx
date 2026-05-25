@@ -21,6 +21,7 @@ type Speaker = { initials: string; name: string };
 
 type EventItem = {
   id: number;
+  uuid?: string;
   day: number;
   month: string;
   tag: string;
@@ -109,7 +110,8 @@ const MONTHS_TR = ['OCAK', 'ŞUBAT', 'MART', 'NİSAN', 'MAYIS', 'HAZİRAN', 'TEM
 function supabaseToEventItem(e: SupabaseEvent): EventItem {
   const date = new Date(e.starts_at);
   return {
-    id:       parseInt(e.id, 10) || 0,
+    id:       e.id.split('-').reduce((acc, s) => acc ^ parseInt(s, 16), 0) >>> 0,
+    uuid:     e.id,
     day:      date.getDate(),
     month:    MONTHS_TR[date.getMonth()] ?? '',
     tag:      e.city ?? 'ETKİNLİK',
@@ -400,7 +402,9 @@ export default function CalendarScreen() {
 
   const isRegistered = (event: EventItem): boolean => {
     if (supabaseEvents.length > 0) {
-      const se = supabaseEvents.find((e) => supabaseToEventItem(e).id === event.id);
+      const se = event.uuid
+        ? supabaseEvents.find((e) => e.id === event.uuid)
+        : supabaseEvents.find((e) => supabaseToEventItem(e).id === event.id);
       return se?.is_attending ?? false;
     }
     return registeredEvents.has(event.id);
@@ -408,8 +412,8 @@ export default function CalendarScreen() {
 
   const handleToggle = (event: EventItem) => {
     if (supabaseEvents.length > 0) {
-      const se = supabaseEvents.find((e) => supabaseToEventItem(e).id === event.id);
-      if (se) toggleAttendance(se.id);
+      const uuid = event.uuid ?? supabaseEvents.find((e) => supabaseToEventItem(e).id === event.id)?.id;
+      if (uuid) toggleAttendance(uuid);
     } else {
       toggleEvent(event.id);
     }

@@ -1,35 +1,15 @@
-import { Stack, Redirect } from 'expo-router';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { View, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider } from '@/context/AppContext';
-import { AuthProvider, useAuthContext } from '@/context/AuthContext';
-import { Colors } from '@/theme';
+import { AuthProvider } from '@/context/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
 
-function AuthGate() {
-  const { status } = useAuthContext();
-
-  if (status === 'loading') {
-    return (
-      <View style={{ flex: 1, backgroundColor: Colors.navy, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={Colors.gold} />
-      </View>
-    );
-  }
-
-  if (status === 'unauthenticated') return <Redirect href="/(auth)/login" />;
-  if (status === 'pending') return <Redirect href="/(auth)/pending" />;
-  return null; // authenticated → normal navigation
-}
-
 function RootNavigator() {
-  const { status } = useAuthContext();
-
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
