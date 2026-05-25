@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Fonts, FontSize } from '@/theme';
 import { useAuthContext } from '@/context/AuthContext';
+import { SUPABASE_CONFIGURED } from '@/lib/supabase';
 
 type Step = 'phone' | 'otp';
 
@@ -222,6 +223,13 @@ export default function LoginScreen() {
             <Text style={styles.signatureText}>KONSEPT · <Text style={styles.signatureGold}>FATİH ÖZDEMİR</Text></Text>
             <Text style={styles.signatureText}>ORMEN TEKSTİL · ANKARA</Text>
           </View>
+
+          {/* Connection status (debug) — env var yoksa kırmızı, varsa görünmez */}
+          {!SUPABASE_CONFIGURED && (
+            <View style={styles.connDebug}>
+              <Text style={styles.connDebugText}>⚠ DB BAĞLANTISI YOK · ENV VARS EKSİK</Text>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -275,4 +283,6 @@ const styles = StyleSheet.create({
   signature:        { borderTopWidth: 0.5, borderTopColor: Colors.goldLine, paddingTop: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   signatureText:    { fontFamily: Fonts.mono, fontSize: 7, color: Colors.textMuted, letterSpacing: 1.5 },
   signatureGold:    { color: Colors.gold },
+  connDebug:        { marginTop: 12, padding: 8, borderWidth: 0.5, borderColor: '#e06060', alignItems: 'center' },
+  connDebugText:    { fontFamily: Fonts.mono, fontSize: 8, color: '#e06060', letterSpacing: 1 },
 });
