@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, KeyboardAvoidingView, Platform, Animated, Share,
+  ScrollView, KeyboardAvoidingView, Platform, Animated, Share, Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Fonts, FontSize } from '@/theme';
+import { useAuthContext } from '@/context/AuthContext';
 
 const TOTAL_STEPS = 5;
 
@@ -42,9 +43,12 @@ const pb = StyleSheet.create({
 });
 
 export default function RegisterScreen() {
+  const { sendOtp, verifyOtp, updateProfile } = useAuthContext();
+
   const [step, setStep] = useState(1);
   const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState(['', '', '', '']);
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otpLoading, setOtpLoading] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -56,14 +60,36 @@ export default function RegisterScreen() {
   const [kvkkChecked, setKvkkChecked] = useState(false);
   const [memberCode, setMemberCode] = useState('');
   const [codeAnim] = useState(new Animated.Value(0));
-  const otpRefs = [useRef<TextInput>(null), useRef<TextInput>(null), useRef<TextInput>(null), useRef<TextInput>(null)];
+  const otpRefs = Array.from({ length: 6 }, () => useRef<TextInput>(null));
 
-  const handleOtp = (val: string, i: number) => {
+  const handleOtpSend = async () => {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 10) return;
+    setOtpLoading(true);
+    const error = await sendOtp(digits);
+    setOtpLoading(false);
+    if (error) {
+      Alert.alert('Hata', error.message ?? 'SMS gönderilemedi.');
+    }
+  };
+
+  const handleOtp = async (val: string, i: number) => {
     const next = [...otp];
     next[i] = val.slice(-1);
     setOtp(next);
-    if (val && i < 3) otpRefs[i + 1].current?.focus();
-    if (next.every(d => d)) setTimeout(() => setStep(2), 300);
+    if (val && i < 5) otpRefs[i + 1].current?.focus();
+    if (next.every(d => d)) {
+      setOtpLoading(true);
+      const error = await verifyOtp(phone, next.join(''));
+      setOtpLoading(false);
+      if (error) {
+        Alert.alert('Hata', 'Kod hatalı. Tekrar deneyin.');
+        setOtp(['', '', '', '', '', '']);
+        otpRefs[0].current?.focus();
+        return;
+      }
+      setTimeout(() => setStep(2), 300);
+    }
   };
 
   const generateCode = () => {
@@ -71,10 +97,22 @@ export default function RegisterScreen() {
     return `GT-2026-${num}`;
   };
 
-  const next = () => {
+  const next = async () => {
     if (step === TOTAL_STEPS) {
-      const code = generateCode();
-      setMemberCode(code);
+      const { error } = await updateProfile({
+        full_name: `${firstName} ${lastName}`.trim(),
+        email,
+        company: firm,
+        city,
+        sector,
+        position,
+        role: 'pending',
+      });
+      if (error) {
+        Alert.alert('Hata', 'Başvuru kaydedilemedi. Tekrar deneyin.');
+        return;
+      }
+      setMemberCode(generateCode()); // local display only; real code assigned by DB trigger
       setStep(6);
       Animated.timing(codeAnim, { toValue: 1, duration: 1200, useNativeDriver: true }).start();
     } else {
@@ -133,6 +171,16 @@ export default function RegisterScreen() {
 
               <View style={{ height: 32 }} />
               <Text style={s.fieldLabel}>DOĞRULAMA KODU</Text>
+              <TouchableOpacity
+                style={[s.ctaButton, { marginBottom: 16 }, phone.replace(/\D/g,'').length < 10 && s.ctaDisabled]}
+                onPress={handleOtpSend}
+                activeOpacity={0.8}
+                disabled={otpLoading}
+              >
+                <Text style={s.ctaText}>{otpLoading ? 'GÖNDERİLİYOR...' : 'KOD GÖNDER'}</Text>
+              </TouchableOpacity>
+
+              <Text style={s.fieldLabel}>DOĞRULAMA KODU</Text>
               <View style={s.otpRow}>
                 {otp.map((d, i) => (
                   <TextInput
@@ -144,10 +192,11 @@ export default function RegisterScreen() {
                     keyboardType="number-pad"
                     maxLength={1}
                     textAlign="center"
+                    editable={!otpLoading}
                   />
                 ))}
               </View>
-              <Text style={s.helper}>Demo modda herhangi 4 rakam giriniz.</Text>
+              <Text style={s.helper}>Telefon numaranıza 6 haneli SMS kodu gönderilecektir.</Text>
             </View>
           )}
 
