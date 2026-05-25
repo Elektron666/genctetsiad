@@ -11,8 +11,38 @@ import { useAuthContext } from '@/context/AuthContext';
 
 const TOTAL_STEPS = 5;
 
-const CITIES = ['Ankara', 'İstanbul', 'İzmir', 'Bursa', 'Gaziantep', 'Konya', 'Adana', 'Kayseri', 'Mersin', 'Denizli'];
-const SECTORS = ['Havlu & Bornoz', 'Yatak & Nevresim', 'Perde & Döşeme', 'Halı & Kilim', 'Örgü & Braid', 'Teknik Tekstil', 'Diğer'];
+const CITIES = ['Ankara', 'İstanbul', 'İzmir', 'Bursa', 'Gaziantep', 'Konya', 'Adana', 'Kayseri', 'Mersin', 'Denizli', 'Tekirdağ', 'Antalya', 'Eskişehir', 'Samsun', 'Trabzon', 'Diyarbakır'];
+
+const SECTORS = [
+  // Üretim
+  'Kumaş Üreticisi',
+  'Döşemelik Kumaş Üreticisi',
+  'Perdelik Kumaş Üreticisi',
+  'Havlu & Bornoz Üreticisi',
+  'Yatak & Nevresim Üreticisi',
+  'Perde & Tül Üreticisi',
+  'Halı & Kilim Üreticisi',
+  'Battaniye & Pike Üreticisi',
+  'Banyo Tekstili',
+  'Mutfak & Sofra Tekstili',
+  'Bebek & Çocuk Tekstili',
+  'Masa Örtüsü & Runner',
+  // Ticaret
+  'Kumaş Mağazası',
+  'Ev Tekstili Mağazası',
+  'Toptan & Dağıtım',
+  'İhracat & Dış Ticaret',
+  'E-ticaret & Online Satış',
+  // Hizmet & Yan sanayi
+  'Tasarım & Marka',
+  'Dijital & Tekstil Baskı',
+  'Boyama & Apre',
+  'İplik & Hammadde',
+  'Aksesuar (Fermuar, Düğme, Etiket)',
+  'Teknik & Endüstriyel Tekstil',
+  'Lojistik & Tedarik Zinciri',
+  'Diğer',
+];
 
 function ProgressBar({ step }: { step: number }) {
   const anim = useRef(new Animated.Value(0)).current;
