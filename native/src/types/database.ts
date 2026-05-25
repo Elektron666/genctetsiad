@@ -17,8 +17,23 @@ export interface Profile {
   mentor_bio: string | null;
   member_code: string | null;
   avatar_url: string | null;
+  expo_push_token: string | null;
+  push_enabled: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface Broadcast {
+  id: string;
+  title: string;
+  body: string;
+  type: NotifType;
+  urgent: boolean;
+  target_roles: MemberRole[] | null;
+  sent_count: number;
+  failed_count: number;
+  created_by: string | null;
+  created_at: string;
 }
 
 export interface Event {

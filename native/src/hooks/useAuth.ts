@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { registerForPushNotificationsAsync } from '@/lib/notifications';
 import type { Session } from '@supabase/supabase-js';
 import type { Profile } from '@/types/database';
 
@@ -7,6 +8,16 @@ import type { Profile } from '@/types/database';
 type SupabaseRow = any;
 
 export type AuthStatus = 'loading' | 'unauthenticated' | 'pending' | 'authenticated';
+
+async function syncPushToken(userId: string) {
+  const token = await registerForPushNotificationsAsync();
+  if (!token) return;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase as any)
+    .from('profiles')
+    .update({ expo_push_token: token })
+    .eq('id', userId);
+}
 
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
@@ -23,6 +34,8 @@ export function useAuth() {
     if (row) {
       setProfile(row as Profile);
       setStatus(row.role === 'pending' ? 'pending' : 'authenticated');
+      // Push token'ı arka planda kaydet (UI'yi bloklamasın)
+      syncPushToken(userId).catch(() => {});
     } else {
       setStatus('unauthenticated');
     }

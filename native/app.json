@@ -41,6 +41,14 @@
             "minSdkVersion": 24
           }
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#D9C896",
+          "defaultChannel": "default",
+          "androidCollapsedTitle": "Genç TETSİAD"
+        }
       ]
     ],
     "experiments": {
