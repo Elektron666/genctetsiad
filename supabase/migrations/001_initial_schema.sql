@@ -112,8 +112,9 @@ CREATE TABLE event_attendees (
   PRIMARY KEY (event_id, user_id)
 );
 
--- Katılımcı sayısını hızlı çekmek için view
-CREATE VIEW event_attendee_counts AS
+-- Katılımcı sayısını hızlı çekmek için view (RLS sorgulayan kullanıcının yetkisiyle)
+CREATE VIEW event_attendee_counts
+WITH (security_invoker = true) AS
   SELECT event_id, COUNT(*) AS attendee_count
   FROM event_attendees
   GROUP BY event_id;
