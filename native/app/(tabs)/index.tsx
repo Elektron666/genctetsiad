@@ -17,6 +17,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Fonts, FontSize } from '@/theme';
 import { useAppContext } from '@/context/AppContext';
 import { useAnnouncements } from '@/hooks/useAnnouncements';
+import { useAuthContext } from '@/context/AuthContext';
+import { useEvents } from '@/hooks/useEvents';
 
 // ── Data ───────────────────────────────────────────────────────────────────
 
@@ -32,6 +34,25 @@ const PRESIDENT = {
     'Bu platform, yalnızca bir uygulama değil; sektörün geleceğine yapılan somut bir yatırım.',
   ],
 };
+
+import type { Event as SupabaseEvent } from '@/types/database';
+
+const MONTHS_TR = ['OCAK','ŞUBAT','MART','NİSAN','MAYIS','HAZİRAN','TEMMUZ','AĞUSTOS','EYLÜL','EKİM','KASIM','ARALIK'];
+
+type HomeEvent = { id: number | string; day: number; month: string; tag: string; title: string; src: string | ReturnType<typeof require>; isAttending?: boolean };
+
+function supabaseToHomeEvent(e: SupabaseEvent, i: number): HomeEvent {
+  const d = new Date(e.starts_at);
+  return {
+    id:          i,
+    day:         d.getDate(),
+    month:       MONTHS_TR[d.getMonth()] ?? '',
+    tag:         e.city ?? 'ETKİNLİK',
+    title:       e.title,
+    src:         e.image_url ?? `https://picsum.photos/seed/${e.id}/400/300`,
+    isAttending: e.is_attending ?? false,
+  };
+}
 
 const IMG_FABRIKA   = require('../../assets/images/fabrika-ziyareti-grup.jpg');
 const IMG_HOMETEX   = require('../../assets/images/hometex-2026-acilis.jpg');
@@ -310,13 +331,18 @@ const manifStyles = StyleSheet.create({
 
 export default function HomeScreen() {
   const { registeredEvents, unreadCount } = useAppContext();
+  const { session } = useAuthContext();
   const { announcements } = useAnnouncements(1);
+  const { events: supabaseEvents } = useEvents(session?.user?.id);
   const [notifOpen, setNotifOpen] = useState(false);
   const [manifestoOpen, setManifestoOpen] = useState(false);
   const dbBanner = announcements[0];
   const banner = dbBanner
     ? { label: dbBanner.type === 'event' ? 'ETKİNLİK' : 'DUYURU', text: `${dbBanner.title} — ${dbBanner.body}` }
     : FALLBACK_ANNOUNCEMENT;
+  const displayEvents: HomeEvent[] = supabaseEvents.length > 0
+    ? supabaseEvents.slice(0, 4).map(supabaseToHomeEvent)
+    : (EVENTS as HomeEvent[]);
 
   const handleQuickCard = (target: string) => {
     if (target === 'directory') {
@@ -526,11 +552,11 @@ export default function HomeScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.eventsScroll}
           >
-            {EVENTS.slice(0, 4).map((ev) => {
-              const joined = registeredEvents.has(ev.id);
+            {displayEvents.map((ev, i) => {
+              const joined = ev.isAttending ?? registeredEvents.has(ev.id as number);
               return (
                 <TouchableOpacity
-                  key={ev.id}
+                  key={i}
                   style={styles.eventCard}
                   activeOpacity={0.85}
                   onPress={() => router.push('/(tabs)/calendar')}

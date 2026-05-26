@@ -1,4 +1,4 @@
-import { Tabs } from 'expo-router';
+import { Tabs, Redirect } from 'expo-router';
 import { Colors, Fonts } from '@/theme';
 import { Platform } from 'react-native';
 import {
@@ -15,8 +15,12 @@ import { useAuthContext } from '@/context/AuthContext';
 const ADMIN_ROLES = new Set(['admin', 'board', 'president']);
 
 export default function TabLayout() {
-  const { profile } = useAuthContext();
+  const { profile, status } = useAuthContext();
   const isAdmin = ADMIN_ROLES.has(profile?.role ?? '');
+
+  if (status === 'loading') return null;
+  if (status === 'unauthenticated') return <Redirect href="/(auth)/login" />;
+  if (status === 'pending') return <Redirect href="/(auth)/pending" />;
 
   return (
     <Tabs
