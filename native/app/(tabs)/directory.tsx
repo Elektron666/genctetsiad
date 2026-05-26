@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  Modal, StyleSheet, Linking, FlatList, ActivityIndicator,
+  Modal, StyleSheet, Linking, FlatList, ActivityIndicator, ScrollView,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Fonts, FontSize } from '@/theme';
@@ -20,6 +20,7 @@ type Member = {
 };
 
 type FilterKey = 'TÜMÜ' | 'YÖNETİM' | 'ÜYE' | 'ÖĞRENCİ';
+type CityFilter = string;
 
 const ROLE_LABELS: Record<MemberRole, string> = {
   pending:   'Onay Bekliyor',
@@ -72,6 +73,7 @@ function initials(name: string) {
 export default function DirectoryScreen() {
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<FilterKey>('TÜMÜ');
+  const [cityFilter, setCityFilter] = useState<CityFilter>('');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Member | null>(null);
 
@@ -80,18 +82,28 @@ export default function DirectoryScreen() {
     ? supabaseMembers.map(profileToMember)
     : FALLBACK_MEMBERS;
 
+  // All unique cities in current member list
+  const cities = useMemo(() => {
+    const set = new Set(allMembers.map(m => m.city).filter(c => c && c !== '—'));
+    return Array.from(set).sort();
+  }, [allMembers]);
+
   const filtered = useMemo(() => {
     let list = allMembers;
     if (filter === 'YÖNETİM') list = list.filter(m => m.role === 'Başkan' || m.role === 'Yönetim Kurulu');
     else if (filter === 'ÜYE')      list = list.filter(m => m.role === 'Üye');
     else if (filter === 'ÖĞRENCİ') list = list.filter(m => m.role === 'Öğrenci Üye');
+    if (cityFilter) list = list.filter(m => m.city === cityFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
-      list = list.filter(m => m.name.toLowerCase().includes(q) || m.firm.toLowerCase().includes(q));
+      list = list.filter(m =>
+        m.name.toLowerCase().includes(q) ||
+        m.firm.toLowerCase().includes(q) ||
+        m.sector.toLowerCase().includes(q)
+      );
     }
     return list;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, search, allMembers.length]);
+  }, [filter, cityFilter, search, allMembers]);
 
   const FILTERS: FilterKey[] = ['TÜMÜ', 'YÖNETİM', 'ÜYE', 'ÖĞRENCİ'];
 
@@ -120,6 +132,24 @@ export default function DirectoryScreen() {
           </TouchableOpacity>
         ))}
       </View>
+
+      {cities.length > 0 && (
+        <View style={{ backgroundColor: Colors.navyDeep, paddingBottom: 10 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, gap: 6 }}>
+            <TouchableOpacity
+              style={[styles.pill, !cityFilter && styles.pillActive]}
+              onPress={() => setCityFilter('')}
+            >
+              <Text style={[styles.pillText, !cityFilter && styles.pillTextActive]}>TÜM ŞEHİRLER</Text>
+            </TouchableOpacity>
+            {cities.map(c => (
+              <TouchableOpacity key={c} style={[styles.pill, cityFilter === c && styles.pillActive]} onPress={() => setCityFilter(c === cityFilter ? '' : c)}>
+                <Text style={[styles.pillText, cityFilter === c && styles.pillTextActive]}>{c.toUpperCase()}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       <View style={styles.countRow}>
         <Text style={styles.count}>{filtered.length} ÜYE</Text>

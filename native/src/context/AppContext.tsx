@@ -1,8 +1,15 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useAuthContext } from '@/context/AuthContext';
+import type { Notification as DBNotif } from '@/types/database';
 
-type Notification = {
-  id: number;
-  category: 'DUYURU' | 'ETKİNLİK' | 'SİSTEM';
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export type NotifCategory = 'DUYURU' | 'ETKİNLİK' | 'SİSTEM' | 'MENTORLUK';
+
+export type AppNotification = {
+  id: string;
+  category: NotifCategory;
   title: string;
   body: string;
   date: string;
@@ -10,42 +17,125 @@ type Notification = {
 };
 
 type AppState = {
-  // Events
   registeredEvents: Set<number>;
   toggleEvent: (eventId: number) => void;
   isRegistered: (eventId: number) => boolean;
 
-  // Courses
   enrolledCourses: Set<number>;
   toggleCourse: (courseId: number) => void;
 
-  // Mentorship
   mentorRequests: Set<number>;
   addMentorRequest: (mentorId: number) => void;
 
-  // Notifications
-  notifications: Notification[];
-  markRead: (id: number) => void;
+  notifications: AppNotification[];
+  markRead: (id: string) => void;
   markAllRead: () => void;
   unreadCount: number;
 };
 
-const DEFAULT_NOTIFICATIONS: Notification[] = [
-  { id: 1, category: 'SİSTEM',    title: 'Üyeliğiniz onaylandı',                  body: 'Genç TETSİAD üyeliğiniz aktif edildi. Hoş geldiniz!',         date: '18 MAYIS', read: false },
-  { id: 2, category: 'ETKİNLİK', title: 'HOMETEX 2026 yaklaşıyor',                body: "Kayıtlı olduğunuz HOMETEX etkinliği 14 Mayıs'ta başlıyor.",   date: '12 MAYIS', read: false },
-  { id: 3, category: 'DUYURU',   title: 'Yeni kurs eklendi',                      body: 'AB Direktifleri & Uyum kursu eğitim kataloğuna eklendi.',     date: '10 MAYIS', read: true },
-  { id: 4, category: 'SİSTEM',   title: 'Bağlantı isteği',                        body: 'Fatih Özdemir bağlantı isteği gönderdi.',                     date: '8 MAYIS',  read: false },
-  { id: 5, category: 'ETKİNLİK', title: 'Yönetim Kurulu Toplantısı hatırlatıcı', body: '18 Haziran toplantısına 10 gün kaldı.',                       date: '8 HAZİRAN', read: true },
-  { id: 6, category: 'DUYURU',   title: '3T Programı başvuruları açıldı',         body: "Türkiye Tekstil Temsilcileri programına başvurular 30 Mayıs'a kadar.", date: '1 MAYIS', read: true },
-];
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const NOTIF_CATEGORY: Record<string, NotifCategory> = {
+  announcement: 'DUYURU',
+  event: 'ETKİNLİK',
+  system: 'SİSTEM',
+  mentorship: 'MENTORLUK',
+};
+
+const TR_MONTHS = ['OCA','ŞUB','MAR','NİS','MAY','HAZ','TEM','AĞU','EYL','EKİ','KAS','ARA'];
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getDate()} ${TR_MONTHS[d.getMonth()]}`;
+}
+
+function dbToNotif(n: DBNotif): AppNotification {
+  return {
+    id:       n.id,
+    category: NOTIF_CATEGORY[n.type] ?? 'SİSTEM',
+    title:    n.title,
+    body:     n.body ?? '',
+    date:     formatDate(n.created_at),
+    read:     n.read,
+  };
+}
+
+// ── Context ───────────────────────────────────────────────────────────────────
 
 const AppCtx = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const { session } = useAuthContext();
+  const userId = session?.user?.id;
+
   const [registeredEvents, setRegisteredEvents] = useState<Set<number>>(() => new Set([2, 5]));
-  const [enrolledCourses, setEnrolledCourses] = useState<Set<number>>(() => new Set([1, 2, 4, 6]));
-  const [mentorRequests, setMentorRequests] = useState<Set<number>>(new Set());
-  const [notifications, setNotifications] = useState<Notification[]>(DEFAULT_NOTIFICATIONS);
+  const [enrolledCourses, setEnrolledCourses]   = useState<Set<number>>(() => new Set([1, 2, 4, 6]));
+  const [mentorRequests, setMentorRequests]     = useState<Set<number>>(new Set());
+  const [notifications, setNotifications]       = useState<AppNotification[]>([]);
+
+  // ── Notifications from DB ─────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!userId) {
+      setNotifications([]);
+      return;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(50)
+      .then(({ data }: { data: DBNotif[] | null }) => {
+        setNotifications((data ?? []).map(dbToNotif));
+      });
+
+    const channel = supabase
+      .channel(`notif_${userId}`)
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        'postgres_changes' as any,
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+        (payload: { new: DBNotif }) => {
+          setNotifications(prev => [dbToNotif(payload.new), ...prev]);
+        }
+      )
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        'postgres_changes' as any,
+        { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+        (payload: { new: DBNotif }) => {
+          setNotifications(prev => prev.map(n => n.id === payload.new.id ? dbToNotif(payload.new) : n));
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [userId]);
+
+  // ── Notification actions ──────────────────────────────────────────────────
+
+  const markRead = useCallback((id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    if (userId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).from('notifications').update({ read: true }).eq('id', id).eq('user_id', userId);
+    }
+  }, [userId]);
+
+  const markAllRead = useCallback(() => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    if (userId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).from('notifications').update({ read: true }).eq('user_id', userId).eq('read', false);
+    }
+  }, [userId]);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  // ── Events ────────────────────────────────────────────────────────────────
 
   const toggleEvent = useCallback((id: number) => {
     setRegisteredEvents(prev => {
@@ -55,10 +145,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const isRegistered = useCallback(
-    (id: number) => registeredEvents.has(id),
-    [registeredEvents]
-  );
+  const isRegistered = useCallback((id: number) => registeredEvents.has(id), [registeredEvents]);
+
+  // ── Courses ───────────────────────────────────────────────────────────────
 
   const toggleCourse = useCallback((id: number) => {
     setEnrolledCourses(prev => {
@@ -68,19 +157,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // ── Mentorship ────────────────────────────────────────────────────────────
+
   const addMentorRequest = useCallback((mentorId: number) => {
     setMentorRequests(prev => new Set([...prev, mentorId]));
   }, []);
-
-  const markRead = useCallback((id: number) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-  }, []);
-
-  const markAllRead = useCallback(() => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  }, []);
-
-  const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
     <AppCtx.Provider value={{

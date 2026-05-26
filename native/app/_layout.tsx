@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider } from '@/context/AppContext';
 import { AuthProvider } from '@/context/AuthContext';
+import { addForegroundNotificationListener, addNotificationResponseListener } from '@/lib/notifications';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -35,6 +36,18 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) SplashScreen.hideAsync();
   }, [loaded]);
+
+  useEffect(() => {
+    const foreground = addForegroundNotificationListener((notif) => {
+      // Bildirim ön plandayken logla; gerekirse toast gösterilebilir
+      console.log('[Push] Foreground:', notif.request.content.title);
+    });
+    const response = addNotificationResponseListener((res) => {
+      // Bildirime tıklandığında ilgili sayfaya yönlendirilebilir
+      console.log('[Push] Tapped:', res.notification.request.content.title);
+    });
+    return () => { foreground.remove(); response.remove(); };
+  }, []);
 
   if (!loaded) return null;
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,613 +7,394 @@ import {
   Modal,
   StyleSheet,
   Linking,
-  ActionSheetIOS,
-  Platform,
+  ActivityIndicator,
+  TextInput,
+  Share,
+  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import QRCode from 'react-native-qrcode-svg';
 import { Colors, Fonts, FontSize } from '@/theme';
-import { useAppContext } from '@/context/AppContext';
+import { useAuthContext } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
+import type { Profile } from '@/types/database';
 
-// ── Data ────────────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-type Member = {
-  id: number;
-  name: string;
-  role: string;
-  firm: string;
-  city: string;
-  memberNo: string;
-  phone: string;
-  sector: string;
+const CITIES = ['Ankara','İstanbul','İzmir','Bursa','Gaziantep','Konya','Adana','Kayseri','Mersin','Denizli','Tekirdağ','Antalya','Eskişehir','Samsun','Trabzon','Diyarbakır'];
+
+const SECTORS = [
+  'Kumaş Üreticisi','Döşemelik Kumaş Üreticisi','Perdelik Kumaş Üreticisi',
+  'Havlu & Bornoz Üreticisi','Yatak & Nevresim Üreticisi','Perde & Tül Üreticisi',
+  'Halı & Kilim Üreticisi','Battaniye & Pike Üreticisi','Banyo Tekstili',
+  'Mutfak & Sofra Tekstili','Bebek & Çocuk Tekstili','Masa Örtüsü & Runner',
+  'Kumaş Mağazası','Ev Tekstili Mağazası','Toptan & Dağıtım',
+  'İhracat & Dış Ticaret','E-ticaret & Online Satış',
+  'Tasarım & Marka','Dijital & Tekstil Baskı','Boyama & Apre',
+  'İplik & Hammadde','Aksesuar (Fermuar, Düğme, Etiket)',
+  'Teknik & Endüstriyel Tekstil','Lojistik & Tedarik Zinciri','Diğer',
+];
+
+const ROLE_LABELS: Record<string, string> = {
+  pending:   'Onay Bekliyor',
+  member:    'Üye',
+  student:   'Öğrenci Üye',
+  board:     'Yönetim Kurulu',
+  president: 'Başkan',
+  admin:     'Admin',
 };
 
-const MEMBERS: Member[] = [
-  { id: 1, name: 'Resul Öden',      role: 'Başkan',          firm: 'ROSSA HOME',            city: 'İstanbul', memberNo: 'TG-2026-0001', phone: '+90 532 101 00 01', sector: 'Ev Tekstili' },
-  { id: 2, name: 'Fatih Özdemir',   role: 'Yönetim Kurulu',  firm: 'ORMEN TEKSTİL',         city: 'Ankara',   memberNo: 'TG-2026-0002', phone: '+90 542 312 04 60', sector: 'Dokuma' },
-  { id: 3, name: 'Elif Yıldız',     role: 'Üye',             firm: 'YILDIZ HOME',            city: 'Bursa',    memberNo: 'TG-2026-0003', phone: '+90 505 234 56 78', sector: 'Tasarım' },
-  { id: 4, name: 'Kerem Bayraktar', role: 'Üye',             firm: 'BAYRAKTAR TEKSTİL',     city: 'İstanbul', memberNo: 'TG-2026-0004', phone: '+90 533 456 78 90', sector: 'İhracat' },
-  { id: 5, name: 'Ayşe Kaya',       role: 'Öğrenci Üye',    firm: 'İTÜ Tekstil Müh.',      city: 'İstanbul', memberNo: 'TG-2026-0005', phone: '+90 544 567 89 01', sector: 'Öğrenci' },
-];
-
-const ACTIVITY = [
-  { id: 1, label: 'ETKİNLİK KATILIMI', desc: 'HOMETEX 2026 Fuar Çalışması', date: '14 MAYIS' },
-  { id: 2, label: 'KURS TAMAMLAMA',   desc: 'AB Sürdürülebilirlik Direktifleri', date: '02 NİSAN' },
-  { id: 3, label: 'MENTORLUK BAŞVURUSU', desc: 'Sektörel Mentorluk Programı', date: '18 MART' },
-];
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getInitials(name: string): string {
-  const parts = name.trim().split(' ');
+  const parts = name.trim().split(' ').filter(Boolean);
+  if (parts.length === 0) return '?';
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-function buildVCard(member: Member): string {
+function buildVCard(p: Profile): string {
   return [
     'BEGIN:VCARD',
     'VERSION:3.0',
-    `FN:${member.name}`,
-    `ORG:${member.firm}`,
-    `TITLE:Genç TETSİAD ${member.role}`,
-    `TEL;TYPE=CELL:${member.phone}`,
-    'EMAIL:genctetsiad@tetsiad.org',
-    `ADR:;;${member.city};;;Türkiye`,
-    `NOTE:GENÇ TETSİAD · ${member.memberNo}`,
+    `FN:${p.full_name}`,
+    p.company ? `ORG:${p.company}` : '',
+    p.position ? `TITLE:${p.position}` : `TITLE:Genç TETSİAD ${ROLE_LABELS[p.role] ?? p.role}`,
+    p.phone   ? `TEL;TYPE=CELL:${p.phone}` : '',
+    p.email   ? `EMAIL:${p.email}` : '',
+    p.city    ? `ADR:;;${p.city};;;Türkiye` : '',
+    p.member_code ? `NOTE:GENÇ TETSİAD · ${p.member_code}` : 'NOTE:GENÇ TETSİAD',
     'END:VCARD',
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 }
 
-// ── AppHeader ────────────────────────────────────────────────────────────────
+// ── QR Modal ──────────────────────────────────────────────────────────────────
 
-function AppHeader({
-  section,
-  title,
-  onSwitcher,
-}: {
-  section: string;
-  title: string;
-  onSwitcher: () => void;
-}) {
-  const insets = useSafeAreaInsets();
+function QRModal({ profile, onClose }: { profile: Profile; onClose: () => void }) {
+  const vcard = buildVCard(profile);
   return (
-    <View style={[headerStyles.wrap, { paddingTop: insets.top + 8 }]}>
-      <View style={headerStyles.row}>
-        <View>
-          <Text style={headerStyles.section}>{section}</Text>
-          <Text style={headerStyles.title}>{title}</Text>
-        </View>
-        <TouchableOpacity onPress={onSwitcher} activeOpacity={0.7} style={headerStyles.switcherBtn}>
-          <Text style={headerStyles.switcherText}>ÜYE DEĞİŞTİR</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
+    <Modal visible animationType="fade" transparent onRequestClose={onClose}>
+      <View style={qrS.backdrop}>
+        <View style={qrS.sheet}>
+          <View style={[qrS.corner, qrS.cTL]} /><View style={[qrS.corner, qrS.cTR]} />
+          <View style={[qrS.corner, qrS.cBL]} /><View style={[qrS.corner, qrS.cBR]} />
 
-const headerStyles = StyleSheet.create({
-  wrap: {
-    paddingHorizontal: 24,
-    paddingBottom: 20,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.goldLine,
-    backgroundColor: Colors.navyDeep,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-  },
-  section: {
-    fontFamily: Fonts.mono,
-    fontSize: 8,
-    letterSpacing: 3,
-    color: Colors.gold,
-    marginBottom: 10,
-  },
-  title: {
-    fontFamily: Fonts.cormorant,
-    fontSize: 28,
-    color: Colors.ivory,
-    fontStyle: 'italic',
-    fontWeight: '300',
-    lineHeight: 32,
-  },
-  switcherBtn: {
-    borderWidth: 0.5,
-    borderColor: Colors.goldLine,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginBottom: 2,
-  },
-  switcherText: {
-    fontFamily: Fonts.jakarta,
-    fontSize: 7,
-    letterSpacing: 1.5,
-    color: Colors.textMuted,
-    fontWeight: '600',
-  },
-});
+          <View style={qrS.header}>
+            <Text style={qrS.headerLabel}>GENÇ TETSİAD</Text>
+            <Text style={qrS.headerSub}>DİJİTAL KARTVİZİT</Text>
+          </View>
+          <View style={qrS.divider} />
 
-// ── QR Modal ─────────────────────────────────────────────────────────────────
-
-function QRModal({ member, onClose }: { member: Member; onClose: () => void }) {
-  const vcard = buildVCard(member);
-  return (
-    <Modal
-      visible
-      animationType="fade"
-      transparent
-      onRequestClose={onClose}
-    >
-      <View style={qrStyles.backdrop}>
-        <View style={qrStyles.sheet}>
-
-          {/* Branded header */}
-          <View style={qrStyles.sheetHeader}>
-            <Text style={qrStyles.sheetHeaderLabel}>GENÇ TETSİAD</Text>
-            <Text style={qrStyles.sheetHeaderSub}>DİJİTAL KARTVİZİT</Text>
+          <View style={qrS.qrWrap}>
+            <QRCode value={vcard} size={200} backgroundColor="#FFFFFF" color={Colors.greenDark} />
           </View>
 
-          <View style={qrStyles.divider} />
+          {profile.member_code && <Text style={qrS.memberNo}>{profile.member_code}</Text>}
+          <View style={qrS.divider} />
 
-          {/* Corner brackets */}
-          <View style={[qrStyles.corner, qrStyles.cornerTL]} />
-          <View style={[qrStyles.corner, qrStyles.cornerTR]} />
-          <View style={[qrStyles.corner, qrStyles.cornerBL]} />
-          <View style={[qrStyles.corner, qrStyles.cornerBR]} />
+          <Text style={qrS.name}>{profile.full_name}</Text>
+          <Text style={qrS.role}>{(ROLE_LABELS[profile.role] ?? profile.role).toUpperCase()}</Text>
+          {(profile.company || profile.city) ? (
+            <Text style={qrS.firm}>
+              {[profile.company, profile.city].filter(Boolean).join(' · ')}
+            </Text>
+          ) : null}
 
-          {/* QR code */}
-          <View style={qrStyles.qrWrap}>
-            <QRCode
-              value={vcard}
-              size={200}
-              backgroundColor="#FFFFFF"
-              color={Colors.greenDark}
-            />
+          {profile.phone ? (
+            <TouchableOpacity
+              style={qrS.phoneRow}
+              activeOpacity={0.7}
+              onPress={() => Linking.openURL(`tel:${profile.phone!.replace(/\s/g, '')}`)}
+            >
+              <Text style={qrS.phoneText}>{profile.phone}</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          <View style={qrS.divider} />
+          <Text style={qrS.hint}>QR'ı telefon kameranızla okutun — rehbere otomatik kaydedilir.</Text>
+
+          <View style={qrS.btnRow}>
+            <TouchableOpacity style={qrS.shareBtn} activeOpacity={0.8} onPress={() => Share.share({ message: vcard })}>
+              <Text style={qrS.shareBtnText}>PAYLAŞ</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={qrS.closeBtn} activeOpacity={0.8} onPress={onClose}>
+              <Text style={qrS.closeBtnText}>KAPAT</Text>
+            </TouchableOpacity>
           </View>
-
-          {/* Member No */}
-          <Text style={qrStyles.memberNo}>{member.memberNo}</Text>
-
-          <View style={qrStyles.divider} />
-
-          {/* Info */}
-          <Text style={qrStyles.memberName}>{member.name}</Text>
-          <Text style={qrStyles.memberRole}>{member.role}</Text>
-          <Text style={qrStyles.memberFirm}>{member.firm} · {member.city}</Text>
-
-          <TouchableOpacity
-            style={qrStyles.phoneRow}
-            activeOpacity={0.7}
-            onPress={() => Linking.openURL(`tel:${member.phone.replace(/\s/g, '')}`)}
-          >
-            <Text style={qrStyles.phoneText}>{member.phone}</Text>
-          </TouchableOpacity>
-
-          <View style={qrStyles.divider} />
-
-          <Text style={qrStyles.hint}>QR'ı telefon kameranızla okutun — rehbere otomatik kaydedilir.</Text>
-
-          <TouchableOpacity style={qrStyles.closeBtn} onPress={onClose} activeOpacity={0.8}>
-            <Text style={qrStyles.closeBtnText}>KAPAT</Text>
-          </TouchableOpacity>
         </View>
       </View>
     </Modal>
   );
 }
 
-const qrStyles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(3,15,9,0.92)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  sheet: {
-    backgroundColor: Colors.navyMid,
-    borderWidth: 0.5,
-    borderColor: Colors.gold,
-    padding: 28,
-    width: '100%',
-    alignItems: 'center',
-  },
-  sheetHeader: {
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  sheetHeaderLabel: {
-    fontFamily: Fonts.jakarta,
-    fontSize: 8,
-    letterSpacing: 3,
-    color: Colors.gold,
-    fontWeight: '700',
-  },
-  sheetHeaderSub: {
-    fontFamily: Fonts.mono,
-    fontSize: 7,
-    letterSpacing: 2,
-    color: Colors.textMuted,
-    marginTop: 4,
-  },
-  divider: {
-    height: 0.5,
-    backgroundColor: Colors.goldLine,
-    width: '100%',
-    marginVertical: 16,
-  },
-  qrWrap: {
-    padding: 14,
-    backgroundColor: '#FFFFFF',
-    marginBottom: 12,
-  },
-  memberNo: {
-    fontFamily: Fonts.mono,
-    fontSize: 10,
-    letterSpacing: 2.5,
-    color: Colors.gold,
-    marginBottom: 4,
-  },
-  memberName: {
-    fontFamily: Fonts.cormorant,
-    fontSize: 22,
-    color: Colors.ivory,
-    fontStyle: 'italic',
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  memberRole: {
-    fontFamily: Fonts.jakarta,
-    fontSize: 8,
-    letterSpacing: 1.5,
-    color: Colors.gold,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  memberFirm: {
-    fontFamily: Fonts.jakarta,
-    fontSize: 9,
-    color: Colors.textMuted,
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  phoneRow: {
-    paddingVertical: 4,
-  },
-  phoneText: {
-    fontFamily: Fonts.mono,
-    fontSize: 11,
-    letterSpacing: 1,
-    color: Colors.ivory,
-  },
-  hint: {
-    fontFamily: Fonts.jakarta,
-    fontSize: 9,
-    color: Colors.textMuted,
-    textAlign: 'center',
-    lineHeight: 14,
-    marginTop: 4,
-    marginBottom: 4,
-  },
-  closeBtn: {
-    marginTop: 8,
-    borderWidth: 0.5,
-    borderColor: Colors.goldLine,
-    paddingVertical: 12,
-    paddingHorizontal: 32,
-  },
-  closeBtnText: {
-    fontFamily: Fonts.jakarta,
-    fontSize: 9,
-    letterSpacing: 2.5,
-    color: Colors.gold,
-    fontWeight: '600',
-  },
-  // corner brackets
-  corner: {
-    position: 'absolute',
-    width: 16,
-    height: 16,
-  },
-  cornerTL: {
-    top: 8,
-    left: 8,
-    borderTopWidth: 1.5,
-    borderLeftWidth: 1.5,
-    borderColor: Colors.gold,
-  },
-  cornerTR: {
-    top: 8,
-    right: 8,
-    borderTopWidth: 1.5,
-    borderRightWidth: 1.5,
-    borderColor: Colors.gold,
-  },
-  cornerBL: {
-    bottom: 8,
-    left: 8,
-    borderBottomWidth: 1.5,
-    borderLeftWidth: 1.5,
-    borderColor: Colors.gold,
-  },
-  cornerBR: {
-    bottom: 8,
-    right: 8,
-    borderBottomWidth: 1.5,
-    borderRightWidth: 1.5,
-    borderColor: Colors.gold,
-  },
+const qrS = StyleSheet.create({
+  backdrop:    { flex: 1, backgroundColor: 'rgba(3,15,9,0.92)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
+  sheet:       { backgroundColor: Colors.navyMid, borderWidth: 0.5, borderColor: Colors.gold, padding: 28, width: '100%', alignItems: 'center' },
+  header:      { alignItems: 'center', marginBottom: 14 },
+  headerLabel: { fontFamily: Fonts.jakarta, fontSize: 8, letterSpacing: 3, color: Colors.gold, fontWeight: '700' },
+  headerSub:   { fontFamily: Fonts.mono, fontSize: 7, letterSpacing: 2, color: Colors.textMuted, marginTop: 4 },
+  divider:     { height: 0.5, backgroundColor: Colors.goldLine, width: '100%', marginVertical: 16 },
+  qrWrap:      { padding: 14, backgroundColor: '#FFFFFF', marginBottom: 12 },
+  memberNo:    { fontFamily: Fonts.mono, fontSize: 10, letterSpacing: 2.5, color: Colors.gold, marginBottom: 4 },
+  name:        { fontFamily: Fonts.cormorant, fontSize: 22, color: Colors.ivory, fontStyle: 'italic', fontWeight: '500', marginBottom: 4 },
+  role:        { fontFamily: Fonts.jakarta, fontSize: 8, letterSpacing: 1.5, color: Colors.gold, fontWeight: '600', marginBottom: 4 },
+  firm:        { fontFamily: Fonts.jakarta, fontSize: 9, color: Colors.textMuted, letterSpacing: 0.5, marginBottom: 8 },
+  phoneRow:    { paddingVertical: 4 },
+  phoneText:   { fontFamily: Fonts.mono, fontSize: 11, letterSpacing: 1, color: Colors.ivory },
+  hint:        { fontFamily: Fonts.jakarta, fontSize: 9, color: Colors.textMuted, textAlign: 'center', lineHeight: 14, marginTop: 4, marginBottom: 4 },
+  btnRow:      { flexDirection: 'row', gap: 10, marginTop: 8, width: '100%' },
+  shareBtn:    { flex: 1, borderWidth: 0.5, borderColor: Colors.goldLine, paddingVertical: 12, alignItems: 'center' },
+  shareBtnText:{ fontFamily: Fonts.jakarta, fontSize: 9, letterSpacing: 2.5, color: Colors.textMuted, fontWeight: '600' },
+  closeBtn:    { flex: 1, borderWidth: 0.5, borderColor: Colors.gold, paddingVertical: 12, alignItems: 'center' },
+  closeBtnText:{ fontFamily: Fonts.jakarta, fontSize: 9, letterSpacing: 2.5, color: Colors.gold, fontWeight: '600' },
+  corner:      { position: 'absolute', width: 16, height: 16 },
+  cTL:         { top: 8, left: 8, borderTopWidth: 1.5, borderLeftWidth: 1.5, borderColor: Colors.gold },
+  cTR:         { top: 8, right: 8, borderTopWidth: 1.5, borderRightWidth: 1.5, borderColor: Colors.gold },
+  cBL:         { bottom: 8, left: 8, borderBottomWidth: 1.5, borderLeftWidth: 1.5, borderColor: Colors.gold },
+  cBR:         { bottom: 8, right: 8, borderBottomWidth: 1.5, borderRightWidth: 1.5, borderColor: Colors.gold },
 });
 
-// ── Membership card ───────────────────────────────────────────────────────────
+// ── Edit Profile Modal ────────────────────────────────────────────────────────
 
-function MembershipCard({ member }: { member: Member }) {
-  const initials = getInitials(member.name);
+function EditProfileModal({
+  profile,
+  onSave,
+  onClose,
+}: {
+  profile: Profile;
+  onSave: (updates: Partial<Profile>) => Promise<{ error: unknown }>;
+  onClose: () => void;
+}) {
+  const [fullName, setFullName]  = useState(profile.full_name ?? '');
+  const [company, setCompany]    = useState(profile.company ?? '');
+  const [position, setPosition]  = useState(profile.position ?? '');
+  const [email, setEmail]        = useState(profile.email ?? '');
+  const [city, setCity]          = useState(profile.city ?? '');
+  const [sector, setSector]      = useState(profile.sector ?? '');
+  const [saving, setSaving]      = useState(false);
+
+  const handleSave = async () => {
+    if (!fullName.trim()) return;
+    setSaving(true);
+    const { error } = await onSave({ full_name: fullName.trim(), company: company.trim() || null, position: position.trim() || null, email: email.trim() || null, city: city || null, sector: sector || null });
+    setSaving(false);
+    if (error) {
+      Alert.alert('Hata', 'Profil kaydedilemedi. Tekrar deneyin.');
+    } else {
+      onClose();
+    }
+  };
+
   return (
-    <View style={cardStyles.wrap}>
+    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
+      <View style={editS.overlay}>
+        <View style={editS.sheet}>
+          <View style={editS.handle} />
+          <View style={editS.sheetHeader}>
+            <Text style={editS.sheetTitle}>PROFİL DÜZENLE</Text>
+            <TouchableOpacity onPress={onClose}><Text style={editS.closeX}>✕</Text></TouchableOpacity>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={editS.scroll}>
+            {[
+              { label: 'AD SOYAD *', value: fullName, set: setFullName, keyboard: 'default' as const },
+              { label: 'FİRMA', value: company, set: setCompany, keyboard: 'default' as const },
+              { label: 'POZİSYON', value: position, set: setPosition, keyboard: 'default' as const },
+              { label: 'E-POSTA', value: email, set: setEmail, keyboard: 'email-address' as const },
+            ].map(f => (
+              <View key={f.label} style={editS.fieldWrap}>
+                <Text style={editS.fieldLabel}>{f.label}</Text>
+                <TextInput
+                  style={editS.input}
+                  value={f.value}
+                  onChangeText={f.set}
+                  placeholderTextColor={Colors.textMuted}
+                  keyboardType={f.keyboard}
+                  autoCapitalize={f.keyboard === 'email-address' ? 'none' : 'words'}
+                />
+                <View style={editS.underline} />
+              </View>
+            ))}
+
+            <View style={editS.fieldWrap}>
+              <Text style={editS.fieldLabel}>ŞEHİR</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
+                {CITIES.map(c => (
+                  <TouchableOpacity key={c} style={[editS.pill, city === c && editS.pillActive]} onPress={() => setCity(c)}>
+                    <Text style={[editS.pillText, city === c && editS.pillTextActive]}>{c}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            <View style={editS.fieldWrap}>
+              <Text style={editS.fieldLabel}>SEKTÖR</Text>
+              <View style={editS.pillGrid}>
+                {SECTORS.map(sec => (
+                  <TouchableOpacity key={sec} style={[editS.pill, sector === sec && editS.pillActive]} onPress={() => setSector(sec)}>
+                    <Text style={[editS.pillText, sector === sec && editS.pillTextActive]}>{sec}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[editS.saveBtn, (!fullName.trim() || saving) && editS.saveBtnDisabled]}
+              onPress={handleSave}
+              disabled={!fullName.trim() || saving}
+              activeOpacity={0.8}
+            >
+              {saving
+                ? <ActivityIndicator color={Colors.navyDeep} />
+                : <Text style={editS.saveBtnText}>KAYDET</Text>}
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const editS = StyleSheet.create({
+  overlay:        { flex: 1, backgroundColor: 'rgba(3,15,9,0.88)', justifyContent: 'flex-end' },
+  sheet:          { backgroundColor: Colors.navyDeep, borderTopWidth: 0.5, borderTopColor: Colors.goldLine, maxHeight: '92%', paddingTop: 12 },
+  handle:         { width: 36, height: 3, backgroundColor: Colors.goldLine, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
+  sheetHeader:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingBottom: 16, borderBottomWidth: 0.5, borderBottomColor: Colors.goldLine },
+  sheetTitle:     { fontFamily: Fonts.jakarta, fontSize: FontSize.xs, fontWeight: '700', color: Colors.ivory, letterSpacing: 2 },
+  closeX:         { fontFamily: Fonts.jakarta, fontSize: 16, color: Colors.textMuted, padding: 4 },
+  scroll:         { paddingHorizontal: 24, paddingBottom: 40, paddingTop: 20 },
+  fieldWrap:      { marginBottom: 24 },
+  fieldLabel:     { fontFamily: Fonts.jakarta, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 2, fontWeight: '600', marginBottom: 10 },
+  input:          { fontFamily: Fonts.cormorant, fontSize: 20, color: Colors.ivory, paddingBottom: 8 },
+  underline:      { height: 0.5, backgroundColor: Colors.goldLine },
+  pill:           { paddingHorizontal: 12, paddingVertical: 7, borderWidth: 0.5, borderColor: Colors.goldLine, marginRight: 8, marginBottom: 8 },
+  pillActive:     { backgroundColor: Colors.gold, borderColor: Colors.gold },
+  pillGrid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+  pillText:       { fontFamily: Fonts.jakarta, fontSize: 9, color: Colors.textMuted },
+  pillTextActive: { color: Colors.navyDeep, fontWeight: '600' },
+  saveBtn:        { backgroundColor: Colors.gold, paddingVertical: 16, alignItems: 'center', marginTop: 8 },
+  saveBtnDisabled:{ opacity: 0.4 },
+  saveBtnText:    { fontFamily: Fonts.jakarta, fontSize: FontSize.xs, fontWeight: '700', color: Colors.navyDeep, letterSpacing: 3 },
+});
+
+// ── Membership Card ───────────────────────────────────────────────────────────
+
+function MembershipCard({ profile }: { profile: Profile }) {
+  const initials = getInitials(profile.full_name || '?');
+  const roleLabel = (ROLE_LABELS[profile.role] ?? profile.role).toUpperCase();
+  const hasCode = !!profile.member_code;
+
+  return (
+    <View style={cardS.wrap}>
       <LinearGradient
         colors={[Colors.navyMid, Colors.navyDeep]}
         style={StyleSheet.absoluteFill}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
       />
+      <View style={[cardS.corner, cardS.cTL]} /><View style={[cardS.corner, cardS.cTR]} />
+      <View style={[cardS.corner, cardS.cBL]} /><View style={[cardS.corner, cardS.cBR]} />
 
-      {/* Corner brackets */}
-      <View style={[cardStyles.corner, cardStyles.cornerTL]} />
-      <View style={[cardStyles.corner, cardStyles.cornerTR]} />
-      <View style={[cardStyles.corner, cardStyles.cornerBL]} />
-      <View style={[cardStyles.corner, cardStyles.cornerBR]} />
-
-      {/* Top row */}
-      <View style={cardStyles.topRow}>
-        <Text style={cardStyles.orgLabel}>GENÇ TETSİAD</Text>
-        <Text style={cardStyles.memberNoTop}>{member.memberNo}</Text>
+      <View style={cardS.topRow}>
+        <Text style={cardS.orgLabel}>GENÇ TETSİAD</Text>
+        <Text style={cardS.memberNoTop}>{hasCode ? profile.member_code : 'ONAY BEKLENİYOR'}</Text>
       </View>
 
-      {/* Name */}
-      <Text style={cardStyles.memberName}>{member.name}</Text>
+      <View style={cardS.avatarRow}>
+        <View style={cardS.avatar}>
+          <Text style={cardS.avatarText}>{initials}</Text>
+        </View>
+        <View style={cardS.nameBlock}>
+          <Text style={cardS.memberName}>{profile.full_name || '—'}</Text>
+          <Text style={cardS.memberRole}>{roleLabel}</Text>
+          {profile.company ? <Text style={cardS.memberFirm}>{profile.company}</Text> : null}
+        </View>
+      </View>
 
-      {/* Role */}
-      <Text style={cardStyles.memberRole}>{member.role.toUpperCase()}</Text>
-
-      {/* Firm */}
-      <Text style={cardStyles.memberFirm}>{member.firm}</Text>
-
-      {/* Gold bottom strip */}
-      <View style={cardStyles.bottomStrip}>
-        <Text style={cardStyles.bottomStripNo}>{member.memberNo}</Text>
-        <Text style={cardStyles.bottomStripCity}>{member.city.toUpperCase()}</Text>
+      <View style={cardS.bottomStrip}>
+        <Text style={cardS.bottomStripNo}>{hasCode ? profile.member_code : '—'}</Text>
+        <Text style={cardS.bottomStripCity}>{(profile.city ?? '—').toUpperCase()}</Text>
       </View>
     </View>
   );
 }
 
-const cardStyles = StyleSheet.create({
-  wrap: {
-    borderWidth: 0.5,
-    borderColor: Colors.gold,
-    height: 200,
-    marginHorizontal: 24,
-    overflow: 'hidden',
-    paddingHorizontal: 22,
-    paddingTop: 20,
-    paddingBottom: 0,
-    justifyContent: 'flex-start',
-  },
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  orgLabel: {
-    fontFamily: Fonts.jakarta,
-    fontSize: 8,
-    letterSpacing: 2.5,
-    color: Colors.gold,
-    fontWeight: '700',
-  },
-  memberNoTop: {
-    fontFamily: Fonts.mono,
-    fontSize: 9,
-    letterSpacing: 1.5,
-    color: Colors.textMuted,
-  },
-  memberName: {
-    fontFamily: Fonts.cormorant,
-    fontSize: 32,
-    fontStyle: 'italic',
-    fontWeight: '300',
-    color: Colors.ivory,
-    lineHeight: 34,
-    marginBottom: 6,
-  },
-  memberRole: {
-    fontFamily: Fonts.jakarta,
-    fontSize: 7,
-    letterSpacing: 2,
-    color: Colors.gold,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  memberFirm: {
-    fontFamily: Fonts.jakarta,
-    fontSize: 10,
-    color: Colors.textMuted,
-    fontWeight: '300',
-    letterSpacing: 0.5,
-  },
-  bottomStrip: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: Colors.gold,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  bottomStripNo: {
-    fontFamily: Fonts.mono,
-    fontSize: 9,
-    letterSpacing: 2,
-    color: Colors.navyDeep,
-    fontWeight: '700',
-  },
-  bottomStripCity: {
-    fontFamily: Fonts.jakarta,
-    fontSize: 7,
-    letterSpacing: 2,
-    color: Colors.navyDeep,
-    fontWeight: '700',
-  },
-  corner: {
-    position: 'absolute',
-    width: 16,
-    height: 16,
-  },
-  cornerTL: {
-    top: 8,
-    left: 8,
-    borderTopWidth: 1.5,
-    borderLeftWidth: 1.5,
-    borderColor: 'rgba(217,200,150,0.4)',
-  },
-  cornerTR: {
-    top: 8,
-    right: 8,
-    borderTopWidth: 1.5,
-    borderRightWidth: 1.5,
-    borderColor: 'rgba(217,200,150,0.4)',
-  },
-  cornerBL: {
-    bottom: 38,
-    left: 8,
-    borderBottomWidth: 1.5,
-    borderLeftWidth: 1.5,
-    borderColor: 'rgba(217,200,150,0.4)',
-  },
-  cornerBR: {
-    bottom: 38,
-    right: 8,
-    borderBottomWidth: 1.5,
-    borderRightWidth: 1.5,
-    borderColor: 'rgba(217,200,150,0.4)',
-  },
+const cardS = StyleSheet.create({
+  wrap:          { borderWidth: 0.5, borderColor: Colors.gold, height: 220, marginHorizontal: 24, overflow: 'hidden', paddingHorizontal: 22, paddingTop: 18, paddingBottom: 0 },
+  topRow:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  orgLabel:      { fontFamily: Fonts.jakarta, fontSize: 8, letterSpacing: 2.5, color: Colors.gold, fontWeight: '700' },
+  memberNoTop:   { fontFamily: Fonts.mono, fontSize: 8, letterSpacing: 1, color: Colors.textMuted },
+  avatarRow:     { flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1 },
+  avatar:        { width: 52, height: 52, borderRadius: 26, borderWidth: 1.5, borderColor: Colors.gold, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.navyMid },
+  avatarText:    { fontFamily: Fonts.mono, fontSize: 14, color: Colors.gold, fontWeight: '500' },
+  nameBlock:     { flex: 1 },
+  memberName:    { fontFamily: Fonts.cormorant, fontSize: 26, fontStyle: 'italic', fontWeight: '300', color: Colors.ivory, lineHeight: 28, marginBottom: 4 },
+  memberRole:    { fontFamily: Fonts.jakarta, fontSize: 7, letterSpacing: 2, color: Colors.gold, fontWeight: '600', marginBottom: 2 },
+  memberFirm:    { fontFamily: Fonts.jakarta, fontSize: 9, color: Colors.textMuted, fontWeight: '300' },
+  bottomStrip:   { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: Colors.gold, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 7 },
+  bottomStripNo: { fontFamily: Fonts.mono, fontSize: 9, letterSpacing: 2, color: Colors.navyDeep, fontWeight: '700' },
+  bottomStripCity:{ fontFamily: Fonts.jakarta, fontSize: 7, letterSpacing: 2, color: Colors.navyDeep, fontWeight: '700' },
+  corner:        { position: 'absolute', width: 16, height: 16 },
+  cTL:           { top: 8, left: 8, borderTopWidth: 1.5, borderLeftWidth: 1.5, borderColor: 'rgba(217,200,150,0.4)' },
+  cTR:           { top: 8, right: 8, borderTopWidth: 1.5, borderRightWidth: 1.5, borderColor: 'rgba(217,200,150,0.4)' },
+  cBL:           { bottom: 38, left: 8, borderBottomWidth: 1.5, borderLeftWidth: 1.5, borderColor: 'rgba(217,200,150,0.4)' },
+  cBR:           { bottom: 38, right: 8, borderBottomWidth: 1.5, borderRightWidth: 1.5, borderColor: 'rgba(217,200,150,0.4)' },
 });
 
-// ── ProfileScreen ─────────────────────────────────────────────────────────────
+// ── Main Screen ───────────────────────────────────────────────────────────────
 
-function MemberPickerModal({ current, onSelect, onClose }: { current: number; onSelect: (idx: number) => void; onClose: () => void }) {
-  return (
-    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
-      <View style={pickerStyles.overlay}>
-        <View style={pickerStyles.sheet}>
-          <View style={pickerStyles.handle} />
-          <Text style={pickerStyles.title}>ÜYE SEÇ</Text>
-          <View style={pickerStyles.divider} />
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-            {MEMBERS.map((m, i) => (
-              <TouchableOpacity
-                key={m.id}
-                style={[pickerStyles.row, i === current && pickerStyles.rowActive]}
-                onPress={() => { onSelect(i); onClose(); }}
-                activeOpacity={0.7}
-              >
-                <View style={[pickerStyles.avatar, i === current && pickerStyles.avatarActive]}>
-                  <Text style={[pickerStyles.avatarText, i === current && pickerStyles.avatarTextActive]}>
-                    {getInitials(m.name)}
-                  </Text>
-                </View>
-                <View style={pickerStyles.info}>
-                  <Text style={[pickerStyles.name, i === current && pickerStyles.nameActive]}>{m.name}</Text>
-                  <Text style={pickerStyles.role}>{m.role} · {m.firm}</Text>
-                </View>
-                {i === current && <Text style={pickerStyles.check}>✓</Text>}
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-          <TouchableOpacity style={pickerStyles.cancelBtn} onPress={onClose} activeOpacity={0.8}>
-            <Text style={pickerStyles.cancelText}>İPTAL</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-const pickerStyles = StyleSheet.create({
-  overlay:    { flex: 1, backgroundColor: 'rgba(3,15,9,0.90)', justifyContent: 'flex-end' },
-  sheet:      { backgroundColor: Colors.navyDeep, borderTopWidth: 0.5, borderTopColor: Colors.goldLine, paddingTop: 12, maxHeight: '75%' },
-  handle:     { width: 36, height: 3, backgroundColor: Colors.goldLine, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
-  title:      { fontFamily: Fonts.jakarta, fontSize: FontSize.xs, fontWeight: '700', color: Colors.ivory, letterSpacing: 2, textAlign: 'center', paddingBottom: 14, paddingHorizontal: 24 },
-  divider:    { height: 0.5, backgroundColor: Colors.goldLine, marginBottom: 4 },
-  row:        { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 14, gap: 14, borderBottomWidth: 0.5, borderBottomColor: Colors.goldLine },
-  rowActive:  { backgroundColor: 'rgba(217,200,150,0.06)' },
-  avatar:     { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: Colors.goldLine, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.navyMid },
-  avatarActive:{ borderColor: Colors.gold },
-  avatarText: { fontFamily: Fonts.mono, fontSize: 10, color: Colors.textMuted },
-  avatarTextActive: { color: Colors.gold },
-  info:       { flex: 1 },
-  name:       { fontFamily: Fonts.cormorant, fontSize: 17, color: Colors.ivory, fontWeight: '500', marginBottom: 2 },
-  nameActive: { color: Colors.gold },
-  role:       { fontFamily: Fonts.jakarta, fontSize: FontSize.xs - 1, color: Colors.textMuted, letterSpacing: 0.5 },
-  check:      { fontFamily: Fonts.mono, fontSize: 14, color: Colors.gold },
-  cancelBtn:  { marginHorizontal: 24, marginVertical: 16, paddingVertical: 14, borderWidth: 0.5, borderColor: Colors.goldLine, alignItems: 'center' },
-  cancelText: { fontFamily: Fonts.jakarta, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 2 },
-});
+type Stats = { events: number; courses: number; mentorships: number };
 
 export default function ProfileScreen() {
-  const [memberIdx, setMemberIdx] = useState(0);
-  const [showQR, setShowQR] = useState(false);
-  const [showPicker, setShowPicker] = useState(false);
-  const member = MEMBERS[memberIdx];
+  const { profile, signOut, updateProfile } = useAuthContext();
+  const insets = useSafeAreaInsets();
+  const [showQR, setShowQR]     = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [stats, setStats]       = useState<Stats>({ events: 0, courses: 0, mentorships: 0 });
 
-  const { registeredEvents, enrolledCourses, mentorRequests } = useAppContext();
+  useEffect(() => {
+    if (!profile?.id) return;
+    const uid = profile.id;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = supabase as any;
+    Promise.all([
+      db.from('event_attendees').select('event_id', { count: 'exact', head: true }).eq('user_id', uid),
+      db.from('course_enrollments').select('course_id', { count: 'exact', head: true }).eq('user_id', uid),
+      db.from('mentorship_requests').select('id', { count: 'exact', head: true }).eq('mentee_id', uid),
+    ]).then(([ev, co, me]: [{ count: number | null }, { count: number | null }, { count: number | null }]) => {
+      setStats({ events: ev.count ?? 0, courses: co.count ?? 0, mentorships: me.count ?? 0 });
+    });
+  }, [profile?.id]);
 
-  const handleSwitcher = () => {
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: [...MEMBERS.map((m) => m.name), 'İPTAL'],
-          cancelButtonIndex: MEMBERS.length,
-          title: 'ÜYE SEÇ',
-        },
-        (idx) => {
-          if (idx < MEMBERS.length) setMemberIdx(idx);
-        }
-      );
-    } else {
-      setShowPicker(true);
-    }
-  };
+  if (!profile) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator color={Colors.gold} size="large" />
+      </SafeAreaView>
+    );
+  }
 
   const fmt = (n: number) => String(n).padStart(2, '0');
   const STATS = [
-    { value: fmt(registeredEvents.size), label: 'ETKİNLİK' },
-    { value: fmt(enrolledCourses.size),  label: 'KURS' },
-    { value: fmt(mentorRequests.size),   label: 'MENTORLUK' },
-    { value: '24',                       label: 'BAĞLANTI' },
+    { value: fmt(stats.events),      label: 'ETKİNLİK' },
+    { value: fmt(stats.courses),     label: 'KURS' },
+    { value: fmt(stats.mentorships), label: 'MENTORLUK' },
+    { value: ROLE_LABELS[profile.role]?.substring(0, 3).toUpperCase() ?? '—', label: 'STATÜ' },
   ];
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
-      <AppHeader
-        section="KART"
-        title="Üyelik & QR Kartvizit"
-        onSwitcher={handleSwitcher}
-      />
-      {showPicker && (
-        <MemberPickerModal
-          current={memberIdx}
-          onSelect={setMemberIdx}
-          onClose={() => setShowPicker(false)}
-        />
-      )}
+      {/* ── Header ─────────────────────────────────────────── */}
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <View>
+          <Text style={styles.headerSection}>KART</Text>
+          <Text style={styles.headerTitle}>Üyelik & QR Kartvizit</Text>
+        </View>
+        <TouchableOpacity style={styles.editBtn} onPress={() => setShowEdit(true)} activeOpacity={0.7}>
+          <Text style={styles.editBtnText}>DÜZENLE</Text>
+        </TouchableOpacity>
+      </View>
 
       <ScrollView
         style={styles.scroll}
@@ -622,16 +403,12 @@ export default function ProfileScreen() {
       >
         {/* ── Membership card ─────────────────────────────── */}
         <View style={styles.cardSection}>
-          <MembershipCard member={member} />
+          <MembershipCard profile={profile} />
         </View>
 
         {/* ── QR button ───────────────────────────────────── */}
         <View style={styles.qrBtnWrap}>
-          <TouchableOpacity
-            style={styles.qrBtn}
-            onPress={() => setShowQR(true)}
-            activeOpacity={0.8}
-          >
+          <TouchableOpacity style={styles.qrBtn} onPress={() => setShowQR(true)} activeOpacity={0.8}>
             <Text style={styles.qrBtnText}>QR KARTVİZİT</Text>
           </TouchableOpacity>
         </View>
@@ -639,60 +416,45 @@ export default function ProfileScreen() {
         {/* ── Stats row ────────────────────────────────────── */}
         <View style={styles.statsRow}>
           {STATS.map((s, i) => (
-            <View
-              key={s.label}
-              style={[
-                styles.statCell,
-                i < STATS.length - 1 && styles.statCellBorder,
-              ]}
-            >
+            <View key={s.label} style={[styles.statCell, i < STATS.length - 1 && styles.statCellBorder]}>
               <Text style={styles.statValue}>{s.value}</Text>
               <Text style={styles.statLabel}>{s.label}</Text>
             </View>
           ))}
         </View>
 
-        {/* ── Recent activity ──────────────────────────────── */}
-        <View style={styles.activitySection}>
-          <Text style={styles.activityHeader}>SON AKTİVİTE</Text>
-          {ACTIVITY.map((item, i) => (
-            <View
-              key={item.id}
-              style={[
-                styles.activityRow,
-                i > 0 && styles.activityRowBorder,
-              ]}
-            >
-              <View style={styles.activityLeft}>
-                <Text style={styles.activityLabel}>{item.label}</Text>
-                <Text style={styles.activityDesc}>{item.desc}</Text>
-              </View>
-              <Text style={styles.activityDate}>{item.date}</Text>
+        {/* ── Profile info ─────────────────────────────────── */}
+        <View style={styles.infoFooter}>
+          {[
+            ['ŞEHİR',    profile.city ?? '—'],
+            ['SEKTÖR',   profile.sector ?? '—'],
+            ['POZİSYON', profile.position ?? '—'],
+            ['E-POSTA',  profile.email ?? '—'],
+            ['TELEFON',  profile.phone ?? '—'],
+            ['DURUM',    profile.role === 'pending' ? 'ONAY BEKLENİYOR' : 'AKTİF ÜYE · 2026'],
+          ].map(([k, v], i) => (
+            <View key={k} style={[styles.infoRow, i > 0 && styles.infoRowBorder]}>
+              <Text style={styles.infoKey}>{k}</Text>
+              <Text style={[styles.infoVal, k === 'DURUM' && { color: profile.role === 'pending' ? Colors.textMuted : Colors.gold }]}>{v}</Text>
             </View>
           ))}
         </View>
 
-        {/* ── Member info footer ───────────────────────────── */}
-        <View style={styles.infoFooter}>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoKey}>ŞEHİR</Text>
-            <Text style={styles.infoVal}>{member.city}</Text>
-          </View>
-          <View style={[styles.infoRow, styles.infoRowBorder]}>
-            <Text style={styles.infoKey}>SEKTÖR</Text>
-            <Text style={styles.infoVal}>{member.sector}</Text>
-          </View>
-          <View style={[styles.infoRow, styles.infoRowBorder]}>
-            <Text style={styles.infoKey}>E-POSTA</Text>
-            <Text style={styles.infoVal}>genctetsiad@tetsiad.org</Text>
-          </View>
-          <View style={[styles.infoRow, styles.infoRowBorder]}>
-            <Text style={styles.infoKey}>DURUM</Text>
-            <Text style={[styles.infoVal, { color: Colors.gold }]}>AKTİF ÜYE · 2026</Text>
-          </View>
-        </View>
+        {/* ── Sign out ─────────────────────────────────────── */}
+        <TouchableOpacity
+          style={styles.signOutBtn}
+          activeOpacity={0.8}
+          onPress={() =>
+            Alert.alert('Çıkış', 'Hesabınızdan çıkmak istiyor musunuz?', [
+              { text: 'İptal', style: 'cancel' },
+              { text: 'Çıkış Yap', style: 'destructive', onPress: signOut },
+            ])
+          }
+        >
+          <Text style={styles.signOutText}>ÇIKIŞ YAP</Text>
+        </TouchableOpacity>
 
-        {/* ── Footer note ──────────────────────────────────── */}
+        {/* ── Footer ───────────────────────────────────────── */}
         <View style={styles.footerNote}>
           <Text style={styles.footerNoteText}>
             GENÇ TETSİAD · v1.0 BETA · YALNIZCA{' '}
@@ -701,53 +463,72 @@ export default function ProfileScreen() {
         </View>
       </ScrollView>
 
-      {showQR && (
-        <QRModal member={member} onClose={() => setShowQR(false)} />
+      {showQR   && <QRModal profile={profile} onClose={() => setShowQR(false)} />}
+      {showEdit && (
+        <EditProfileModal
+          profile={profile}
+          onSave={updateProfile}
+          onClose={() => setShowEdit(false)}
+        />
       )}
     </SafeAreaView>
   );
 }
 
-// ── Styles ───────────────────────────────────────────────────────────────────
+// ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: Colors.navy,
   },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 48,
-  },
-
-  // Card
-  cardSection: {
-    marginTop: 28,
-    marginBottom: 16,
-  },
-
-  // QR button
-  qrBtnWrap: {
+  header: {
+    backgroundColor: Colors.navyDeep,
     paddingHorizontal: 24,
-    marginBottom: 28,
+    paddingBottom: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.goldLine,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
   },
-  qrBtn: {
-    backgroundColor: Colors.gold,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  qrBtnText: {
-    fontFamily: Fonts.jakarta,
-    fontSize: FontSize.xs,
-    fontWeight: '700',
-    color: Colors.navyDeep,
+  headerSection: {
+    fontFamily: Fonts.mono,
+    fontSize: 8,
     letterSpacing: 3,
+    color: Colors.gold,
+    marginBottom: 8,
   },
+  headerTitle: {
+    fontFamily: Fonts.cormorant,
+    fontSize: 22,
+    color: Colors.ivory,
+    fontStyle: 'italic',
+    fontWeight: '300',
+  },
+  editBtn: {
+    borderWidth: 0.5,
+    borderColor: Colors.goldLine,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 2,
+  },
+  editBtnText: {
+    fontFamily: Fonts.jakarta,
+    fontSize: 7,
+    letterSpacing: 1.5,
+    color: Colors.textMuted,
+    fontWeight: '600',
+  },
+  scroll: { flex: 1 },
+  scrollContent: { paddingBottom: 48 },
 
-  // Stats
+  cardSection: { marginTop: 28, marginBottom: 16 },
+
+  qrBtnWrap: { paddingHorizontal: 24, marginBottom: 28 },
+  qrBtn: { backgroundColor: Colors.gold, paddingVertical: 14, alignItems: 'center' },
+  qrBtnText: { fontFamily: Fonts.jakarta, fontSize: FontSize.xs, fontWeight: '700', color: Colors.navyDeep, letterSpacing: 3 },
+
   statsRow: {
     flexDirection: 'row',
     borderTopWidth: 0.5,
@@ -757,125 +538,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     backgroundColor: Colors.navyDeep,
   },
-  statCell: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statCellBorder: {
-    borderRightWidth: 0.5,
-    borderRightColor: Colors.goldLine,
-  },
-  statValue: {
-    fontFamily: Fonts.cormorant,
-    fontStyle: 'italic',
-    fontWeight: '300',
-    fontSize: 30,
-    color: Colors.ivory,
-    lineHeight: 32,
-  },
-  statLabel: {
-    fontFamily: Fonts.jakarta,
-    fontSize: 7,
-    color: Colors.textMuted,
-    letterSpacing: 1.5,
-    fontWeight: '600',
-    marginTop: 6,
-  },
+  statCell: { flex: 1, alignItems: 'center' },
+  statCellBorder: { borderRightWidth: 0.5, borderRightColor: Colors.goldLine },
+  statValue: { fontFamily: Fonts.cormorant, fontStyle: 'italic', fontWeight: '300', fontSize: 28, color: Colors.ivory, lineHeight: 30 },
+  statLabel: { fontFamily: Fonts.jakarta, fontSize: 7, color: Colors.textMuted, letterSpacing: 1.5, fontWeight: '600', marginTop: 6 },
 
-  // Activity
-  activitySection: {
-    paddingHorizontal: 24,
-    paddingTop: 28,
-    paddingBottom: 4,
-  },
-  activityHeader: {
-    fontFamily: Fonts.mono,
-    fontSize: 8,
-    letterSpacing: 2.5,
-    color: Colors.gold,
-    marginBottom: 16,
-  },
-  activityRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-  },
-  activityRowBorder: {
-    borderTopWidth: 0.5,
-    borderTopColor: Colors.goldLine,
-  },
-  activityLeft: {
-    flex: 1,
-    marginRight: 12,
-  },
-  activityLabel: {
-    fontFamily: Fonts.mono,
-    fontSize: 7,
-    letterSpacing: 1.5,
-    color: Colors.gold,
-    marginBottom: 4,
-  },
-  activityDesc: {
-    fontFamily: Fonts.cormorant,
-    fontSize: 16,
-    color: Colors.ivory,
-    fontWeight: '500',
-    lineHeight: 20,
-  },
-  activityDate: {
-    fontFamily: Fonts.mono,
-    fontSize: 8,
-    letterSpacing: 1,
-    color: Colors.textMuted,
-    marginTop: 2,
-  },
+  infoFooter: { marginTop: 28, marginHorizontal: 24, borderWidth: 0.5, borderColor: Colors.goldLine },
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
+  infoRowBorder: { borderTopWidth: 0.5, borderTopColor: Colors.goldLine },
+  infoKey: { fontFamily: Fonts.mono, fontSize: 8, letterSpacing: 1.5, color: Colors.textMuted },
+  infoVal: { fontFamily: Fonts.jakarta, fontSize: 11, color: Colors.ivory, fontWeight: '400', flex: 1, textAlign: 'right' },
 
-  // Info footer
-  infoFooter: {
-    marginTop: 28,
-    marginHorizontal: 24,
-    borderWidth: 0.5,
-    borderColor: Colors.goldLine,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  infoRowBorder: {
-    borderTopWidth: 0.5,
-    borderTopColor: Colors.goldLine,
-  },
-  infoKey: {
-    fontFamily: Fonts.mono,
-    fontSize: 8,
-    letterSpacing: 1.5,
-    color: Colors.textMuted,
-  },
-  infoVal: {
-    fontFamily: Fonts.jakarta,
-    fontSize: 11,
-    color: Colors.ivory,
-    fontWeight: '400',
-  },
+  signOutBtn: { margin: 24, borderWidth: 0.5, borderColor: 'rgba(229,115,115,0.4)', paddingVertical: 14, alignItems: 'center' },
+  signOutText: { fontFamily: Fonts.jakarta, fontSize: FontSize.xs, color: 'rgba(229,115,115,0.7)', letterSpacing: 2, fontWeight: '600' },
 
-  // Footer note
-  footerNote: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-    borderTopWidth: 0.5,
-    borderTopColor: Colors.goldLine,
-    paddingTop: 20,
-    alignItems: 'center',
-  },
-  footerNoteText: {
-    fontFamily: Fonts.mono,
-    fontSize: 8,
-    letterSpacing: 1,
-    color: Colors.textMuted,
-    textAlign: 'center',
-  },
+  footerNote: { paddingHorizontal: 24, alignItems: 'center' },
+  footerNoteText: { fontFamily: Fonts.mono, fontSize: 8, letterSpacing: 1, color: Colors.textMuted, textAlign: 'center' },
 });

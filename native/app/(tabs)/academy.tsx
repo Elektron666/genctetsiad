@@ -9,6 +9,7 @@ import {
   Animated,
   StyleSheet,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Fonts } from '@/theme';
@@ -17,6 +18,7 @@ import { useAppContext } from '@/context/AppContext';
 import { useAuthContext } from '@/context/AuthContext';
 import { useCourses } from '@/hooks/useCourses';
 import { useMembers } from '@/hooks/useMembers';
+import { supabase } from '@/lib/supabase';
 import type { Course as SupabaseCourse, CourseLevel } from '@/types/database';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
@@ -41,6 +43,7 @@ type Course = {
 
 type Mentor = {
   id: number;
+  dbId?: string;    // UUID from profiles table (null for fallback data)
   name: string;
   title: string;
   firm: string;
@@ -261,27 +264,44 @@ function CourseCard({ course }: { course: Course }) {
 
 function MentorApplyModal({
   mentor,
+  userId,
   onClose,
   onSent,
 }: {
   mentor: Mentor;
+  userId?: string;
   onClose: () => void;
   onSent: () => void;
 }) {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!message.trim() || sending) return;
     setSending(true);
-    setTimeout(() => {
-      setSent(true);
-      setTimeout(() => {
-        onSent();
-        onClose();
-      }, 1500);
-    }, 400);
+    setErrorMsg('');
+
+    if (mentor.dbId && userId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
+        .from('mentorship_requests')
+        .insert({ mentee_id: userId, mentor_id: mentor.dbId, message: message.trim() });
+      if (error) {
+        setSending(false);
+        if (error.code === '23505') {
+          setErrorMsg('Bu mentor için zaten başvuruda bulundunuz.');
+        } else {
+          setErrorMsg('Başvuru gönderilemedi. Tekrar deneyin.');
+        }
+        return;
+      }
+    }
+
+    setSent(true);
+    setSending(false);
+    setTimeout(() => { onSent(); onClose(); }, 1500);
   };
 
   return (
@@ -334,14 +354,20 @@ function MentorApplyModal({
               </View>
 
               {/* Submit button */}
+              {errorMsg ? (
+                <View style={{ marginBottom: 10, padding: 10, borderWidth: 0.5, borderColor: 'rgba(229,115,115,0.5)' }}>
+                  <Text style={{ fontFamily: Fonts.jakarta, fontSize: 10, color: '#e57373' }}>{errorMsg}</Text>
+                </View>
+              ) : null}
+
               <TouchableOpacity
                 style={[styles.modalSubmitBtn, (!message.trim() || sending) && styles.modalSubmitBtnDisabled]}
                 onPress={handleSend}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.modalSubmitText, (!message.trim() || sending) && styles.modalSubmitTextDisabled]}>
-                  GÖNDER
-                </Text>
+                {sending
+                  ? <ActivityIndicator color={Colors.navyDeep} size="small" />
+                  : <Text style={[styles.modalSubmitText, (!message.trim() || sending) && styles.modalSubmitTextDisabled]}>GÖNDER</Text>}
               </TouchableOpacity>
             </>
           )}
@@ -460,6 +486,7 @@ function CoursesTab() {
 
 function MentorsTab() {
   const { mentorRequests, addMentorRequest } = useAppContext();
+  const { session } = useAuthContext();
   const { mentors: supabaseMentors } = useMembers();
   const [modalMentor, setModalMentor] = useState<Mentor | null>(null);
   const { show: showToast, ToastComponent } = useToast();
@@ -467,6 +494,7 @@ function MentorsTab() {
   const displayMentors: Mentor[] = supabaseMentors.length > 0
     ? supabaseMentors.map((p, i) => ({
         id:        i + 1,
+        dbId:      p.id,
         name:      p.full_name,
         title:     p.position ?? p.role,
         firm:      p.company ?? '—',
@@ -509,6 +537,7 @@ function MentorsTab() {
         <MentorApplyModal
           key={modalMentor.id}
           mentor={modalMentor}
+          userId={session?.user?.id}
           onClose={() => setModalMentor(null)}
           onSent={handleSent}
         />
