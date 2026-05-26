@@ -88,7 +88,7 @@ function PendingCard({
           onPress={() =>
             Alert.alert(
               'Üyeyi Reddet',
-              `${member.full_name || 'Bu üye'} başvurusu silinecek. Emin misin?`,
+              `${member.full_name || 'Bu üye'} başvurusu reddedilecek. Emin misin?`,
               [
                 { text: 'Vazgeç', style: 'cancel' },
                 { text: 'Reddet', style: 'destructive', onPress: () => handle('reject') },

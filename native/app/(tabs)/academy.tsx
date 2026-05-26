@@ -112,7 +112,7 @@ function supabaseToCourse(c: SupabaseCourse): Course {
   return {
     id:       parseInt(c.id, 10) || 0,
     title:    c.title,
-    tag:      c.instructor ?? 'EĞİTİM',
+    tag:      'EĞİTİM',
     level:    LEVEL_LABELS[c.level ?? 'beginner'],
     duration: c.duration_hours ? `${c.duration_hours} SAAT` : '—',
     progress: c.enrollment?.progress ?? 0,

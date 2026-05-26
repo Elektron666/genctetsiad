@@ -90,7 +90,13 @@ export default function RegisterScreen() {
   const [kvkkChecked, setKvkkChecked] = useState(false);
   const [memberCode, setMemberCode] = useState('');
   const [codeAnim] = useState(new Animated.Value(0));
-  const otpRefs = Array.from({ length: 6 }, () => useRef<TextInput>(null));
+  const otpRef0 = useRef<TextInput>(null);
+  const otpRef1 = useRef<TextInput>(null);
+  const otpRef2 = useRef<TextInput>(null);
+  const otpRef3 = useRef<TextInput>(null);
+  const otpRef4 = useRef<TextInput>(null);
+  const otpRef5 = useRef<TextInput>(null);
+  const otpRefs = [otpRef0, otpRef1, otpRef2, otpRef3, otpRef4, otpRef5];
 
   const handleOtpSend = async () => {
     const digits = phone.replace(/\D/g, '');
@@ -131,7 +137,6 @@ export default function RegisterScreen() {
         city,
         sector,
         position,
-        role: 'pending',
       });
       if (error) {
         Alert.alert('Hata', 'Başvuru kaydedilemedi. Tekrar deneyin.');

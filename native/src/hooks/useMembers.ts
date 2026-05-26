@@ -13,6 +13,7 @@ export function useMembers(roles?: MemberRole[]) {
       .from('profiles')
       .select('*')
       .neq('role', 'pending')
+      .neq('role', 'rejected')
       .order('full_name', { ascending: true });
 
     if (roles && roles.length > 0) {
@@ -25,7 +26,22 @@ export function useMembers(roles?: MemberRole[]) {
     setLoading(false);
   }, [roles?.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { fetchMembers(); }, [fetchMembers]);
+  useEffect(() => {
+    fetchMembers();
+
+    // Refresh directory when a member's role changes (e.g. pending → approved)
+    const channel = supabase
+      .channel('members_updates')
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        'postgres_changes' as any,
+        { event: 'UPDATE', schema: 'public', table: 'profiles' },
+        () => { fetchMembers(); },
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchMembers]);
 
   const mentors = members.filter((m) => m.is_mentor);
 
