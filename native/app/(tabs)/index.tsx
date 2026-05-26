@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Fonts, FontSize } from '@/theme';
 import { useAppContext } from '@/context/AppContext';
+import { useAnnouncements } from '@/hooks/useAnnouncements';
 
 // ── Data ───────────────────────────────────────────────────────────────────
 
@@ -72,14 +73,10 @@ const EVENTS = [
   },
 ];
 
-const ANNOUNCEMENTS = [
-  {
-    id: 1,
-    pinned: true,
-    label: 'DUYURU',
-    text: 'HOMETEX 2026 fuar katılım başvuruları 15 Haziran\'a kadar açık. Detaylar için takvime bakın.',
-  },
-];
+const FALLBACK_ANNOUNCEMENT = {
+  label: 'DUYURU',
+  text: "HOMETEX 2026 fuar katılım başvuruları 15 Haziran'a kadar açık. Detaylar için takvime bakın.",
+};
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -313,9 +310,13 @@ const manifStyles = StyleSheet.create({
 
 export default function HomeScreen() {
   const { registeredEvents, unreadCount } = useAppContext();
+  const { announcements } = useAnnouncements(1);
   const [notifOpen, setNotifOpen] = useState(false);
   const [manifestoOpen, setManifestoOpen] = useState(false);
-  const banner = ANNOUNCEMENTS.find((a) => a.pinned) ?? ANNOUNCEMENTS[0];
+  const dbBanner = announcements[0];
+  const banner = dbBanner
+    ? { label: dbBanner.type === 'event' ? 'ETKİNLİK' : 'DUYURU', text: `${dbBanner.title} — ${dbBanner.body}` }
+    : FALLBACK_ANNOUNCEMENT;
 
   const handleQuickCard = (target: string) => {
     if (target === 'directory') {
@@ -411,7 +412,7 @@ export default function HomeScreen() {
           <View style={styles.bannerWrap}>
             <View style={styles.bannerStrip} />
             <View style={styles.bannerContent}>
-              <Text style={styles.bannerLabel}>📢 DUYURU</Text>
+              <Text style={styles.bannerLabel}>📢 {banner.label}</Text>
               <Text style={styles.bannerText}>{banner.text}</Text>
             </View>
           </View>

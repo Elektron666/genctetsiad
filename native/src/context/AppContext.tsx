@@ -21,11 +21,8 @@ type AppState = {
   toggleEvent: (eventId: number) => void;
   isRegistered: (eventId: number) => boolean;
 
-  enrolledCourses: Set<number>;
-  toggleCourse: (courseId: number) => void;
-
-  mentorRequests: Set<number>;
-  addMentorRequest: (mentorId: number) => void;
+  mentorRequests: Set<string>;
+  addMentorRequest: (mentorId: string) => void;
 
   notifications: AppNotification[];
   markRead: (id: string) => void;
@@ -68,9 +65,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuthContext();
   const userId = session?.user?.id;
 
-  const [registeredEvents, setRegisteredEvents] = useState<Set<number>>(() => new Set([2, 5]));
-  const [enrolledCourses, setEnrolledCourses]   = useState<Set<number>>(() => new Set([1, 2, 4, 6]));
-  const [mentorRequests, setMentorRequests]     = useState<Set<number>>(new Set());
+  const [registeredEvents, setRegisteredEvents] = useState<Set<number>>(new Set());
+  const [mentorRequests, setMentorRequests]     = useState<Set<string>>(new Set());
   const [notifications, setNotifications]       = useState<AppNotification[]>([]);
 
   // ── Notifications from DB ─────────────────────────────────────────────────
@@ -147,26 +143,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const isRegistered = useCallback((id: number) => registeredEvents.has(id), [registeredEvents]);
 
-  // ── Courses ───────────────────────────────────────────────────────────────
-
-  const toggleCourse = useCallback((id: number) => {
-    setEnrolledCourses(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }, []);
-
   // ── Mentorship ────────────────────────────────────────────────────────────
 
-  const addMentorRequest = useCallback((mentorId: number) => {
+  useEffect(() => {
+    if (!userId) {
+      setMentorRequests(new Set());
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('mentorship_requests')
+      .select('mentor_id')
+      .eq('mentee_id', userId)
+      .then(({ data }: { data: { mentor_id: string }[] | null }) => {
+        setMentorRequests(new Set((data ?? []).map((r) => r.mentor_id)));
+      });
+  }, [userId]);
+
+  const addMentorRequest = useCallback((mentorId: string) => {
     setMentorRequests(prev => new Set([...prev, mentorId]));
   }, []);
 
   return (
     <AppCtx.Provider value={{
       registeredEvents, toggleEvent, isRegistered,
-      enrolledCourses, toggleCourse,
       mentorRequests, addMentorRequest,
       notifications, markRead, markAllRead, unreadCount,
     }}>

@@ -505,7 +505,7 @@ function MentorsTab() {
 
   const handleSent = () => {
     if (modalMentor) {
-      addMentorRequest(modalMentor.id);
+      if (modalMentor.dbId) addMentorRequest(modalMentor.dbId);
       showToast(`${modalMentor.name} için başvuru gönderildi`, 'success');
     }
   };
@@ -520,7 +520,7 @@ function MentorsTab() {
           <MentorCard
             key={m.id}
             mentor={m}
-            pending={mentorRequests.has(m.id)}
+            pending={!!(m.dbId && mentorRequests.has(m.dbId))}
             onApply={() => setModalMentor(m)}
           />
         ))}
