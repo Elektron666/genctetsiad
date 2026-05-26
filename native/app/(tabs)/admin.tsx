@@ -283,7 +283,7 @@ export default function AdminScreen() {
               maxLength={80}
             />
 
-            <Text style={[styles.inputLabel, { marginTop: 14 }]}>MESAİ</Text>
+            <Text style={[styles.inputLabel, { marginTop: 14 }]}>METİN</Text>
             <TextInput
               style={[styles.input, styles.inputMulti]}
               value={bcBody}

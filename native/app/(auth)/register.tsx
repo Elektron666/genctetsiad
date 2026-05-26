@@ -367,30 +367,39 @@ export default function RegisterScreen() {
               <Text style={s.successTitle}>Başvurunuz{'\n'}Alındı</Text>
               <View style={s.rule} />
               <Text style={s.successSub}>
-                Üyelik başvurunuz komisyon tarafından değerlendirmeye alınmıştır. Onay süreciniz 3-5 iş günü içinde tamamlanacaktır.
+                Üyelik başvurunuz komisyon tarafından değerlendirmeye alınmıştır. Onay süreciniz 3–5 iş günü içinde tamamlanacaktır.
               </Text>
 
-              <View style={s.codeWrap}>
-                <Text style={s.codeLabel}>ÜYELİK BAŞVURU KODUNUZ</Text>
-                <Animated.Text style={[s.codeValue, { opacity: codeAnim }]}>
-                  {memberCode}
-                </Animated.Text>
-              </View>
-
-              <Text style={s.successNote}>
-                Bu kodu kaydedin. Başvuru durumunuzu sorgulamak için kullanabilirsiniz.
-              </Text>
+              {memberCode ? (
+                <>
+                  <View style={s.codeWrap}>
+                    <Text style={s.codeLabel}>ÜYELİK BAŞVURU KODUNUZ</Text>
+                    <Animated.Text style={[s.codeValue, { opacity: codeAnim }]}>
+                      {memberCode}
+                    </Animated.Text>
+                  </View>
+                  <Text style={s.successNote}>
+                    Bu kodu kaydedin. Başvuru durumunuzu sorgulamak için kullanabilirsiniz.
+                  </Text>
+                  <TouchableOpacity
+                    style={[s.ctaButton, s.ctaOutline, { marginTop: 24, width: '100%' }]}
+                    onPress={() => Share.share({ message: memberCode })}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[s.ctaText, { color: Colors.gold }]}>KODU PAYLAŞ / KOPYALA</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <View style={s.codeWrap}>
+                  <Text style={s.codeLabel}>BAŞVURU DURUMU</Text>
+                  <Text style={[s.successNote, { textAlign: 'center', marginTop: 8 }]}>
+                    Onaylandığınızda üyelik kodunuz otomatik olarak hesabınıza atanacaktır.
+                  </Text>
+                </View>
+              )}
 
               <TouchableOpacity
-                style={[s.ctaButton, s.ctaOutline, { marginTop: 24, width: '100%' }]}
-                onPress={() => Share.share({ message: memberCode })}
-                activeOpacity={0.8}
-              >
-                <Text style={[s.ctaText, { color: Colors.gold }]}>KODU PAYLAŞ / KOPYALA</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[s.ctaButton, { marginTop: 10, width: '100%' }]}
+                style={[s.ctaButton, { marginTop: memberCode ? 10 : 32, width: '100%' }]}
                 onPress={() => router.replace('/(auth)/login')}
                 activeOpacity={0.8}
               >
