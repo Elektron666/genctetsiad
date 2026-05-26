@@ -24,6 +24,47 @@ export function useAdmin() {
 
   useEffect(() => {
     fetchPending();
+
+    // Yeni pending üye başvurusu veya rol değişimi: otomatik güncelle
+    const channel = supabase
+      .channel('admin_pending')
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        'postgres_changes' as any,
+        { event: 'INSERT', schema: 'public', table: 'profiles' },
+        (payload: { new: Profile }) => {
+          if (payload.new.role === 'pending') {
+            setPendingMembers(prev => [...prev, payload.new]);
+          }
+        },
+      )
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        'postgres_changes' as any,
+        { event: 'UPDATE', schema: 'public', table: 'profiles' },
+        (payload: { new: Profile; old: { role?: string } }) => {
+          if (payload.new.role !== 'pending') {
+            // Başka bir admin onayladı veya reddetti — listeden çıkar
+            setPendingMembers(prev => prev.filter(m => m.id !== payload.new.id));
+          } else {
+            // Hâlâ pending ama bilgileri güncellenmiş
+            setPendingMembers(prev => prev.map(m => m.id === payload.new.id ? payload.new : m));
+          }
+        },
+      )
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        'postgres_changes' as any,
+        { event: 'DELETE', schema: 'public', table: 'profiles' },
+        (payload: { old: { id?: string } }) => {
+          if (payload.old.id) {
+            setPendingMembers(prev => prev.filter(m => m.id !== payload.old.id));
+          }
+        },
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [fetchPending]);
 
   const approveMember = useCallback(async (userId: string): Promise<{ error: unknown }> => {
@@ -31,7 +72,15 @@ export function useAdmin() {
       .from('profiles')
       .update({ role: 'member' })
       .eq('id', userId);
-    if (!error) setPendingMembers(prev => prev.filter(m => m.id !== userId));
+    if (!error) {
+      setPendingMembers(prev => prev.filter(m => m.id !== userId));
+      db.from('notifications').insert({
+        user_id: userId,
+        title: 'Üyeliğiniz Onaylandı',
+        body: 'Genç TETSİAD üyesi olarak kabul edildiniz. Platformun tüm özelliklerine erişebilirsiniz.',
+        type: 'system',
+      }).then(() => {});
+    }
     return { error };
   }, []);
 

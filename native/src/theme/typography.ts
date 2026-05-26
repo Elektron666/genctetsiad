@@ -1,6 +1,12 @@
 export const Fonts = {
   cormorant: 'CormorantGaramond',
+  cormorantItalic: 'CormorantGaramond-Italic',
+  cormorantMedium: 'CormorantGaramond-Medium',
+  cormorantLight: 'CormorantGaramond-Light',
   jakarta: 'PlusJakartaSans',
+  jakartaMedium: 'PlusJakartaSans-Medium',
+  jakartaSemiBold: 'PlusJakartaSans-SemiBold',
+  jakartaLight: 'PlusJakartaSans-Light',
   mono: 'JetBrainsMono',
 };
 
