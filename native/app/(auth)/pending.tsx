@@ -1,12 +1,17 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { router } from 'expo-router';
 import { Colors, Fonts, FontSize } from '@/theme';
 import { useAuthContext } from '@/context/AuthContext';
 
 export default function PendingScreen() {
-  const { profile, signOut } = useAuthContext();
+  const { profile, signOut, status } = useAuthContext();
+
+  useEffect(() => {
+    if (status === 'authenticated') router.replace('/(tabs)');
+  }, [status]);
 
   return (
     <SafeAreaView style={styles.root}>
