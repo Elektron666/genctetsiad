@@ -148,7 +148,7 @@ export default function RegisterScreen() {
 
   const canNext = () => {
     if (step === 2) return firstName.trim().length > 1 && lastName.trim().length > 1 && email.includes('@');
-    if (step === 3) return firm.trim().length > 1 && city.length > 0 && sector.length > 0;
+    if (step === 3) return city.length > 0 && sector.length > 0;
     if (step === 5) return kvkkChecked;
     return true;
   };
@@ -265,8 +265,8 @@ export default function RegisterScreen() {
               <View style={s.rule} />
 
               <View style={s.fieldWrap}>
-                <Text style={s.fieldLabel}>FİRMA ADI</Text>
-                <TextInput style={s.textInput} value={firm} onChangeText={setFirm} placeholder="Firma adı" placeholderTextColor={Colors.textMuted} />
+                <Text style={s.fieldLabel}>FİRMA / ÜNİVERSİTE</Text>
+                <TextInput style={s.textInput} value={firm} onChangeText={setFirm} placeholder="Firma veya üniversite adı" placeholderTextColor={Colors.textMuted} />
                 <View style={s.underline} />
               </View>
 

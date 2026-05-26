@@ -22,7 +22,13 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const slideAnim = useRef(new Animated.Value(0)).current;
-  const otpRefs = Array.from({ length: 6 }, () => useRef<TextInput>(null));
+  const otpRef0 = useRef<TextInput>(null);
+  const otpRef1 = useRef<TextInput>(null);
+  const otpRef2 = useRef<TextInput>(null);
+  const otpRef3 = useRef<TextInput>(null);
+  const otpRef4 = useRef<TextInput>(null);
+  const otpRef5 = useRef<TextInput>(null);
+  const otpRefs = [otpRef0, otpRef1, otpRef2, otpRef3, otpRef4, otpRef5];
 
   useEffect(() => {
     if (status === 'authenticated') router.replace('/(tabs)');
