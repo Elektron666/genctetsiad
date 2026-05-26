@@ -72,15 +72,8 @@ export function useAdmin() {
       .from('profiles')
       .update({ role: 'member' })
       .eq('id', userId);
-    if (!error) {
-      setPendingMembers(prev => prev.filter(m => m.id !== userId));
-      db.from('notifications').insert({
-        user_id: userId,
-        title: 'Üyeliğiniz Onaylandı',
-        body: 'Genç TETSİAD üyesi olarak kabul edildiniz. Platformun tüm özelliklerine erişebilirsiniz.',
-        type: 'system',
-      }).then(() => {});
-    }
+    if (!error) setPendingMembers(prev => prev.filter(m => m.id !== userId));
+    // Notification is created by the trg_notify_member_approval DB trigger (migration 009).
     return { error };
   }, []);
 
