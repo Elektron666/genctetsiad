@@ -40,7 +40,28 @@ export function useEvents(userId?: string) {
     setLoading(false);
   }, [userId]);
 
-  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+  useEffect(() => {
+    fetchEvents();
+
+    // Refresh when admin creates or updates an event
+    const channel = supabase
+      .channel('events_live')
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        'postgres_changes' as any,
+        { event: 'INSERT', schema: 'public', table: 'events' },
+        () => { fetchEvents(); },
+      )
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        'postgres_changes' as any,
+        { event: 'UPDATE', schema: 'public', table: 'events' },
+        () => { fetchEvents(); },
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchEvents]);
 
   const toggleAttendance = useCallback(async (eventId: string) => {
     if (!userId) return;
