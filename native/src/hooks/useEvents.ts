@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Event } from '@/types/database';
 
 export function useEvents(userId?: string) {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const channelId = useRef(`events_${Math.random().toString(36).slice(2)}`);
 
   const fetchEvents = useCallback(async () => {
     setLoading(true);
@@ -45,7 +46,7 @@ export function useEvents(userId?: string) {
 
     // Refresh when admin creates or updates an event
     const channel = supabase
-      .channel('events_live')
+      .channel(channelId.current)
       .on(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         'postgres_changes' as any,

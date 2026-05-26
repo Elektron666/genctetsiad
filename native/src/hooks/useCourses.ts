@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Course } from '@/types/database';
 
 export function useCourses(userId?: string) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const channelId = useRef(`courses_${Math.random().toString(36).slice(2)}`);
 
   const fetchCourses = useCallback(async () => {
     setLoading(true);
@@ -39,7 +40,27 @@ export function useCourses(userId?: string) {
     setLoading(false);
   }, [userId]);
 
-  useEffect(() => { fetchCourses(); }, [fetchCourses]);
+  useEffect(() => {
+    fetchCourses();
+
+    const channel = supabase
+      .channel(channelId.current)
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        'postgres_changes' as any,
+        { event: 'INSERT', schema: 'public', table: 'courses' },
+        () => { fetchCourses(); },
+      )
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        'postgres_changes' as any,
+        { event: 'UPDATE', schema: 'public', table: 'courses' },
+        () => { fetchCourses(); },
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchCourses]);
 
   const enroll = useCallback(async (courseId: string) => {
     if (!userId) return;

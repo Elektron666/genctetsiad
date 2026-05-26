@@ -19,6 +19,7 @@ import { useAppContext } from '@/context/AppContext';
 import { useAnnouncements } from '@/hooks/useAnnouncements';
 import { useAuthContext } from '@/context/AuthContext';
 import { useEvents } from '@/hooks/useEvents';
+import { supabase } from '@/lib/supabase';
 
 // ── Data ───────────────────────────────────────────────────────────────────
 
@@ -135,14 +136,34 @@ function useCounter(target: number, duration = 1200, delay = 0) {
 
 // ── Stats strip ────────────────────────────────────────────────────────────
 
+function useDbStats() {
+  const [memberCount, setMemberCount] = useState(0);
+  const [eventCount, setEventCount] = useState(0);
+
+  useEffect(() => {
+    async function load() {
+      const [{ count: mc }, { count: ec }] = await Promise.all([
+        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        supabase.from('events').select('*', { count: 'exact', head: true }).eq('is_published', true),
+      ]);
+      if (mc !== null) setMemberCount(mc);
+      if (ec !== null) setEventCount(ec);
+    }
+    load();
+  }, []);
+
+  return { memberCount, eventCount };
+}
+
 function StatsStrip() {
-  const c1 = useCounter(1500, 1400, 0);
+  const { memberCount, eventCount } = useDbStats();
+  const c1 = useCounter(memberCount || 1500, 1400, 0);
   const c2 = useCounter(55, 1000, 200);
   const c3 = useCounter(40, 900, 400);
-  const c4 = useCounter(10, 700, 600);
+  const c4 = useCounter(eventCount || 10, 700, 600);
 
   const stats = [
-    { value: c1 >= 1500 ? '1.500' : c1.toLocaleString('tr-TR'), suffix: '+', label: 'ÜYE' },
+    { value: c1.toLocaleString('tr-TR'), suffix: '+', label: 'ÜYE' },
     { value: String(c2), suffix: '', label: 'İL' },
     { value: String(c3), suffix: '', label: 'ÜLKE' },
     { value: String(c4), suffix: '', label: 'ETKİNLİK' },
@@ -416,8 +437,8 @@ export default function HomeScreen() {
           {/* CTA buttons */}
           <View style={styles.coverCTAWrap}>
             <View style={styles.coverCTARow}>
-              <TouchableOpacity style={styles.btnFill} activeOpacity={0.8} onPress={() => router.push('/(auth)/register')}>
-                <Text style={styles.btnFillText}>BAŞVUR</Text>
+              <TouchableOpacity style={styles.btnFill} activeOpacity={0.8} onPress={() => router.push('/(tabs)/calendar')}>
+                <Text style={styles.btnFillText}>TAKVİM</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.btnOutline} activeOpacity={0.8} onPress={() => setManifestoOpen(true)}>
                 <Text style={styles.btnOutlineText}>MANİFESTO</Text>

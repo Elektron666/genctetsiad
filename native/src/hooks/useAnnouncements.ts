@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Announcement } from '@/types/database';
 
@@ -7,6 +7,7 @@ export type { Announcement };
 export function useAnnouncements(limit = 5) {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
+  const channelId = useRef(`announcements_${Math.random().toString(36).slice(2)}`);
 
   useEffect(() => {
     setLoading(true);
@@ -22,7 +23,7 @@ export function useAnnouncements(limit = 5) {
       });
 
     const channel = supabase
-      .channel('announcements_live')
+      .channel(channelId.current)
       .on(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         'postgres_changes' as any,

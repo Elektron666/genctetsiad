@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Profile, MemberRole } from '@/types/database';
 
 export function useMembers(roles?: MemberRole[]) {
   const [members, setMembers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const channelId = useRef(`members_${Math.random().toString(36).slice(2)}`);
 
   const fetchMembers = useCallback(async () => {
     setLoading(true);
@@ -31,7 +32,7 @@ export function useMembers(roles?: MemberRole[]) {
 
     // Refresh directory when a member's role changes (e.g. pending → approved)
     const channel = supabase
-      .channel('members_updates')
+      .channel(channelId.current)
       .on(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         'postgres_changes' as any,
