@@ -122,11 +122,6 @@ export default function RegisterScreen() {
     }
   };
 
-  const generateCode = () => {
-    const num = Math.floor(10000 + Math.random() * 90000);
-    return `GT-2026-${num}`;
-  };
-
   const next = async () => {
     if (step === TOTAL_STEPS) {
       const { error } = await updateProfile({
@@ -142,7 +137,7 @@ export default function RegisterScreen() {
         Alert.alert('Hata', 'Başvuru kaydedilemedi. Tekrar deneyin.');
         return;
       }
-      setMemberCode(generateCode()); // local display only; real code assigned by DB trigger
+      setMemberCode('');
       setStep(6);
       Animated.timing(codeAnim, { toValue: 1, duration: 1200, useNativeDriver: true }).start();
     } else {

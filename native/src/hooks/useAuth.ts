@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { registerForPushNotificationsAsync } from '@/lib/notifications';
 import type { Session } from '@supabase/supabase-js';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { Profile } from '@/types/database';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -23,6 +24,7 @@ export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [status, setStatus] = useState<AuthStatus>('loading');
+  const profileChannelRef = useRef<RealtimeChannel | null>(null);
 
   const loadProfile = useCallback(async (userId: string) => {
     const { data } = await supabase
@@ -34,11 +36,29 @@ export function useAuth() {
     if (row) {
       setProfile(row as Profile);
       setStatus(row.role === 'pending' ? 'pending' : 'authenticated');
-      // Push token'ı arka planda kaydet (UI'yi bloklamasın)
       syncPushToken(userId).catch(() => {});
     } else {
       setStatus('unauthenticated');
     }
+  }, []);
+
+  const subscribeToProfile = useCallback((userId: string) => {
+    if (profileChannelRef.current) {
+      supabase.removeChannel(profileChannelRef.current);
+    }
+    const channel = supabase
+      .channel(`profile_${userId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` },
+        (payload) => {
+          const row = payload.new as SupabaseRow;
+          setProfile(row as Profile);
+          setStatus(row.role === 'pending' ? 'pending' : 'authenticated');
+        },
+      )
+      .subscribe();
+    profileChannelRef.current = channel;
   }, []);
 
   useEffect(() => {
@@ -46,6 +66,7 @@ export function useAuth() {
       setSession(session);
       if (session?.user) {
         loadProfile(session.user.id);
+        subscribeToProfile(session.user.id);
       } else {
         setStatus('unauthenticated');
       }
@@ -55,14 +76,25 @@ export function useAuth() {
       setSession(session);
       if (session?.user) {
         loadProfile(session.user.id);
+        subscribeToProfile(session.user.id);
       } else {
         setProfile(null);
         setStatus('unauthenticated');
+        if (profileChannelRef.current) {
+          supabase.removeChannel(profileChannelRef.current);
+          profileChannelRef.current = null;
+        }
       }
     });
 
-    return () => subscription.unsubscribe();
-  }, [loadProfile]);
+    return () => {
+      subscription.unsubscribe();
+      if (profileChannelRef.current) {
+        supabase.removeChannel(profileChannelRef.current);
+        profileChannelRef.current = null;
+      }
+    };
+  }, [loadProfile, subscribeToProfile]);
 
   const sendOtp = useCallback(async (phone: string) => {
     const { error } = await supabase.auth.signInWithOtp({

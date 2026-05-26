@@ -199,8 +199,12 @@ function EventCard({
   onToggle: () => void;
   onPress: () => void;
 }) {
+  // For Supabase events: count is already optimistically updated by useEvents hook
+  // For fallback demo events: adjust based on preset registered set
   const wasReg = PRESET_REGISTERED.has(event.id);
-  const liveCount = registered && !wasReg
+  const liveCount = event.uuid
+    ? event.count
+    : registered && !wasReg
     ? event.count + 1
     : !registered && wasReg
     ? event.count - 1
@@ -282,7 +286,9 @@ function EventDetail({
 }) {
   const insets = useSafeAreaInsets();
   const wasReg = PRESET_REGISTERED.has(event.id);
-  const liveCount = registered && !wasReg
+  const liveCount = event.uuid
+    ? event.count
+    : registered && !wasReg
     ? event.count + 1
     : !registered && wasReg
     ? event.count - 1
