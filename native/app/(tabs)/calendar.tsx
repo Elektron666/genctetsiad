@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -405,6 +405,15 @@ export default function CalendarScreen() {
   const displayEvents: EventItem[] = supabaseEvents.length > 0
     ? supabaseEvents.map(supabaseToEventItem)
     : EVENTS;
+
+  // Keep selectedEvent in sync with live supabaseEvents so the count
+  // updates immediately after toggleAttendance.
+  useEffect(() => {
+    if (selectedEvent?.uuid && supabaseEvents.length > 0) {
+      const fresh = supabaseEvents.find((e) => e.id === selectedEvent.uuid);
+      if (fresh) setSelectedEvent(supabaseToEventItem(fresh));
+    }
+  }, [supabaseEvents]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isRegistered = (event: EventItem): boolean => {
     if (supabaseEvents.length > 0) {
