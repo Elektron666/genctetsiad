@@ -166,18 +166,29 @@ function EditProfileModal({
   onSave: (updates: Partial<Profile>) => Promise<{ error: unknown }>;
   onClose: () => void;
 }) {
-  const [fullName, setFullName]  = useState(profile.full_name ?? '');
-  const [company, setCompany]    = useState(profile.company ?? '');
-  const [position, setPosition]  = useState(profile.position ?? '');
-  const [email, setEmail]        = useState(profile.email ?? '');
-  const [city, setCity]          = useState(profile.city ?? '');
-  const [sector, setSector]      = useState(profile.sector ?? '');
-  const [saving, setSaving]      = useState(false);
+  const [fullName, setFullName]   = useState(profile.full_name ?? '');
+  const [company, setCompany]     = useState(profile.company ?? '');
+  const [position, setPosition]   = useState(profile.position ?? '');
+  const [email, setEmail]         = useState(profile.email ?? '');
+  const [city, setCity]           = useState(profile.city ?? '');
+  const [sector, setSector]       = useState(profile.sector ?? '');
+  const [isMentor, setIsMentor]   = useState(profile.is_mentor ?? false);
+  const [mentorBio, setMentorBio] = useState(profile.mentor_bio ?? '');
+  const [saving, setSaving]       = useState(false);
 
   const handleSave = async () => {
     if (!fullName.trim()) return;
     setSaving(true);
-    const { error } = await onSave({ full_name: fullName.trim(), company: company.trim() || null, position: position.trim() || null, email: email.trim() || null, city: city || null, sector: sector || null });
+    const { error } = await onSave({
+      full_name: fullName.trim(),
+      company: company.trim() || null,
+      position: position.trim() || null,
+      email: email.trim() || null,
+      city: city || null,
+      sector: sector || null,
+      is_mentor: isMentor,
+      mentor_bio: isMentor ? (mentorBio.trim() || null) : null,
+    });
     setSaving(false);
     if (error) {
       Alert.alert('Hata', 'Profil kaydedilemedi. Tekrar deneyin.');
@@ -239,6 +250,34 @@ function EditProfileModal({
               </View>
             </View>
 
+            <View style={editS.fieldWrap}>
+              <Text style={editS.fieldLabel}>MENTÖRLÜK</Text>
+              <TouchableOpacity
+                style={[editS.mentorToggle, isMentor && editS.mentorToggleActive]}
+                onPress={() => setIsMentor(v => !v)}
+                activeOpacity={0.8}
+              >
+                <View style={[editS.mentorDot, isMentor && editS.mentorDotActive]} />
+                <Text style={[editS.mentorToggleText, isMentor && editS.mentorToggleTextActive]}>
+                  {isMentor ? 'Mentör olarak listeleniyorum' : 'Mentör olmak istiyorum'}
+                </Text>
+              </TouchableOpacity>
+              {isMentor && (
+                <View style={{ marginTop: 12 }}>
+                  <Text style={[editS.fieldLabel, { marginBottom: 6 }]}>UZMANLIK & BİYOGRAFİ</Text>
+                  <TextInput
+                    style={[editS.input, { borderBottomWidth: 0.5, borderBottomColor: Colors.goldLine, paddingBottom: 8, minHeight: 60, textAlignVertical: 'top' }]}
+                    value={mentorBio}
+                    onChangeText={setMentorBio}
+                    placeholder="Uzmanlık alanı, deneyim..."
+                    placeholderTextColor={Colors.textMuted}
+                    multiline
+                    maxLength={200}
+                  />
+                </View>
+              )}
+            </View>
+
             <TouchableOpacity
               style={[editS.saveBtn, (!fullName.trim() || saving) && editS.saveBtnDisabled]}
               onPress={handleSave}
@@ -273,9 +312,15 @@ const editS = StyleSheet.create({
   pillGrid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
   pillText:       { fontFamily: Fonts.jakarta, fontSize: 9, color: Colors.textMuted },
   pillTextActive: { color: Colors.navyDeep, fontWeight: '600' },
-  saveBtn:        { backgroundColor: Colors.gold, paddingVertical: 16, alignItems: 'center', marginTop: 8 },
-  saveBtnDisabled:{ opacity: 0.4 },
-  saveBtnText:    { fontFamily: Fonts.jakarta, fontSize: FontSize.xs, fontWeight: '700', color: Colors.navyDeep, letterSpacing: 3 },
+  saveBtn:             { backgroundColor: Colors.gold, paddingVertical: 16, alignItems: 'center', marginTop: 8 },
+  saveBtnDisabled:     { opacity: 0.4 },
+  saveBtnText:         { fontFamily: Fonts.jakarta, fontSize: FontSize.xs, fontWeight: '700', color: Colors.navyDeep, letterSpacing: 3 },
+  mentorToggle:        { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 0.5, borderColor: Colors.goldLine, paddingHorizontal: 14, paddingVertical: 10 },
+  mentorToggleActive:  { backgroundColor: 'rgba(217,200,150,0.08)', borderColor: Colors.gold },
+  mentorDot:           { width: 10, height: 10, borderRadius: 5, borderWidth: 1.5, borderColor: Colors.goldLine },
+  mentorDotActive:     { backgroundColor: Colors.gold, borderColor: Colors.gold },
+  mentorToggleText:    { fontFamily: Fonts.jakarta, fontSize: FontSize.xs, color: Colors.textMuted, flex: 1 },
+  mentorToggleTextActive: { color: Colors.ivory },
 });
 
 // ── Membership Card ───────────────────────────────────────────────────────────
