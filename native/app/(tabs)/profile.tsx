@@ -477,11 +477,11 @@ export default function ProfileScreen() {
             ['POZİSYON', profile.position ?? '—'],
             ['E-POSTA',  profile.email ?? '—'],
             ['TELEFON',  profile.phone ?? '—'],
-            ['DURUM',    profile.role === 'pending' ? 'ONAY BEKLENİYOR' : 'AKTİF ÜYE · 2026'],
+            ['DURUM',    profile.role === 'pending' ? 'ONAY BEKLENİYOR' : profile.role === 'rejected' ? 'REDDEDİLDİ' : 'AKTİF ÜYE · 2026'],
           ].map(([k, v], i) => (
             <View key={k} style={[styles.infoRow, i > 0 && styles.infoRowBorder]}>
               <Text style={styles.infoKey}>{k}</Text>
-              <Text style={[styles.infoVal, k === 'DURUM' && { color: profile.role === 'pending' ? Colors.textMuted : Colors.gold }]}>{v}</Text>
+              <Text style={[styles.infoVal, k === 'DURUM' && { color: profile.role === 'pending' ? Colors.textMuted : profile.role === 'rejected' ? 'rgba(229,115,115,0.8)' : Colors.gold }]}>{v}</Text>
             </View>
           ))}
         </View>
