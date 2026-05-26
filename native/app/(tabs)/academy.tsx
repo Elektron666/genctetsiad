@@ -459,7 +459,7 @@ function CoursesTab() {
   const { session } = useAuthContext();
   const { courses: supabaseCourses } = useCourses(session?.user.id);
   const displayCourses = supabaseCourses.length > 0
-    ? supabaseCourses.map(supabaseToCourse)
+    ? supabaseCourses.map((c, i) => ({ ...supabaseToCourse(c), id: i + 1 }))
     : COURSES;
 
   return (

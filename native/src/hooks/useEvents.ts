@@ -23,7 +23,7 @@ export function useEvents(userId?: string) {
     const rows = data as any[];
     const enriched: Event[] = rows.map((row) => ({
       ...row,
-      attendee_count: row.event_attendees?.[0]?.count ?? 0,
+      attendee_count: Number(row.event_attendees?.[0]?.count ?? 0),
     }));
 
     if (userId) {
