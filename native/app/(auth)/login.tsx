@@ -27,6 +27,7 @@ export default function LoginScreen() {
   useEffect(() => {
     if (status === 'authenticated') router.replace('/(tabs)');
     if (status === 'pending') router.replace('/(auth)/pending');
+    if (status === 'rejected') router.replace('/(auth)/rejected');
   }, [status]);
 
   useEffect(() => {

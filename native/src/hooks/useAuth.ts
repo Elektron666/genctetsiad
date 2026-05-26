@@ -8,7 +8,7 @@ import type { Profile } from '@/types/database';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseRow = any;
 
-export type AuthStatus = 'loading' | 'unauthenticated' | 'pending' | 'authenticated';
+export type AuthStatus = 'loading' | 'unauthenticated' | 'pending' | 'rejected' | 'authenticated';
 
 async function syncPushToken(userId: string) {
   const token = await registerForPushNotificationsAsync();
@@ -35,8 +35,10 @@ export function useAuth() {
     const row = data as SupabaseRow;
     if (row) {
       setProfile(row as Profile);
-      setStatus(row.role === 'pending' ? 'pending' : 'authenticated');
-      syncPushToken(userId).catch(() => {});
+      if (row.role === 'pending') setStatus('pending');
+      else if (row.role === 'rejected') setStatus('rejected');
+      else setStatus('authenticated');
+      if (row.role !== 'pending' && row.role !== 'rejected') syncPushToken(userId).catch(() => {});
     } else {
       setStatus('unauthenticated');
     }
@@ -54,7 +56,9 @@ export function useAuth() {
         (payload) => {
           const row = payload.new as SupabaseRow;
           setProfile(row as Profile);
-          setStatus(row.role === 'pending' ? 'pending' : 'authenticated');
+          if (row.role === 'pending') setStatus('pending');
+          else if (row.role === 'rejected') setStatus('rejected');
+          else setStatus('authenticated');
         },
       )
       .subscribe();

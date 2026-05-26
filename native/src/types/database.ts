@@ -1,4 +1,4 @@
-export type MemberRole = 'pending' | 'member' | 'student' | 'board' | 'president' | 'admin';
+export type MemberRole = 'pending' | 'member' | 'student' | 'board' | 'president' | 'admin' | 'rejected';
 export type RequestStatus = 'pending' | 'accepted' | 'rejected';
 export type NotifType = 'announcement' | 'event' | 'system' | 'mentorship';
 export type CourseLevel = 'beginner' | 'intermediate' | 'advanced';

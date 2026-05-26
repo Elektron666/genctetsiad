@@ -11,6 +11,7 @@ export default function PendingScreen() {
 
   useEffect(() => {
     if (status === 'authenticated') router.replace('/(tabs)');
+    if (status === 'rejected') router.replace('/(auth)/rejected');
   }, [status]);
 
   return (

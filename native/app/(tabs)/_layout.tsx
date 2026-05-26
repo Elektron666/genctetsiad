@@ -21,6 +21,7 @@ export default function TabLayout() {
   if (status === 'loading') return null;
   if (status === 'unauthenticated') return <Redirect href="/(auth)/login" />;
   if (status === 'pending') return <Redirect href="/(auth)/pending" />;
+  if (status === 'rejected') return <Redirect href="/(auth)/rejected" />;
 
   return (
     <Tabs

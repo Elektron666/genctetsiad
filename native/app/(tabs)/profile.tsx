@@ -38,6 +38,7 @@ const SECTORS = [
 
 const ROLE_LABELS: Record<string, string> = {
   pending:   'Onay Bekliyor',
+  rejected:  'Reddedildi',
   member:    'Üye',
   student:   'Öğrenci Üye',
   board:     'Yönetim Kurulu',

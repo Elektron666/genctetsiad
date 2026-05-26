@@ -466,7 +466,7 @@ export default function CalendarScreen() {
         {/* Event cards */}
         {displayEvents.map((event) => (
           <EventCard
-            key={event.id}
+            key={event.uuid ?? event.id}
             event={event}
             registered={isRegistered(event)}
             onToggle={() => handleToggle(event)}

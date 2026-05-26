@@ -87,7 +87,7 @@ export function useAdmin() {
   const rejectMember = useCallback(async (userId: string): Promise<{ error: unknown }> => {
     const { error } = await db
       .from('profiles')
-      .delete()
+      .update({ role: 'rejected' })
       .eq('id', userId);
     if (!error) setPendingMembers(prev => prev.filter(m => m.id !== userId));
     return { error };

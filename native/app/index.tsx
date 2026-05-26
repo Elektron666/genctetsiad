@@ -16,5 +16,6 @@ export default function Index() {
 
   if (status === 'authenticated') return <Redirect href="/(tabs)" />;
   if (status === 'pending') return <Redirect href="/(auth)/pending" />;
+  if (status === 'rejected') return <Redirect href="/(auth)/rejected" />;
   return <Redirect href="/(auth)/login" />;
 }

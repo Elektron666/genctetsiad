@@ -24,6 +24,7 @@ type CityFilter = string;
 
 const ROLE_LABELS: Record<MemberRole, string> = {
   pending:   'Onay Bekliyor',
+  rejected:  'Reddedildi',
   member:    'Üye',
   student:   'Öğrenci Üye',
   board:     'Yönetim Kurulu',
