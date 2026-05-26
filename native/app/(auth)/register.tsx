@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, KeyboardAvoidingView, Platform, Animated, Share, Alert,
+  ScrollView, KeyboardAvoidingView, Platform, Animated, Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -88,8 +88,6 @@ export default function RegisterScreen() {
   const [position, setPosition] = useState('');
   const [memberType, setMemberType] = useState<'student' | 'company'>('company');
   const [kvkkChecked, setKvkkChecked] = useState(false);
-  const [memberCode, setMemberCode] = useState('');
-  const [codeAnim] = useState(new Animated.Value(0));
   const otpRef0 = useRef<TextInput>(null);
   const otpRef1 = useRef<TextInput>(null);
   const otpRef2 = useRef<TextInput>(null);
@@ -142,9 +140,7 @@ export default function RegisterScreen() {
         Alert.alert('Hata', 'Başvuru kaydedilemedi. Tekrar deneyin.');
         return;
       }
-      setMemberCode('');
       setStep(6);
-      Animated.timing(codeAnim, { toValue: 1, duration: 1200, useNativeDriver: true }).start();
     } else {
       setStep(s => s + 1);
     }
@@ -375,36 +371,15 @@ export default function RegisterScreen() {
                 Üyelik başvurunuz komisyon tarafından değerlendirmeye alınmıştır. Onay süreciniz 3–5 iş günü içinde tamamlanacaktır.
               </Text>
 
-              {memberCode ? (
-                <>
-                  <View style={s.codeWrap}>
-                    <Text style={s.codeLabel}>ÜYELİK BAŞVURU KODUNUZ</Text>
-                    <Animated.Text style={[s.codeValue, { opacity: codeAnim }]}>
-                      {memberCode}
-                    </Animated.Text>
-                  </View>
-                  <Text style={s.successNote}>
-                    Bu kodu kaydedin. Başvuru durumunuzu sorgulamak için kullanabilirsiniz.
-                  </Text>
-                  <TouchableOpacity
-                    style={[s.ctaButton, s.ctaOutline, { marginTop: 24, width: '100%' }]}
-                    onPress={() => Share.share({ message: memberCode })}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[s.ctaText, { color: Colors.gold }]}>KODU PAYLAŞ / KOPYALA</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <View style={s.codeWrap}>
-                  <Text style={s.codeLabel}>BAŞVURU DURUMU</Text>
-                  <Text style={[s.successNote, { textAlign: 'center', marginTop: 8 }]}>
-                    Onaylandığınızda üyelik kodunuz otomatik olarak hesabınıza atanacaktır.
-                  </Text>
-                </View>
-              )}
+              <View style={s.codeWrap}>
+                <Text style={s.codeLabel}>BAŞVURU DURUMU</Text>
+                <Text style={[s.successNote, { textAlign: 'center', marginTop: 8 }]}>
+                  Onaylandığınızda üyelik kodunuz otomatik olarak hesabınıza atanacaktır.
+                </Text>
+              </View>
 
               <TouchableOpacity
-                style={[s.ctaButton, { marginTop: memberCode ? 10 : 32, width: '100%' }]}
+                style={[s.ctaButton, { marginTop: 32, width: '100%' }]}
                 onPress={() => router.replace('/(auth)/login')}
                 activeOpacity={0.8}
               >
@@ -494,12 +469,10 @@ const s = StyleSheet.create({
   successSub:     { fontFamily: Fonts.jakarta, fontSize: 11, color: Colors.textMuted, textAlign: 'center', lineHeight: 18, marginBottom: 32 },
   codeWrap:       { borderWidth: 0.5, borderColor: Colors.gold, padding: 24, alignItems: 'center', width: '100%' },
   codeLabel:      { fontFamily: Fonts.mono, fontSize: 7, color: Colors.textMuted, letterSpacing: 2, marginBottom: 14 },
-  codeValue:      { fontFamily: Fonts.mono, fontSize: 20, color: Colors.gold, letterSpacing: 3 },
   successNote:    { fontFamily: Fonts.jakarta, fontSize: 10, color: Colors.textMuted, textAlign: 'center', lineHeight: 16, marginTop: 20 },
 
   bottomBar:      { paddingHorizontal: 24, paddingBottom: Platform.OS === 'ios' ? 8 : 16, paddingTop: 12, borderTopWidth: 0.5, borderTopColor: Colors.goldLine },
   ctaButton:      { backgroundColor: Colors.gold, paddingVertical: 16, alignItems: 'center' },
-  ctaOutline:     { backgroundColor: 'transparent', borderWidth: 0.5, borderColor: Colors.gold },
   ctaDisabled:    { opacity: 0.4 },
   ctaText:        { fontFamily: Fonts.jakarta, fontSize: FontSize.xs, fontWeight: '700', color: Colors.navyDeep, letterSpacing: 3 },
 });
