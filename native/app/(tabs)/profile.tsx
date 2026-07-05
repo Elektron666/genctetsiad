@@ -29,6 +29,7 @@ type Member = {
   memberNo: string;
   phone: string;
   sector: string;
+  email?: string;
 };
 
 const MEMBERS: Member[] = [
@@ -68,7 +69,7 @@ function buildVCard(member: Member): string {
     `ORG:${member.firm}`,
     `TITLE:Genç TETSİAD ${member.role}`,
     `TEL;TYPE=CELL:${member.phone}`,
-    'EMAIL:genctetsiad@tetsiad.org',
+    `EMAIL:${member.email ?? 'genctetsiad@tetsiad.org'}`,
     `ADR:;;${member.city};;;Türkiye`,
     `NOTE:GENÇ TETSİAD · ${member.memberNo}`,
     'END:VCARD',
@@ -597,6 +598,7 @@ export default function ProfileScreen() {
         memberNo: profile.member_code ?? `GT-REF-${profile.id.slice(0, 8).toUpperCase()}`,
         phone: profile.phone ?? '—',
         sector: profile.sector ?? '—',
+        email: profile.email ?? undefined,
       }
     : null;
   const allMembers: Member[] = ownMember ? [ownMember, ...MEMBERS] : MEMBERS;
@@ -712,7 +714,7 @@ export default function ProfileScreen() {
           </View>
           <View style={[styles.infoRow, styles.infoRowBorder]}>
             <Text style={styles.infoKey}>E-POSTA</Text>
-            <Text style={styles.infoVal}>genctetsiad@tetsiad.org</Text>
+            <Text style={styles.infoVal}>{member.email ?? 'genctetsiad@tetsiad.org'}</Text>
           </View>
           <View style={[styles.infoRow, styles.infoRowBorder]}>
             <Text style={styles.infoKey}>DURUM</Text>

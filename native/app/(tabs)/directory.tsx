@@ -75,7 +75,14 @@ export default function DirectoryScreen() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Member | null>(null);
 
-  const { members: supabaseMembers, loading } = useMembers();
+  const { members: supabaseMembers, loading, refetch } = useMembers();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
   const allMembers: Member[] = supabaseMembers.length > 0
     ? supabaseMembers.map(profileToMember)
     : FALLBACK_MEMBERS;
@@ -129,6 +136,8 @@ export default function DirectoryScreen() {
       <FlatList
         data={filtered}
         keyExtractor={m => String(m.id)}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         contentContainerStyle={{ paddingBottom: 100 }}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         renderItem={({ item: m }) => (

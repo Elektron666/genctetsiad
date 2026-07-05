@@ -7,6 +7,7 @@ import {
   ImageBackground,
   StyleSheet,
   Animated,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Fonts } from '@/theme';
@@ -398,8 +399,15 @@ function EventDetail({
 export default function CalendarScreen() {
   const { registeredEvents, toggleEvent } = useAppContext();
   const { session } = useAuthContext();
-  const { events: supabaseEvents, toggleAttendance } = useEvents(session?.user.id);
+  const { events: supabaseEvents, toggleAttendance, refetch } = useEvents(session?.user.id);
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
 
   const displayEvents: EventItem[] = supabaseEvents.length > 0
     ? supabaseEvents.map(supabaseToEventItem)
@@ -447,6 +455,9 @@ export default function CalendarScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} colors={[Colors.gold]} progressBackgroundColor={Colors.navyDeep} />
+        }
       >
         {/* Year + stats row */}
         <View style={styles.statsRow}>

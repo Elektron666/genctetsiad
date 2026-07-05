@@ -17,6 +17,7 @@ import { useAppContext } from '@/context/AppContext';
 import { useAuthContext } from '@/context/AuthContext';
 import { useCourses } from '@/hooks/useCourses';
 import { useMembers } from '@/hooks/useMembers';
+import { supabase } from '@/lib/supabase';
 import type { Course as SupabaseCourse, CourseLevel } from '@/types/database';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
@@ -42,6 +43,7 @@ type Course = {
 
 type Mentor = {
   id: number;
+  uuid?: string;   // Supabase profil UUID'si; başvuru DB'ye bununla yazılır
   name: string;
   title: string;
   firm: string;
@@ -268,22 +270,23 @@ function MentorApplyModal({
 }: {
   mentor: Mentor;
   onClose: () => void;
-  onSent: () => void;
+  onSent: (message: string) => Promise<boolean>;
 }) {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!message.trim() || sending) return;
     setSending(true);
-    setTimeout(() => {
-      setSent(true);
-      setTimeout(() => {
-        onSent();
-        onClose();
-      }, 1500);
-    }, 400);
+    const ok = await onSent(message.trim());
+    setSending(false);
+    if (!ok) {
+      onClose();
+      return;
+    }
+    setSent(true);
+    setTimeout(onClose, 1500);
   };
 
   return (
@@ -462,13 +465,32 @@ function CoursesTab() {
 
 function MentorsTab() {
   const { mentorRequests, addMentorRequest } = useAppContext();
+  const { session } = useAuthContext();
   const { mentors: supabaseMentors } = useMembers();
   const [modalMentor, setModalMentor] = useState<Mentor | null>(null);
+  const [sentTo, setSentTo] = useState<Set<string>>(new Set());
   const { show: showToast, ToastComponent } = useToast();
+
+  // Daha önce gönderilmiş başvuruları işaretle
+  useEffect(() => {
+    if (!session?.user) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('mentorship_requests')
+        .select('mentor_id')
+        .eq('mentee_id', session.user.id);
+      if (!cancelled && data) {
+        setSentTo(new Set((data as { mentor_id: string }[]).map((r) => r.mentor_id)));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const displayMentors: Mentor[] = supabaseMentors.length > 0
     ? supabaseMentors.map((p, i) => ({
         id:        i + 1,
+        uuid:      p.id,
         name:      p.full_name,
         title:     p.position ?? p.role,
         firm:      p.company ?? '—',
@@ -477,11 +499,27 @@ function MentorsTab() {
       }))
     : MENTORS;
 
-  const handleSent = () => {
-    if (modalMentor) {
+  const handleSent = async (message: string): Promise<boolean> => {
+    if (!modalMentor) return false;
+
+    if (modalMentor.uuid && session?.user) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any).from('mentorship_requests').insert({
+        mentee_id: session.user.id,
+        mentor_id: modalMentor.uuid,
+        message,
+      });
+      if (error) {
+        showToast('Başvuru gönderilemedi — bu mentora zaten başvurmuş olabilirsiniz.', 'error');
+        return false;
+      }
+      setSentTo(prev => new Set([...prev, modalMentor.uuid!]));
+    } else {
       addMentorRequest(modalMentor.id);
-      showToast(`${modalMentor.name} için başvuru gönderildi`, 'success');
     }
+
+    showToast(`${modalMentor.name} için başvuru gönderildi`, 'success');
+    return true;
   };
 
   return (
@@ -494,7 +532,7 @@ function MentorsTab() {
           <MentorCard
             key={m.id}
             mentor={m}
-            pending={mentorRequests.has(m.id)}
+            pending={m.uuid ? sentTo.has(m.uuid) : mentorRequests.has(m.id)}
             onApply={() => setModalMentor(m)}
           />
         ))}

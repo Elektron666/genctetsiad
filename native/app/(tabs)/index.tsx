@@ -312,10 +312,10 @@ const manifStyles = StyleSheet.create({
 });
 
 export default function HomeScreen() {
-  const { registeredEvents, unreadCount } = useAppContext();
+  const { registeredEvents, unreadCount, announcementBanner } = useAppContext();
   const [notifOpen, setNotifOpen] = useState(false);
   const [manifestoOpen, setManifestoOpen] = useState(false);
-  const banner = ANNOUNCEMENTS.find((a) => a.pinned) ?? ANNOUNCEMENTS[0];
+  const banner = announcementBanner ?? ANNOUNCEMENTS.find((a) => a.pinned) ?? ANNOUNCEMENTS[0];
 
   const handleQuickCard = (target: string) => {
     if (target === 'directory') {
