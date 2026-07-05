@@ -39,6 +39,7 @@ type Course = {
   level: string;
   duration: string;
   progress: number;
+  enrolled?: boolean;
 };
 
 type Mentor = {
@@ -117,6 +118,7 @@ function supabaseToCourse(c: SupabaseCourse, index: number): Course {
     level:    LEVEL_LABELS[c.level ?? 'beginner'],
     duration: c.duration_hours ? `${c.duration_hours} SAAT` : '—',
     progress: c.enrollment?.progress ?? 0,
+    enrolled: !!c.enrollment,
   };
 }
 
@@ -194,7 +196,7 @@ function ProgramCard({ program }: { program: Program }) {
 
 // ─── CourseCard (with animated progress bar) ──────────────────────────────────
 
-function CourseCard({ course }: { course: Course }) {
+function CourseCard({ course, onEnroll }: { course: Course; onEnroll?: () => void }) {
   const progressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -205,8 +207,11 @@ function CourseCard({ course }: { course: Course }) {
     }).start();
   }, [course.progress]);
 
+  // Supabase kursu: kayıtlı değilse durum 'KAYIT AÇIK'; demo kurslarda eski davranış
   const status =
-    course.progress >= 100
+    course.uuid && !course.enrolled
+      ? 'KAYIT AÇIK'
+      : course.progress >= 100
       ? 'TAMAMLANDI'
       : course.progress > 0
       ? 'DEVAM EDİYOR'
@@ -257,6 +262,13 @@ function CourseCard({ course }: { course: Course }) {
         <Text style={styles.courseStatus}>{status}</Text>
         <Text style={styles.coursePercent}>{course.progress}%</Text>
       </View>
+
+      {/* Enroll CTA — sadece kayıt olunmamış Supabase kurslarında */}
+      {onEnroll && (
+        <TouchableOpacity style={styles.courseEnrollBtn} onPress={onEnroll} activeOpacity={0.8}>
+          <Text style={styles.courseEnrollText}>KAYIT OL →</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -436,28 +448,43 @@ function ProgramsTab() {
 
 function CoursesTab() {
   const { session } = useAuthContext();
-  const { courses: supabaseCourses } = useCourses(session?.user.id);
+  const { courses: supabaseCourses, enroll } = useCourses(session?.user.id);
+  const { show: showToast, ToastComponent } = useToast();
+
   const displayCourses = supabaseCourses.length > 0
     ? supabaseCourses.map(supabaseToCourse)
     : COURSES;
 
+  const handleEnroll = async (course: Course) => {
+    if (!course.uuid) return;
+    await enroll(course.uuid);
+    showToast(`"${course.title}" kursuna kaydoldunuz`, 'success');
+  };
+
   return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.tabContent}
-    >
-      <View style={styles.coursesGrid}>
-        {displayCourses.map((c) => (
-          <CourseCard key={c.id} course={c} />
-        ))}
-      </View>
-      <View style={styles.tabFooter}>
-        <Text style={styles.tabFooterText}>
-          {`${String(displayCourses.length).padStart(2, '0')} KATEGORİ · TÜM ÜYELERE `}
-          <Text style={{ color: Colors.gold }}>ÜCRETSİZ</Text>
-        </Text>
-      </View>
-    </ScrollView>
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.tabContent}
+      >
+        <View style={styles.coursesGrid}>
+          {displayCourses.map((c) => (
+            <CourseCard
+              key={c.id}
+              course={c}
+              onEnroll={c.uuid && !c.enrolled && session?.user ? () => handleEnroll(c) : undefined}
+            />
+          ))}
+        </View>
+        <View style={styles.tabFooter}>
+          <Text style={styles.tabFooterText}>
+            {`${String(displayCourses.length).padStart(2, '0')} KATEGORİ · TÜM ÜYELERE `}
+            <Text style={{ color: Colors.gold }}>ÜCRETSİZ</Text>
+          </Text>
+        </View>
+      </ScrollView>
+      {ToastComponent}
+    </View>
   );
 }
 
@@ -824,6 +851,20 @@ const styles = StyleSheet.create({
     fontSize: 7,
     letterSpacing: 0.5,
     color: Colors.gold,
+  },
+  courseEnrollBtn: {
+    marginTop: 12,
+    borderWidth: 0.5,
+    borderColor: Colors.gold,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  courseEnrollText: {
+    fontFamily: Fonts.jakarta,
+    fontSize: 8,
+    letterSpacing: 1.5,
+    color: Colors.gold,
+    fontWeight: '700',
   },
 
   // ── Mentor cards ─────────────────────────────────────────
