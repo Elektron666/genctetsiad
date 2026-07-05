@@ -29,14 +29,14 @@ const TURKEY_ADVANTAGES = [
 
 const STATS = [
   { id:'ST-01', value:'%8–10', label:'Çin pazar kaybı', sub:'AB baskısından kaybedilecek' },
-  { id:'ST-02', value:'4,2 Mr €', label:'Yıllık fırsat değeri', sub:'Türkiye\'ye aktarılabilecek' },
+  { id:'ST-02', value:'4,2 milyar €', label:'Yıllık fırsat değeri', sub:'Türkiye\'ye aktarılabilecek' },
   { id:'ST-03', value:'%2,5', label:'Hedef pazar payı', sub:'2030\'a kadar ulaşılabilir' },
   { id:'ST-04', value:'+%12', label:'AB büyüme oranı', sub:'Sürdürülebilir tekstil talebi' },
 ];
 
 const ACTION_STEPS = [
-  'GRS / OEKO-TEX sertifikalarını tamamla — 2024–2025',
-  'Tedarik zinciri izlenebilirliğini dijitalleştir — blockchain / QR',
+  'GRS / OEKO-TEX sertifikalarını tamamla — 2026 sonu hedefi',
+  'Tedarik zinciri izlenebilirliğini dijitalleştir — dijital ürün pasaportuna hazırlık',
   'Karbon ayak izi ölçümü başlat — Scope 1, 2, 3',
   'AB alıcı bağlantıları kur — HOMETEX & Heimtextil platformları',
   'Sektörel standart geliştirme — TETSİAD & AB komite katılımı',

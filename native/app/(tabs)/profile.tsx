@@ -32,11 +32,11 @@ type Member = {
 };
 
 const MEMBERS: Member[] = [
-  { id: 1, name: 'Resul Öden',      role: 'Başkan',          firm: 'ROSSA HOME',            city: 'İstanbul', memberNo: 'TG-2026-0001', phone: '+90 532 101 00 01', sector: 'Ev Tekstili' },
-  { id: 2, name: 'Fatih Özdemir',   role: 'Yönetim Kurulu',  firm: 'ORMEN TEKSTİL',         city: 'Ankara',   memberNo: 'TG-2026-0002', phone: '+90 542 312 04 60', sector: 'Dokuma' },
-  { id: 3, name: 'Elif Yıldız',     role: 'Üye',             firm: 'YILDIZ HOME',            city: 'Bursa',    memberNo: 'TG-2026-0003', phone: '+90 505 234 56 78', sector: 'Tasarım' },
-  { id: 4, name: 'Kerem Bayraktar', role: 'Üye',             firm: 'BAYRAKTAR TEKSTİL',     city: 'İstanbul', memberNo: 'TG-2026-0004', phone: '+90 533 456 78 90', sector: 'İhracat' },
-  { id: 5, name: 'Ayşe Kaya',       role: 'Öğrenci Üye',    firm: 'İTÜ Tekstil Müh.',      city: 'İstanbul', memberNo: 'TG-2026-0005', phone: '+90 544 567 89 01', sector: 'Öğrenci' },
+  { id: 1, name: 'Resul Öden',      role: 'Başkan',          firm: 'ROSSA HOME',            city: 'İstanbul', memberNo: 'GT-2026-00001', phone: '+90 532 101 00 01', sector: 'Ev Tekstili' },
+  { id: 2, name: 'Fatih Özdemir',   role: 'Yönetim Kurulu',  firm: 'ORMEN TEKSTİL',         city: 'Ankara',   memberNo: 'GT-2026-00002', phone: '+90 542 312 04 60', sector: 'Dokuma' },
+  { id: 3, name: 'Elif Yıldız',     role: 'Üye',             firm: 'YILDIZ HOME',            city: 'Bursa',    memberNo: 'GT-2026-00003', phone: '+90 505 234 56 78', sector: 'Tasarım' },
+  { id: 4, name: 'Kerem Bayraktar', role: 'Üye',             firm: 'BAYRAKTAR TEKSTİL',     city: 'İstanbul', memberNo: 'GT-2026-00004', phone: '+90 533 456 78 90', sector: 'İhracat' },
+  { id: 5, name: 'Ayşe Kaya',       role: 'Öğrenci Üye',    firm: 'İTÜ Tekstil Müh.',      city: 'İstanbul', memberNo: 'GT-2026-00005', phone: '+90 544 567 89 01', sector: 'Öğrenci' },
 ];
 
 const ROLE_LABELS: Record<MemberRole, string> = {

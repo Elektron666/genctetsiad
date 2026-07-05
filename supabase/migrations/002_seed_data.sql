@@ -36,14 +36,14 @@ INSERT INTO courses (title, description, instructor, duration_hours, level) VALU
 
 -- Demo duyurular
 INSERT INTO announcements (title, body, type) VALUES
-  ('2026 Yılı Üyelik Başvuruları Açıldı',
-   'Genç TETSİAD 2026 dönem üyelik başvuruları 1 Haziran''a kadar kabul edilmektedir. Başvuru için uygulamayı kullanabilirsiniz.',
+  ('2026 Dönemi Üyelik Başvuruları Açık',
+   'Genç TETSİAD 2026 dönemi üyelik başvuruları devam ediyor. Başvuru için uygulamayı kullanabilirsiniz.',
    'general'),
 
   ('Sürdürülebilirlik Zirvesi Kayıtları Başladı',
-   '15 Mayıs tarihli zirve için erken kayıt indirimi devam ediyor. Kontenjan sınırlıdır.',
+   'Önümüzdeki ay düzenlenecek zirve için erken kayıt indirimi devam ediyor. Kontenjan sınırlıdır.',
    'event'),
 
   ('Yeni Mentorluk Programı',
-   'Bu dönem 8 yeni mentor programımıza katıldı. Profil sayfasından başvurabilirsiniz.',
+   'Bu dönem 8 yeni mentor programımıza katıldı. Akademi sekmesinden başvurabilirsiniz.',
    'system');

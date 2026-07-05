@@ -11,8 +11,8 @@ import { useAuthContext } from '@/context/AuthContext';
 
 const TOTAL_STEPS = 5;
 
-const CITIES = ['Ankara', 'İstanbul', 'İzmir', 'Bursa', 'Gaziantep', 'Konya', 'Adana', 'Kayseri', 'Mersin', 'Denizli'];
-const SECTORS = ['Havlu & Bornoz', 'Yatak & Nevresim', 'Perde & Döşeme', 'Halı & Kilim', 'Örgü & Braid', 'Teknik Tekstil', 'Diğer'];
+const CITIES = ['İstanbul', 'Bursa', 'Denizli', 'Ankara', 'İzmir', 'Gaziantep', 'Kahramanmaraş', 'Uşak', 'Tekirdağ', 'Konya', 'Adana', 'Kayseri', 'Mersin'];
+const SECTORS = ['Havlu & Bornoz', 'Yatak & Nevresim', 'Perde & Döşeme', 'Halı & Kilim', 'İplik & Örme', 'Teknik Tekstil', 'Diğer'];
 
 function ProgressBar({ step }: { step: number }) {
   const anim = useRef(new Animated.Value(0)).current;

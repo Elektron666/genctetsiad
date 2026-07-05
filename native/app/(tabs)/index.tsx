@@ -40,32 +40,32 @@ const IMG_PRESIDENT = require('../../assets/images/resul-oden-roportaj.jpg');
 const EVENTS = [
   {
     id: 1,
-    day: 22,
-    month: 'NİSAN',
+    day: 24,
+    month: 'TEMMUZ',
     tag: 'SAHA GEZİSİ',
     title: 'İstanbul Fabrika Ziyareti',
     src: IMG_FABRIKA,
   },
   {
     id: 2,
-    day: 14,
-    month: 'MAYIS',
+    day: 18,
+    month: 'AĞUSTOS',
     tag: 'FUAR',
-    title: 'HOMETEX Fuar Çalışması',
+    title: 'HOMETEX 2027 Fuar Hazırlığı',
     src: IMG_HOMETEX,
   },
   {
     id: 3,
-    day: 22,
-    month: 'MAYIS',
-    tag: 'KOMITE',
+    day: 9,
+    month: 'EYLÜL',
+    tag: 'KOMİTE',
     title: 'Bölge Komite Toplantısı',
     src: IMG_KOMITE,
   },
   {
     id: 4,
-    day: 12,
-    month: 'HAZİRAN',
+    day: 16,
+    month: 'EKİM',
     tag: 'SAHA GEZİSİ',
     title: 'Bursa Fabrika Ziyareti',
     src: 'https://picsum.photos/seed/gt-ev4/400/300',
@@ -77,7 +77,7 @@ const ANNOUNCEMENTS = [
     id: 1,
     pinned: true,
     label: 'DUYURU',
-    text: 'HOMETEX 2026 fuar katılım başvuruları 15 Haziran\'a kadar açık. Detaylar için takvime bakın.',
+    text: '3T — Türkiye Tekstil Temsilcileri programı başvuruları 15 Eylül\'e kadar açık. Detaylar Akademi sekmesinde.',
   },
 ];
 
@@ -265,7 +265,7 @@ const MANIFESTO_PARAGRAPHS = [
   'Genç TETSİAD; üretimi, tasarımı ve ihracatı birleştiren genç iş insanlarının platformudur. Rekabeti değil, dayanışmayı; kâr yarışını değil, ortak büyümeyi seçiyoruz.',
   'Avrupa\'nın yeşil dönüşümünü tehdit değil fırsat olarak okuyoruz. Sürdürülebilir üretim standartlarını dünyadan önce benimsemek, bizi öne çıkaracak.',
   'Mentorluk, kurs ve etkinliklerle birbirimizden öğreniyoruz. Sektördeki her genç isim hem öğrenci hem öğretmendir.',
-  'Bu platform, yalnızca bir uygulama değil — sektörün geleceğine yapılan somut bir yatırımdır.',
+  'Değişim gençlerle olacak. Biz, o değişimin kendisiyiz.',
 ];
 
 function ManifestoModal({ onClose }: { onClose: () => void }) {
@@ -322,8 +322,9 @@ export default function HomeScreen() {
       router.push('/(tabs)/directory');
     } else if (target === 'academy') {
       router.push('/(tabs)/academy');
+    } else if (target === 'news') {
+      router.push('/(tabs)/sustainability');
     }
-    // news/toast — no-op for now
   };
 
   return (
@@ -582,7 +583,7 @@ export default function HomeScreen() {
             <View style={styles.footerCol}>
               <Text style={styles.footerColLabel}>YAYINLAYAN</Text>
               <Text style={styles.footerColItalic}>{'Genç TETSİAD'}</Text>
-              <Text style={styles.footerColDetail}>TETSİAD ALT YAPILANMA</Text>
+              <Text style={styles.footerColDetail}>TETSİAD GENÇLİK YAPILANMASI</Text>
             </View>
           </View>
 

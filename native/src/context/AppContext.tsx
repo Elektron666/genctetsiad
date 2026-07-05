@@ -31,12 +31,12 @@ type AppState = {
 };
 
 const DEFAULT_NOTIFICATIONS: Notification[] = [
-  { id: 1, category: 'SİSTEM',    title: 'Üyeliğiniz onaylandı',                  body: 'Genç TETSİAD üyeliğiniz aktif edildi. Hoş geldiniz!',         date: '18 MAYIS', read: false },
-  { id: 2, category: 'ETKİNLİK', title: 'HOMETEX 2026 yaklaşıyor',                body: "Kayıtlı olduğunuz HOMETEX etkinliği 14 Mayıs'ta başlıyor.",   date: '12 MAYIS', read: false },
-  { id: 3, category: 'DUYURU',   title: 'Yeni kurs eklendi',                      body: 'AB Direktifleri & Uyum kursu eğitim kataloğuna eklendi.',     date: '10 MAYIS', read: true },
-  { id: 4, category: 'SİSTEM',   title: 'Bağlantı isteği',                        body: 'Fatih Özdemir bağlantı isteği gönderdi.',                     date: '8 MAYIS',  read: false },
-  { id: 5, category: 'ETKİNLİK', title: 'Yönetim Kurulu Toplantısı hatırlatıcı', body: '18 Haziran toplantısına 10 gün kaldı.',                       date: '8 HAZİRAN', read: true },
-  { id: 6, category: 'DUYURU',   title: '3T Programı başvuruları açıldı',         body: "Türkiye Tekstil Temsilcileri programına başvurular 30 Mayıs'a kadar.", date: '1 MAYIS', read: true },
+  { id: 1, category: 'ETKİNLİK', title: 'Fabrika ziyareti kayıtları açıldı',      body: '24 Temmuz İstanbul Fabrika Ziyareti için kontenjan sınırlı, takvimden yerinizi ayırtın.', date: '15 HAZİRAN', read: false },
+  { id: 2, category: 'DUYURU',   title: '3T Programı başvuruları açıldı',         body: "Türkiye Tekstil Temsilcileri programına başvurular 15 Eylül'e kadar.", date: '12 HAZİRAN', read: false },
+  { id: 3, category: 'DUYURU',   title: 'Yeni kurs eklendi',                      body: 'AB Direktifleri & Uyum kursu eğitim kataloğuna eklendi.',     date: '10 HAZİRAN', read: true },
+  { id: 4, category: 'SİSTEM',   title: 'Bağlantı isteği',                        body: 'Fatih Özdemir bağlantı isteği gönderdi.',                     date: '8 HAZİRAN',  read: false },
+  { id: 5, category: 'ETKİNLİK', title: 'HOMETEX 2026 fotoğrafları yayında',      body: 'Mayıs ayındaki fuar çalışmasının kareleri paylaşıldı.',       date: '2 HAZİRAN', read: true },
+  { id: 6, category: 'SİSTEM',   title: 'Üyeliğiniz onaylandı',                   body: 'Genç TETSİAD üyeliğiniz aktif edildi. Hoş geldiniz!',         date: '18 MAYIS', read: true },
 ];
 
 const AppCtx = createContext<AppState | null>(null);

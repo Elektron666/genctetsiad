@@ -114,7 +114,7 @@ export default function LoginScreen() {
             <Text style={styles.subtitle}>
               {step === 'phone'
                 ? 'Türkiye ev tekstilinin genç iş insanları platformu.'
-                : `+90 ${phone} numarasına 6 haneli kod gönderdik.`}
+                : `+90 ${phone.replace(/\D/g, '').replace(/^0+/, '')} numarasına 6 haneli kod gönderdik.`}
             </Text>
           </View>
 
