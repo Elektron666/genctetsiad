@@ -43,12 +43,13 @@ const pb = StyleSheet.create({
 });
 
 export default function RegisterScreen() {
-  const { sendOtp, verifyOtp, updateProfile } = useAuthContext();
+  const { sendOtp, verifyOtp, updateProfile, session } = useAuthContext();
 
   const [step, setStep] = useState(1);
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [otpLoading, setOtpLoading] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -70,7 +71,10 @@ export default function RegisterScreen() {
     setOtpLoading(false);
     if (error) {
       Alert.alert('Hata', error.message ?? 'SMS gönderilemedi.');
+      return;
     }
+    setOtpSent(true);
+    setTimeout(() => otpRefs[0].current?.focus(), 100);
   };
 
   const handleOtp = async (val: string, i: number) => {
@@ -92,11 +96,6 @@ export default function RegisterScreen() {
     }
   };
 
-  const generateCode = () => {
-    const num = Math.floor(10000 + Math.random() * 90000);
-    return `GT-2026-${num}`;
-  };
-
   const next = async () => {
     if (step === TOTAL_STEPS) {
       const { error } = await updateProfile({
@@ -112,7 +111,12 @@ export default function RegisterScreen() {
         Alert.alert('Hata', 'Başvuru kaydedilemedi. Tekrar deneyin.');
         return;
       }
-      setMemberCode(generateCode()); // local display only; real code assigned by DB trigger
+      // Gerçek, sorgulanabilir referans: kullanıcının Supabase kimliğinden türetilir.
+      // Asıl üye kodu (GT-YYYY-XXXXX) onay anında DB trigger'ı tarafından atanır.
+      const ref = session?.user.id
+        ? `GT-REF-${session.user.id.slice(0, 8).toUpperCase()}`
+        : 'GT-REF-BAŞVURU';
+      setMemberCode(ref);
       setStep(6);
       Animated.timing(codeAnim, { toValue: 1, duration: 1200, useNativeDriver: true }).start();
     } else {
@@ -170,18 +174,19 @@ export default function RegisterScreen() {
               <View style={s.underline} />
 
               <View style={{ height: 32 }} />
-              <Text style={s.fieldLabel}>DOĞRULAMA KODU</Text>
               <TouchableOpacity
-                style={[s.ctaButton, { marginBottom: 16 }, phone.replace(/\D/g,'').length < 10 && s.ctaDisabled]}
+                style={[s.ctaButton, { marginBottom: 24 }, phone.replace(/\D/g,'').length < 10 && s.ctaDisabled]}
                 onPress={handleOtpSend}
                 activeOpacity={0.8}
-                disabled={otpLoading}
+                disabled={otpLoading || phone.replace(/\D/g,'').length < 10}
               >
-                <Text style={s.ctaText}>{otpLoading ? 'GÖNDERİLİYOR...' : 'KOD GÖNDER'}</Text>
+                <Text style={s.ctaText}>
+                  {otpLoading ? 'GÖNDERİLİYOR...' : otpSent ? 'KODU TEKRAR GÖNDER' : 'KOD GÖNDER'}
+                </Text>
               </TouchableOpacity>
 
               <Text style={s.fieldLabel}>DOĞRULAMA KODU</Text>
-              <View style={s.otpRow}>
+              <View style={[s.otpRow, !otpSent && { opacity: 0.35 }]}>
                 {otp.map((d, i) => (
                   <TextInput
                     key={i}
@@ -192,11 +197,15 @@ export default function RegisterScreen() {
                     keyboardType="number-pad"
                     maxLength={1}
                     textAlign="center"
-                    editable={!otpLoading}
+                    editable={otpSent && !otpLoading}
                   />
                 ))}
               </View>
-              <Text style={s.helper}>Telefon numaranıza 6 haneli SMS kodu gönderilecektir.</Text>
+              <Text style={s.helper}>
+                {otpSent
+                  ? `+90 ${phone} numarasına gönderilen 6 haneli kodu girin.`
+                  : 'Telefon numaranızı yazıp KOD GÖNDER butonuna basın.'}
+              </Text>
             </View>
           )}
 
@@ -346,7 +355,7 @@ export default function RegisterScreen() {
               </Text>
 
               <View style={s.codeWrap}>
-                <Text style={s.codeLabel}>ÜYELİK BAŞVURU KODUNUZ</Text>
+                <Text style={s.codeLabel}>BAŞVURU REFERANS KODUNUZ</Text>
                 <Animated.Text style={[s.codeValue, { opacity: codeAnim }]}>
                   {memberCode}
                 </Animated.Text>

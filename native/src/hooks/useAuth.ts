@@ -8,13 +8,21 @@ type SupabaseRow = any;
 
 export type AuthStatus = 'loading' | 'unauthenticated' | 'pending' | 'authenticated';
 
+// "0532...", "90 532...", "+90 532...", "532..." → hepsi "+90532..." olur
+export function normalizePhone(raw: string): string {
+  let digits = raw.replace(/\D/g, '');
+  if (digits.startsWith('90') && digits.length > 10) digits = digits.slice(2);
+  digits = digits.replace(/^0+/, '');
+  return `+90${digits}`;
+}
+
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [status, setStatus] = useState<AuthStatus>('loading');
 
   const loadProfile = useCallback(async (userId: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
@@ -23,8 +31,12 @@ export function useAuth() {
     if (row) {
       setProfile(row as Profile);
       setStatus(row.role === 'pending' ? 'pending' : 'authenticated');
+    } else if (error && error.code !== 'PGRST116') {
+      // Geçici hata (ağ vb.) — oturumu düşürme, pending say ki kullanıcı atılmasın
+      setStatus('pending');
     } else {
-      setStatus('unauthenticated');
+      // Profil satırı gerçekten yok (trigger gecikmesi olabilir) — pending kabul et
+      setStatus('pending');
     }
   }, []);
 
@@ -53,14 +65,14 @@ export function useAuth() {
 
   const sendOtp = useCallback(async (phone: string) => {
     const { error } = await supabase.auth.signInWithOtp({
-      phone: `+90${phone.replace(/\D/g, '')}`,
+      phone: normalizePhone(phone),
     });
     return error;
   }, []);
 
   const verifyOtp = useCallback(async (phone: string, token: string) => {
     const { error } = await supabase.auth.verifyOtp({
-      phone: `+90${phone.replace(/\D/g, '')}`,
+      phone: normalizePhone(phone),
       token,
       type: 'sms',
     });
@@ -70,6 +82,10 @@ export function useAuth() {
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
   }, []);
+
+  const refreshProfile = useCallback(async () => {
+    if (session?.user) await loadProfile(session.user.id);
+  }, [session, loadProfile]);
 
   const updateProfile = useCallback(async (updates: Partial<Profile>) => {
     if (!session?.user) return { error: new Error('No session') };
@@ -84,5 +100,5 @@ export function useAuth() {
     return { error };
   }, [session]);
 
-  return { session, profile, status, sendOtp, verifyOtp, signOut, updateProfile };
+  return { session, profile, status, sendOtp, verifyOtp, signOut, updateProfile, refreshProfile };
 }

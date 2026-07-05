@@ -21,6 +21,7 @@ type Speaker = { initials: string; name: string };
 
 type EventItem = {
   id: number;
+  uuid?: string;   // Supabase kaydıysa gerçek UUID; count/katılım bununla yönetilir
   day: number;
   month: string;
   tag: string;
@@ -106,10 +107,11 @@ const EVENTS: EventItem[] = [
 
 const MONTHS_TR = ['OCAK', 'ŞUBAT', 'MART', 'NİSAN', 'MAYIS', 'HAZİRAN', 'TEMMUZ', 'AĞUSTOS', 'EYLÜL', 'EKİM', 'KASIM', 'ARALIK'];
 
-function supabaseToEventItem(e: SupabaseEvent): EventItem {
+function supabaseToEventItem(e: SupabaseEvent, index: number): EventItem {
   const date = new Date(e.starts_at);
   return {
-    id:       parseInt(e.id, 10) || 0,
+    id:       index + 1,   // liste içi benzersiz key; gerçek kimlik uuid'de
+    uuid:     e.id,
     day:      date.getDate(),
     month:    MONTHS_TR[date.getMonth()] ?? '',
     tag:      e.city ?? 'ETKİNLİK',
@@ -197,8 +199,11 @@ function EventCard({
   onToggle: () => void;
   onPress: () => void;
 }) {
+  // Supabase event'inde count DB'den canlı gelir; demo veride lokal +1/-1 uygulanır
   const wasReg = PRESET_REGISTERED.has(event.id);
-  const liveCount = registered && !wasReg
+  const liveCount = event.uuid
+    ? event.count
+    : registered && !wasReg
     ? event.count + 1
     : !registered && wasReg
     ? event.count - 1
@@ -280,7 +285,9 @@ function EventDetail({
 }) {
   const insets = useSafeAreaInsets();
   const wasReg = PRESET_REGISTERED.has(event.id);
-  const liveCount = registered && !wasReg
+  const liveCount = event.uuid
+    ? event.count
+    : registered && !wasReg
     ? event.count + 1
     : !registered && wasReg
     ? event.count - 1
@@ -399,17 +406,15 @@ export default function CalendarScreen() {
     : EVENTS;
 
   const isRegistered = (event: EventItem): boolean => {
-    if (supabaseEvents.length > 0) {
-      const se = supabaseEvents.find((e) => supabaseToEventItem(e).id === event.id);
-      return se?.is_attending ?? false;
+    if (event.uuid) {
+      return supabaseEvents.find((e) => e.id === event.uuid)?.is_attending ?? false;
     }
     return registeredEvents.has(event.id);
   };
 
   const handleToggle = (event: EventItem) => {
-    if (supabaseEvents.length > 0) {
-      const se = supabaseEvents.find((e) => supabaseToEventItem(e).id === event.id);
-      if (se) toggleAttendance(se.id);
+    if (event.uuid) {
+      toggleAttendance(event.uuid);
     } else {
       toggleEvent(event.id);
     }
@@ -420,12 +425,16 @@ export default function CalendarScreen() {
     : registeredEvents.size;
 
   if (selectedEvent) {
+    // Snapshot yerine güncel listeden oku ki katılım sonrası sayaç canlı kalsın
+    const liveSelected = displayEvents.find((e) =>
+      selectedEvent.uuid ? e.uuid === selectedEvent.uuid : e.id === selectedEvent.id
+    ) ?? selectedEvent;
     return (
       <SafeAreaView style={styles.container} edges={[]}>
         <EventDetail
-          event={selectedEvent}
-          registered={isRegistered(selectedEvent)}
-          onToggle={() => handleToggle(selectedEvent)}
+          event={liveSelected}
+          registered={isRegistered(liveSelected)}
+          onToggle={() => handleToggle(liveSelected)}
           onBack={() => setSelectedEvent(null)}
         />
       </SafeAreaView>

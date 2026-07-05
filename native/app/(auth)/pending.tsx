@@ -1,12 +1,21 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { router } from 'expo-router';
 import { Colors, Fonts, FontSize } from '@/theme';
 import { useAuthContext } from '@/context/AuthContext';
 
 export default function PendingScreen() {
-  const { profile, signOut } = useAuthContext();
+  const { profile, signOut, status, refreshProfile } = useAuthContext();
+
+  useEffect(() => {
+    if (status === 'unauthenticated') router.replace('/(auth)/login');
+    if (status === 'authenticated') router.replace('/(tabs)');   // onay geldiyse içeri al
+  }, [status]);
+
+  // Ekran her açıldığında onay durumunu tazele
+  useEffect(() => { refreshProfile(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <SafeAreaView style={styles.root}>
@@ -27,10 +36,14 @@ export default function PendingScreen() {
           <Text style={styles.gold}>3–5 iş günü</Text> içinde tamamlanmaktadır.
         </Text>
 
-        {profile?.member_code && (
+        {profile && (
           <View style={styles.codeBox}>
-            <Text style={styles.codeLabel}>BAŞVURU KODUNUZ</Text>
-            <Text style={styles.codeValue}>{profile.member_code}</Text>
+            <Text style={styles.codeLabel}>
+              {profile.member_code ? 'ÜYE KODUNUZ' : 'BAŞVURU REFERANSINIZ'}
+            </Text>
+            <Text style={styles.codeValue}>
+              {profile.member_code ?? `GT-REF-${profile.id.slice(0, 8).toUpperCase()}`}
+            </Text>
           </View>
         )}
 

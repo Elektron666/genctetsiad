@@ -15,6 +15,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import QRCode from 'react-native-qrcode-svg';
 import { Colors, Fonts, FontSize } from '@/theme';
 import { useAppContext } from '@/context/AppContext';
+import { useAuthContext } from '@/context/AuthContext';
+import type { MemberRole } from '@/types/database';
 
 // ── Data ────────────────────────────────────────────────────────────────────
 
@@ -36,6 +38,15 @@ const MEMBERS: Member[] = [
   { id: 4, name: 'Kerem Bayraktar', role: 'Üye',             firm: 'BAYRAKTAR TEKSTİL',     city: 'İstanbul', memberNo: 'TG-2026-0004', phone: '+90 533 456 78 90', sector: 'İhracat' },
   { id: 5, name: 'Ayşe Kaya',       role: 'Öğrenci Üye',    firm: 'İTÜ Tekstil Müh.',      city: 'İstanbul', memberNo: 'TG-2026-0005', phone: '+90 544 567 89 01', sector: 'Öğrenci' },
 ];
+
+const ROLE_LABELS: Record<MemberRole, string> = {
+  pending:   'Onay Bekliyor',
+  member:    'Üye',
+  student:   'Öğrenci Üye',
+  board:     'Yönetim Kurulu',
+  president: 'Başkan',
+  admin:     'Admin',
+};
 
 const ACTIVITY = [
   { id: 1, label: 'ETKİNLİK KATILIMI', desc: 'HOMETEX 2026 Fuar Çalışması', date: '14 MAYIS' },
@@ -508,7 +519,7 @@ const cardStyles = StyleSheet.create({
 
 // ── ProfileScreen ─────────────────────────────────────────────────────────────
 
-function MemberPickerModal({ current, onSelect, onClose }: { current: number; onSelect: (idx: number) => void; onClose: () => void }) {
+function MemberPickerModal({ members, current, onSelect, onClose }: { members: Member[]; current: number; onSelect: (idx: number) => void; onClose: () => void }) {
   return (
     <Modal visible animationType="slide" transparent onRequestClose={onClose}>
       <View style={pickerStyles.overlay}>
@@ -517,7 +528,7 @@ function MemberPickerModal({ current, onSelect, onClose }: { current: number; on
           <Text style={pickerStyles.title}>ÜYE SEÇ</Text>
           <View style={pickerStyles.divider} />
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-            {MEMBERS.map((m, i) => (
+            {members.map((m, i) => (
               <TouchableOpacity
                 key={m.id}
                 style={[pickerStyles.row, i === current && pickerStyles.rowActive]}
@@ -571,20 +582,36 @@ export default function ProfileScreen() {
   const [memberIdx, setMemberIdx] = useState(0);
   const [showQR, setShowQR] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
-  const member = MEMBERS[memberIdx];
 
   const { registeredEvents, enrolledCourses, mentorRequests } = useAppContext();
+  const { profile } = useAuthContext();
+
+  // Giriş yapan kullanıcının gerçek profili her zaman listenin başında
+  const ownMember: Member | null = profile
+    ? {
+        id: 0,
+        name: profile.full_name || 'Yeni Üye',
+        role: ROLE_LABELS[profile.role] ?? profile.role,
+        firm: profile.company ?? '—',
+        city: profile.city ?? '—',
+        memberNo: profile.member_code ?? `GT-REF-${profile.id.slice(0, 8).toUpperCase()}`,
+        phone: profile.phone ?? '—',
+        sector: profile.sector ?? '—',
+      }
+    : null;
+  const allMembers: Member[] = ownMember ? [ownMember, ...MEMBERS] : MEMBERS;
+  const member = allMembers[Math.min(memberIdx, allMembers.length - 1)];
 
   const handleSwitcher = () => {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: [...MEMBERS.map((m) => m.name), 'İPTAL'],
-          cancelButtonIndex: MEMBERS.length,
+          options: [...allMembers.map((m, i) => (i === 0 && ownMember ? `${m.name} (SİZ)` : m.name)), 'İPTAL'],
+          cancelButtonIndex: allMembers.length,
           title: 'ÜYE SEÇ',
         },
         (idx) => {
-          if (idx < MEMBERS.length) setMemberIdx(idx);
+          if (idx < allMembers.length) setMemberIdx(idx);
         }
       );
     } else {
@@ -609,6 +636,7 @@ export default function ProfileScreen() {
       />
       {showPicker && (
         <MemberPickerModal
+          members={allMembers}
           current={memberIdx}
           onSelect={setMemberIdx}
           onClose={() => setShowPicker(false)}

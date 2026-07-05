@@ -32,6 +32,7 @@ type Program = {
 
 type Course = {
   id: number;
+  uuid?: string;   // Supabase kaydıysa gerçek UUID
   title: string;
   tag: string;
   level: string;
@@ -105,9 +106,10 @@ const LEVEL_LABELS: Record<CourseLevel, string> = {
   advanced:     'İLERİ',
 };
 
-function supabaseToCourse(c: SupabaseCourse): Course {
+function supabaseToCourse(c: SupabaseCourse, index: number): Course {
   return {
-    id:       parseInt(c.id, 10) || 0,
+    id:       index + 1,   // liste içi benzersiz key; gerçek kimlik uuid'de
+    uuid:     c.id,
     title:    c.title,
     tag:      c.instructor ?? 'EĞİTİM',
     level:    LEVEL_LABELS[c.level ?? 'beginner'],

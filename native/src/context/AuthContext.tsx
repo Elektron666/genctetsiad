@@ -11,6 +11,7 @@ type AuthCtxType = {
   verifyOtp: (phone: string, token: string) => Promise<any>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: any }>;
+  refreshProfile: () => Promise<void>;
 };
 
 const AuthCtx = createContext<AuthCtxType | null>(null);
