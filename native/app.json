@@ -25,6 +25,13 @@
       "expo-router",
       "./gradle-config-plugin",
       [
+        "expo-notifications",
+        {
+          "color": "#D9C896",
+          "defaultChannel": "default"
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/splash.png",

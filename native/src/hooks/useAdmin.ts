@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { sendPushBatch } from '@/lib/notifications';
 import type { Profile, MemberRole } from '@/types/database';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,11 +51,21 @@ export function useAdmin() {
     return error;
   }, []);
 
+  // Kayıtlı tüm cihazlara push gönderir; gönderilen cihaz sayısını döner
+  const pushToAll = useCallback(async (title: string, body: string): Promise<number> => {
+    const { data } = await supabase.from('push_tokens').select('token');
+    const tokens = ((data ?? []) as { token: string }[]).map(t => t.token);
+    if (tokens.length === 0) return 0;
+    return sendPushBatch(tokens, title, body);
+  }, []);
+
   const publishAnnouncement = useCallback(async (input: { title: string; body: string; type: 'general' | 'event' | 'system' }) => {
     const { error } = await sb.from('announcements').insert(input);
-    if (!error) setStats(prev => ({ ...prev, announcements: prev.announcements + 1 }));
-    return error;
-  }, []);
+    if (error) return { error, sent: 0 };
+    setStats(prev => ({ ...prev, announcements: prev.announcements + 1 }));
+    const sent = await pushToAll(input.title, input.body);
+    return { error: null, sent };
+  }, [pushToAll]);
 
   const createEvent = useCallback(async (input: {
     title: string;
@@ -65,9 +76,16 @@ export function useAdmin() {
     max_attendees?: number | null;
   }) => {
     const { error } = await sb.from('events').insert({ ...input, is_published: true });
-    if (!error) setStats(prev => ({ ...prev, events: prev.events + 1 }));
-    return error;
-  }, []);
+    if (error) return { error, sent: 0 };
+    setStats(prev => ({ ...prev, events: prev.events + 1 }));
+    const when = new Date(input.starts_at);
+    const dateStr = `${when.getDate()}.${when.getMonth() + 1}.${when.getFullYear()}`;
+    const sent = await pushToAll(
+      'Yeni Etkinlik 📅',
+      `${input.title} — ${dateStr}${input.city ? ` · ${input.city}` : ''}. Takvimden yerinizi ayırtın.`
+    );
+    return { error: null, sent };
+  }, [pushToAll]);
 
   return { pending, stats, loading, refetch, approve, publishAnnouncement, createEvent };
 }

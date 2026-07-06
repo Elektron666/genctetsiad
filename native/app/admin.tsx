@@ -273,16 +273,16 @@ export default function AdminScreen() {
   };
 
   const handlePublish = async (input: { title: string; body: string; type: 'general' | 'event' | 'system' }) => {
-    const error = await publishAnnouncement(input);
+    const { error, sent } = await publishAnnouncement(input);
     if (error) { showToast('Duyuru yayınlanamadı.', 'error'); return false; }
-    showToast('Duyuru yayınlandı.', 'success');
+    showToast(sent > 0 ? `Duyuru yayınlandı — ${sent} cihaza bildirim gönderildi.` : 'Duyuru yayınlandı.', 'success');
     return true;
   };
 
   const handleCreateEvent = async (input: { title: string; description?: string; location?: string; city?: string; starts_at: string; max_attendees?: number | null }) => {
-    const error = await createEvent(input);
+    const { error, sent } = await createEvent(input);
     if (error) { showToast('Etkinlik eklenemedi.', 'error'); return false; }
-    showToast('Etkinlik yayınlandı.', 'success');
+    showToast(sent > 0 ? `Etkinlik yayınlandı — ${sent} cihaza bildirim gönderildi.` : 'Etkinlik yayınlandı.', 'success');
     return true;
   };
 

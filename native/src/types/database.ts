@@ -99,10 +99,17 @@ export interface Notification {
   created_at: string;
 }
 
+export interface PushToken {
+  user_id: string;
+  token: string;
+  updated_at: string;
+}
+
 export type Database = {
   public: {
     Tables: {
       profiles: { Row: Profile; Insert: Partial<Profile>; Update: Partial<Profile> };
+      push_tokens: { Row: PushToken; Insert: Partial<PushToken>; Update: Partial<PushToken> };
       events: { Row: Event; Insert: Partial<Event>; Update: Partial<Event> };
       event_attendees: { Row: EventAttendee; Insert: Omit<EventAttendee, 'registered_at'>; Update: never };
       courses: { Row: Course; Insert: Partial<Course>; Update: Partial<Course> };

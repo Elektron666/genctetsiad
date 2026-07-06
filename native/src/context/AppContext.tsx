@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/context/AuthContext';
+import { registerPushToken } from '@/lib/notifications';
 
 type Notification = {
   id: number | string;   // number: demo verisi, string ("sb-<uuid>"): Supabase duyurusu
@@ -56,12 +57,27 @@ function fmtDateTR(iso: string): string {
 const AppCtx = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const { status } = useAuthContext();
+  const { status, session } = useAuthContext();
   const [registeredEvents, setRegisteredEvents] = useState<Set<number>>(() => new Set([2, 5]));
   const [enrolledCourses, setEnrolledCourses] = useState<Set<number>>(() => new Set([1, 2, 4, 6]));
   const [mentorRequests, setMentorRequests] = useState<Set<number>>(new Set());
   const [notifications, setNotifications] = useState<Notification[]>(DEFAULT_NOTIFICATIONS);
   const [announcementBanner, setAnnouncementBanner] = useState<Banner | null>(null);
+
+  // Oturum açılınca cihazın push token'ını al ve DB'ye kaydet —
+  // admin duyuru yayınladığında bu token'lara bildirim gider.
+  useEffect(() => {
+    if (status !== 'authenticated' && status !== 'pending') return;
+    if (!session?.user) return;
+    (async () => {
+      const token = await registerPushToken();
+      if (!token) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any)
+        .from('push_tokens')
+        .upsert({ user_id: session.user.id, token, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    })();
+  }, [status, session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Oturum açılınca gerçek duyuruları çek; demo bildirimlerin yerini alır.
   // RLS gereği anonim (demo mod) kullanıcı duyuru okuyamaz → fallback devrede kalır.
