@@ -12,11 +12,14 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import QRCode from 'react-native-qrcode-svg';
 import { Colors, Fonts, FontSize } from '@/theme';
 import { useAppContext } from '@/context/AppContext';
 import { useAuthContext } from '@/context/AuthContext';
 import type { MemberRole } from '@/types/database';
+
+const ADMIN_ROLES: MemberRole[] = ['board', 'president', 'admin'];
 
 // ── Data ────────────────────────────────────────────────────────────────────
 
@@ -585,7 +588,8 @@ export default function ProfileScreen() {
   const [showPicker, setShowPicker] = useState(false);
 
   const { registeredEvents, enrolledCourses, mentorRequests } = useAppContext();
-  const { profile } = useAuthContext();
+  const { profile, signOut } = useAuthContext();
+  const isAdmin = !!profile && ADMIN_ROLES.includes(profile.role);
 
   // Giriş yapan kullanıcının gerçek profili her zaman listenin başında
   const ownMember: Member | null = profile
@@ -664,6 +668,17 @@ export default function ProfileScreen() {
           >
             <Text style={styles.qrBtnText}>QR KARTVİZİT</Text>
           </TouchableOpacity>
+
+          {/* Yönetim paneli — yalnızca board/president/admin rollerine görünür */}
+          {isAdmin && (
+            <TouchableOpacity
+              style={styles.adminBtn}
+              onPress={() => router.push('/admin')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.adminBtnText}>◆  YÖNETİM PANELİ</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* ── Stats row ────────────────────────────────────── */}
@@ -722,6 +737,19 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* ── Sign out — sadece gerçek oturumda ─────────────── */}
+        {profile && (
+          <View style={styles.signOutWrap}>
+            <TouchableOpacity
+              style={styles.signOutBtn}
+              onPress={async () => { await signOut(); router.replace('/(auth)/login'); }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.signOutText}>ÇIKIŞ YAP</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* ── Footer note ──────────────────────────────────── */}
         <View style={styles.footerNote}>
           <Text style={styles.footerNoteText}>
@@ -775,6 +803,37 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.navyDeep,
     letterSpacing: 3,
+  },
+  adminBtn: {
+    marginTop: 10,
+    borderWidth: 0.5,
+    borderColor: Colors.gold,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adminBtnText: {
+    fontFamily: Fonts.jakarta,
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+    color: Colors.gold,
+    letterSpacing: 2.5,
+  },
+  signOutWrap: {
+    paddingHorizontal: 24,
+    marginTop: 24,
+  },
+  signOutBtn: {
+    borderWidth: 0.5,
+    borderColor: Colors.goldLine,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  signOutText: {
+    fontFamily: Fonts.jakarta,
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    letterSpacing: 2,
   },
 
   // Stats
