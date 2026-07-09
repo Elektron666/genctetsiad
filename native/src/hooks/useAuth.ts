@@ -83,6 +83,20 @@ export function useAuth() {
     await supabase.auth.signOut();
   }, []);
 
+  // Mağaza zorunluluğu: kullanıcı kendi hesabını kalıcı olarak silebilmeli.
+  // RPC auth.users kaydını siler; tüm veriler CASCADE ile temizlenir.
+  const deleteAccount = useCallback(async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any).rpc('delete_own_account');
+    if (!error) {
+      await supabase.auth.signOut().catch(() => {});
+      setProfile(null);
+      setSession(null);
+      setStatus('unauthenticated');
+    }
+    return { error };
+  }, []);
+
   const refreshProfile = useCallback(async () => {
     if (session?.user) await loadProfile(session.user.id);
   }, [session, loadProfile]);
@@ -100,5 +114,5 @@ export function useAuth() {
     return { error };
   }, [session]);
 
-  return { session, profile, status, sendOtp, verifyOtp, signOut, updateProfile, refreshProfile };
+  return { session, profile, status, sendOtp, verifyOtp, signOut, deleteAccount, updateProfile, refreshProfile };
 }

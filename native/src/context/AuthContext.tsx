@@ -10,6 +10,7 @@ type AuthCtxType = {
   sendOtp: (phone: string) => Promise<any>;
   verifyOtp: (phone: string, token: string) => Promise<any>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<{ error: any }>;
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: any }>;
   refreshProfile: () => Promise<void>;
 };

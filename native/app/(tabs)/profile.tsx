@@ -9,6 +9,7 @@ import {
   Linking,
   ActionSheetIOS,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -588,8 +589,41 @@ export default function ProfileScreen() {
   const [showPicker, setShowPicker] = useState(false);
 
   const { registeredEvents, enrolledCourses, mentorRequests } = useAppContext();
-  const { profile, signOut } = useAuthContext();
+  const { profile, signOut, deleteAccount } = useAuthContext();
   const isAdmin = !!profile && ADMIN_ROLES.includes(profile.role);
+
+  const confirmDeleteAccount = () => {
+    Alert.alert(
+      'Hesabı Sil',
+      'Hesabınız ve tüm verileriniz (profil, etkinlik katılımları, kurs kayıtları, mentorluk başvuruları) KALICI olarak silinir. Bu işlem geri alınamaz.',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Devam Et',
+          style: 'destructive',
+          onPress: () => Alert.alert(
+            'Emin misiniz?',
+            'Son onay: hesabınız kalıcı olarak silinecek.',
+            [
+              { text: 'Vazgeç', style: 'cancel' },
+              {
+                text: 'KALICI OLARAK SİL',
+                style: 'destructive',
+                onPress: async () => {
+                  const { error } = await deleteAccount();
+                  if (error) {
+                    Alert.alert('Hata', 'Hesap silinemedi. Lütfen tekrar deneyin veya info@tetsiad.org adresine yazın.');
+                  } else {
+                    router.replace('/(auth)/login');
+                  }
+                },
+              },
+            ]
+          ),
+        },
+      ]
+    );
+  };
 
   // Giriş yapan kullanıcının gerçek profili her zaman listenin başında
   const ownMember: Member | null = profile
@@ -737,7 +771,7 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* ── Sign out — sadece gerçek oturumda ─────────────── */}
+        {/* ── Sign out + hesap silme — sadece gerçek oturumda ── */}
         {profile && (
           <View style={styles.signOutWrap}>
             <TouchableOpacity
@@ -746,6 +780,9 @@ export default function ProfileScreen() {
               activeOpacity={0.7}
             >
               <Text style={styles.signOutText}>ÇIKIŞ YAP</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.deleteBtn} onPress={confirmDeleteAccount} activeOpacity={0.7}>
+              <Text style={styles.deleteText}>HESABIMI KALICI OLARAK SİL</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -834,6 +871,17 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs,
     color: Colors.textMuted,
     letterSpacing: 2,
+  },
+  deleteBtn: {
+    marginTop: 10,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  deleteText: {
+    fontFamily: Fonts.jakarta,
+    fontSize: 9,
+    color: 'rgba(224,96,96,0.75)',
+    letterSpacing: 1.5,
   },
 
   // Stats

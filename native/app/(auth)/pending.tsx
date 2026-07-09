@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
@@ -7,7 +7,26 @@ import { Colors, Fonts, FontSize } from '@/theme';
 import { useAuthContext } from '@/context/AuthContext';
 
 export default function PendingScreen() {
-  const { profile, signOut, status, refreshProfile } = useAuthContext();
+  const { profile, signOut, status, refreshProfile, deleteAccount } = useAuthContext();
+
+  const confirmDelete = () => {
+    Alert.alert(
+      'Başvuruyu Geri Çek',
+      'Hesabınız ve başvurunuz kalıcı olarak silinecek. Bu işlem geri alınamaz.',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'KALICI OLARAK SİL',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await deleteAccount();
+            if (error) Alert.alert('Hata', 'Hesap silinemedi. Lütfen tekrar deneyin.');
+            else router.replace('/(auth)/login');
+          },
+        },
+      ]
+    );
+  };
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/(auth)/login');
@@ -64,6 +83,10 @@ export default function PendingScreen() {
         <TouchableOpacity style={styles.signOutBtn} onPress={signOut} activeOpacity={0.7}>
           <Text style={styles.signOutText}>ÇIKIŞ YAP</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity style={styles.deleteBtn} onPress={confirmDelete} activeOpacity={0.7}>
+          <Text style={styles.deleteText}>Başvurumu geri çek ve hesabımı sil</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -89,4 +112,6 @@ const styles = StyleSheet.create({
   infoVal:    { fontFamily: Fonts.jakarta, fontSize: 11, color: Colors.ivory },
   signOutBtn: { borderWidth: 0.5, borderColor: Colors.goldLine, paddingVertical: 14, paddingHorizontal: 40 },
   signOutText:{ fontFamily: Fonts.jakarta, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 2 },
+  deleteBtn:  { marginTop: 14, paddingVertical: 8 },
+  deleteText: { fontFamily: Fonts.jakarta, fontSize: 9, color: 'rgba(224,96,96,0.7)', letterSpacing: 0.5 },
 });
