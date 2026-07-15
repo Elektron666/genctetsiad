@@ -15,6 +15,7 @@ export type AdminStats = {
 
 export function useAdmin() {
   const [pending, setPending] = useState<Profile[]>([]);
+  const [members, setMembers] = useState<Profile[]>([]);
   const [stats, setStats] = useState<AdminStats>({ pending: 0, members: 0, events: 0, announcements: 0 });
   const [loading, setLoading] = useState(true);
 
@@ -23,16 +24,18 @@ export function useAdmin() {
 
     const [pendingRes, membersRes, eventsRes, annRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('role', 'pending').order('created_at', { ascending: false }),
-      supabase.from('profiles').select('id', { count: 'exact', head: true }).neq('role', 'pending'),
+      supabase.from('profiles').select('*').neq('role', 'pending').order('full_name', { ascending: true }),
       supabase.from('events').select('id', { count: 'exact', head: true }),
       supabase.from('announcements').select('id', { count: 'exact', head: true }),
     ]);
 
-    const rows = (pendingRes.data ?? []) as Profile[];
-    setPending(rows);
+    const pendingRows = (pendingRes.data ?? []) as Profile[];
+    const memberRows = (membersRes.data ?? []) as Profile[];
+    setPending(pendingRows);
+    setMembers(memberRows);
     setStats({
-      pending: rows.length,
-      members: membersRes.count ?? 0,
+      pending: pendingRows.length,
+      members: memberRows.length,
       events: eventsRes.count ?? 0,
       announcements: annRes.count ?? 0,
     });
@@ -41,12 +44,47 @@ export function useAdmin() {
 
   useEffect(() => { refetch(); }, [refetch]);
 
-  // Başvuruyu onayla — rol değişince DB trigger'ı GT-YYYY-XXXXX üye kodunu atar
+  // Tek kullanıcının cihazına push gönderir (token yoksa sessizce geçer)
+  const pushToUser = useCallback(async (userId: string, title: string, body: string) => {
+    const { data } = await supabase.from('push_tokens').select('token').eq('user_id', userId);
+    const tokens = ((data ?? []) as { token: string }[]).map(t => t.token);
+    if (tokens.length > 0) await sendPushBatch(tokens, title, body);
+  }, []);
+
+  // Başvuruyu onayla — rol değişince DB trigger'ı GT-YYYY-XXXXX üye kodunu atar,
+  // kullanıcının telefonuna hoş geldin bildirimi gider
   const approve = useCallback(async (userId: string, role: Extract<MemberRole, 'member' | 'student'>) => {
     const { error } = await sb.from('profiles').update({ role }).eq('id', userId);
     if (!error) {
-      setPending(prev => prev.filter(p => p.id !== userId));
+      setPending(prev => {
+        const approved = prev.find(p => p.id === userId);
+        if (approved) setMembers(m => [...m, { ...approved, role }].sort((a, b) => a.full_name.localeCompare(b.full_name, 'tr')));
+        return prev.filter(p => p.id !== userId);
+      });
       setStats(prev => ({ ...prev, pending: prev.pending - 1, members: prev.members + 1 }));
+      pushToUser(
+        userId,
+        'Üyeliğiniz Onaylandı 🎉',
+        'Genç TETSİAD üyeliğiniz aktif edildi. Üye kodunuz profilinizde hazır — hoş geldiniz!'
+      );
+    }
+    return error;
+  }, [pushToUser]);
+
+  // Rol değiştir (yönetim kurulu atama, üyeliğe geri çekme, onaya geri alma vb.)
+  const setRole = useCallback(async (userId: string, role: MemberRole) => {
+    const { error } = await sb.from('profiles').update({ role }).eq('id', userId);
+    if (!error) {
+      if (role === 'pending') {
+        setMembers(prev => {
+          const demoted = prev.find(p => p.id === userId);
+          if (demoted) setPending(pd => [{ ...demoted, role }, ...pd]);
+          return prev.filter(p => p.id !== userId);
+        });
+        setStats(prev => ({ ...prev, pending: prev.pending + 1, members: prev.members - 1 }));
+      } else {
+        setMembers(prev => prev.map(p => p.id === userId ? { ...p, role } : p));
+      }
     }
     return error;
   }, []);
@@ -87,5 +125,5 @@ export function useAdmin() {
     return { error: null, sent };
   }, [pushToAll]);
 
-  return { pending, stats, loading, refetch, approve, publishAnnouncement, createEvent };
+  return { pending, members, stats, loading, refetch, approve, setRole, publishAnnouncement, createEvent };
 }

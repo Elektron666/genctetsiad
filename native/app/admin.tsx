@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  StyleSheet, RefreshControl, Alert, KeyboardAvoidingView, Platform,
+  StyleSheet, RefreshControl, Alert, KeyboardAvoidingView, Platform, Modal,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -14,7 +14,16 @@ import type { Profile } from '@/types/database';
 
 const ADMIN_ROLES = ['board', 'president', 'admin'];
 
-type AdminTab = 'ONAYLAR' | 'DUYURU' | 'ETKİNLİK';
+type AdminTab = 'ONAYLAR' | 'ÜYELER' | 'DUYURU' | 'ETKİNLİK';
+
+const ROLE_LABELS: Record<string, string> = {
+  pending:   'Onay Bekliyor',
+  member:    'Üye',
+  student:   'Öğrenci Üye',
+  board:     'Yönetim Kurulu',
+  president: 'Başkan',
+  admin:     'Admin',
+};
 
 function initials(name: string) {
   return name.trim().split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '—';
@@ -66,6 +75,114 @@ function PendingCard({ p, onApprove }: { p: Profile; onApprove: (role: 'member' 
           <Text style={s.pBtnOutlineText}>ÖĞRENCİ</Text>
         </TouchableOpacity>
       </View>
+    </View>
+  );
+}
+
+// ─── Üye yönetimi ─────────────────────────────────────────────────────────────
+
+const ASSIGNABLE_ROLES: { key: MemberRoleKey; label: string; desc: string }[] = [
+  { key: 'member',    label: 'ÜYE',             desc: 'Standart üyelik' },
+  { key: 'student',   label: 'ÖĞRENCİ ÜYE',     desc: 'Üniversite öğrencisi' },
+  { key: 'board',     label: 'YÖNETİM KURULU',  desc: 'Panel erişimi verir' },
+  { key: 'admin',     label: 'ADMİN',           desc: 'Tam yetki' },
+  { key: 'pending',   label: 'ONAYA GERİ AL',   desc: 'Üyeliği askıya alır' },
+];
+
+type MemberRoleKey = 'member' | 'student' | 'board' | 'admin' | 'pending';
+
+function MembersTab({
+  members,
+  currentUserId,
+  onSetRole,
+}: {
+  members: Profile[];
+  currentUserId?: string;
+  onSetRole: (p: Profile, role: MemberRoleKey) => void;
+}) {
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState<Profile | null>(null);
+
+  const q = search.trim().toLowerCase();
+  const filtered = q
+    ? members.filter(m =>
+        m.full_name.toLowerCase().includes(q) ||
+        (m.company ?? '').toLowerCase().includes(q))
+    : members;
+
+  const pickRole = (role: MemberRoleKey) => {
+    if (!selected) return;
+    const isSelf = selected.id === currentUserId;
+    Alert.alert(
+      'Rol Değişikliği',
+      `${selected.full_name} → ${ROLE_LABELS[role]}${isSelf ? '\n\n⚠️ KENDİ rolünüzü değiştiriyorsunuz — admin yetkinizi kaybedebilirsiniz!' : ''}`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        { text: 'Onayla', style: role === 'pending' ? 'destructive' : 'default', onPress: () => { onSetRole(selected, role); setSelected(null); } },
+      ]
+    );
+  };
+
+  return (
+    <View style={{ paddingTop: 12 }}>
+      <View style={s.searchWrap}>
+        <TextInput
+          style={s.searchInput}
+          value={search}
+          onChangeText={setSearch}
+          placeholder="İsim veya firma ara..."
+          placeholderTextColor={Colors.textMuted}
+        />
+      </View>
+
+      {filtered.map(m => (
+        <TouchableOpacity key={m.id} style={s.mRow} onPress={() => setSelected(m)} activeOpacity={0.7}>
+          <View style={s.pAvatar}>
+            <Text style={s.pAvatarText}>{initials(m.full_name)}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.pName}>{m.full_name || '—'}{m.id === currentUserId ? '  (SİZ)' : ''}</Text>
+            <Text style={s.pFirm}>{[m.company, m.city].filter(Boolean).join(' · ') || '—'}</Text>
+          </View>
+          <View style={[s.roleTag, ADMIN_ROLES.includes(m.role) && s.roleTagGold]}>
+            <Text style={[s.roleTagText, ADMIN_ROLES.includes(m.role) && s.roleTagTextGold]}>
+              {(ROLE_LABELS[m.role] ?? m.role).toUpperCase()}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      ))}
+
+      {filtered.length === 0 && (
+        <View style={s.empty}>
+          <Text style={s.emptySub}>{q ? 'Aramayla eşleşen üye yok.' : 'Henüz onaylı üye yok.'}</Text>
+        </View>
+      )}
+
+      {/* Rol seçme alt menüsü */}
+      {selected && (
+        <Modal visible transparent animationType="slide" onRequestClose={() => setSelected(null)}>
+        <View style={s.roleSheetOverlay}>
+          <TouchableOpacity style={{ flex: 1 }} onPress={() => setSelected(null)} activeOpacity={1} />
+          <View style={s.roleSheet}>
+            <Text style={s.roleSheetName}>{selected.full_name}</Text>
+            <Text style={s.roleSheetSub}>
+              {(ROLE_LABELS[selected.role] ?? selected.role).toUpperCase()}
+              {selected.member_code ? `  ·  ${selected.member_code}` : ''}
+            </Text>
+            <View style={s.roleSheetDivider} />
+            {ASSIGNABLE_ROLES.filter(r => r.key !== selected.role).map(r => (
+              <TouchableOpacity key={r.key} style={s.roleOption} onPress={() => pickRole(r.key)} activeOpacity={0.7}>
+                <Text style={[s.roleOptionLabel, r.key === 'pending' && { color: 'rgba(224,96,96,0.85)' }]}>{r.label}</Text>
+                <Text style={s.roleOptionDesc}>{r.desc}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={s.roleCancel} onPress={() => setSelected(null)} activeOpacity={0.7}>
+              <Text style={s.roleCancelText}>VAZGEÇ</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -243,7 +360,7 @@ function EventForm({ onCreate }: { onCreate: (input: { title: string; descriptio
 
 export default function AdminScreen() {
   const { profile, status } = useAuthContext();
-  const { pending, stats, loading, refetch, approve, publishAnnouncement, createEvent } = useAdmin();
+  const { pending, members, stats, loading, refetch, approve, setRole, publishAnnouncement, createEvent } = useAdmin();
   const [tab, setTab] = useState<AdminTab>('ONAYLAR');
   const [refreshing, setRefreshing] = useState(false);
   const { show: showToast, ToastComponent } = useToast();
@@ -286,6 +403,12 @@ export default function AdminScreen() {
     return true;
   };
 
+  const handleSetRole = async (p: Profile, role: MemberRoleKey) => {
+    const error = await setRole(p.id, role);
+    if (error) showToast('Rol değiştirilemedi.', 'error');
+    else showToast(`${p.full_name} → ${ROLE_LABELS[role]}`, 'success');
+  };
+
   const STAT_CELLS = [
     { value: stats.pending,       label: 'BEKLEYEN' },
     { value: stats.members,       label: 'ÜYE' },
@@ -293,7 +416,7 @@ export default function AdminScreen() {
     { value: stats.announcements, label: 'DUYURU' },
   ];
 
-  const TABS: AdminTab[] = ['ONAYLAR', 'DUYURU', 'ETKİNLİK'];
+  const TABS: AdminTab[] = ['ONAYLAR', 'ÜYELER', 'DUYURU', 'ETKİNLİK'];
 
   return (
     <SafeAreaView style={s.root}>
@@ -359,6 +482,10 @@ export default function AdminScreen() {
             </View>
           )}
 
+          {tab === 'ÜYELER' && (
+            <MembersTab members={members} currentUserId={profile?.id} onSetRole={handleSetRole} />
+          )}
+
           {tab === 'DUYURU' && <AnnouncementForm onPublish={handlePublish} />}
           {tab === 'ETKİNLİK' && <EventForm onCreate={handleCreateEvent} />}
         </ScrollView>
@@ -389,7 +516,7 @@ const s = StyleSheet.create({
   tabRow:         { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: Colors.goldLine },
   tabItem:        { flex: 1, paddingVertical: 14, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabItemActive:  { borderBottomColor: Colors.gold },
-  tabLabel:       { fontFamily: Fonts.jakarta, fontSize: 9, letterSpacing: 2, color: Colors.textMuted, fontWeight: '600' },
+  tabLabel:       { fontFamily: Fonts.jakarta, fontSize: 8.5, letterSpacing: 1.2, color: Colors.textMuted, fontWeight: '600' },
   tabLabelActive: { color: Colors.gold },
 
   // Pending cards
@@ -424,6 +551,25 @@ const s = StyleSheet.create({
   ctaText:        { fontFamily: Fonts.jakarta, fontSize: FontSize.xs, fontWeight: '700', color: Colors.navyDeep, letterSpacing: 2.5 },
   helper:         { fontFamily: Fonts.jakarta, fontSize: 9, color: Colors.textMuted, marginTop: 12, lineHeight: 14 },
   disabled:       { opacity: 0.4 },
+
+  // Members tab
+  searchWrap:     { paddingHorizontal: 20, paddingBottom: 4 },
+  searchInput:    { borderWidth: 0.5, borderColor: Colors.goldLine, paddingHorizontal: 14, paddingVertical: 10, color: Colors.ivory, fontFamily: Fonts.jakarta, fontSize: 12, backgroundColor: Colors.navyMid },
+  mRow:           { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: Colors.goldLine },
+  roleTag:        { paddingHorizontal: 8, paddingVertical: 4, borderWidth: 0.5, borderColor: Colors.goldLine },
+  roleTagGold:    { borderColor: Colors.gold, backgroundColor: 'rgba(217,200,150,0.08)' },
+  roleTagText:    { fontFamily: Fonts.jakarta, fontSize: 6.5, letterSpacing: 1, color: Colors.textMuted, fontWeight: '600' },
+  roleTagTextGold:{ color: Colors.gold },
+  roleSheetOverlay:{ flex: 1, backgroundColor: 'rgba(3,15,9,0.90)', justifyContent: 'flex-end' },
+  roleSheet:      { backgroundColor: Colors.navyDeep, borderTopWidth: 0.5, borderTopColor: Colors.gold, padding: 24, paddingBottom: 40 },
+  roleSheetName:  { fontFamily: Fonts.cormorant, fontSize: 24, color: Colors.ivory, fontStyle: 'italic', fontWeight: '300' },
+  roleSheetSub:   { fontFamily: Fonts.mono, fontSize: 8, letterSpacing: 1.5, color: Colors.gold, marginTop: 6 },
+  roleSheetDivider:{ height: 0.5, backgroundColor: Colors.goldLine, marginVertical: 16 },
+  roleOption:     { paddingVertical: 13, borderBottomWidth: 0.5, borderBottomColor: Colors.goldLine },
+  roleOptionLabel:{ fontFamily: Fonts.jakarta, fontSize: 11, letterSpacing: 2, color: Colors.ivory, fontWeight: '600' },
+  roleOptionDesc: { fontFamily: Fonts.jakarta, fontSize: 9, color: Colors.textMuted, marginTop: 3 },
+  roleCancel:     { marginTop: 18, borderWidth: 0.5, borderColor: Colors.goldLine, paddingVertical: 12, alignItems: 'center' },
+  roleCancelText: { fontFamily: Fonts.jakarta, fontSize: 9, letterSpacing: 2, color: Colors.textMuted },
 
   // Empty state
   empty:          { alignItems: 'center', paddingTop: 64, paddingHorizontal: 40 },

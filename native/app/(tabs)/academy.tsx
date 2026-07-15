@@ -373,10 +373,12 @@ function MentorApplyModal({
 function MentorCard({
   mentor,
   pending,
+  statusText,
   onApply,
 }: {
   mentor: Mentor;
   pending: boolean;
+  statusText?: string;
   onApply: () => void;
 }) {
   return (
@@ -413,7 +415,7 @@ function MentorCard({
         activeOpacity={pending ? 1 : 0.8}
       >
         <Text style={[styles.applyBtnText, pending && styles.applyBtnTextPending]}>
-          {pending ? '✓ Değerlendirmeye alındı' : 'BAŞVUR'}
+          {pending ? (statusText ?? '✓ Değerlendirmeye alındı') : 'BAŞVUR'}
         </Text>
       </TouchableOpacity>
     </View>
@@ -488,27 +490,108 @@ function CoursesTab() {
   );
 }
 
-// ─── MENTÖRLER tab ────────────────────────────────────────────────────────────
+// ─── Mentor gelen kutusu (yalnızca is_mentor kullanıcılara görünür) ──────────
 
-function MentorsTab() {
-  const { mentorRequests, addMentorRequest } = useAppContext();
+type InboxRequest = {
+  id: string;
+  mentee_id: string;
+  message: string | null;
+  menteeName: string;
+  menteeFirm: string;
+};
+
+function MentorInbox({ onResponded }: { onResponded: (name: string, accepted: boolean) => void }) {
   const { session } = useAuthContext();
-  const { mentors: supabaseMentors } = useMembers();
-  const [modalMentor, setModalMentor] = useState<Mentor | null>(null);
-  const [sentTo, setSentTo] = useState<Set<string>>(new Set());
-  const { show: showToast, ToastComponent } = useToast();
+  const [requests, setRequests] = useState<InboxRequest[]>([]);
 
-  // Daha önce gönderilmiş başvuruları işaretle
   useEffect(() => {
     if (!session?.user) return;
     let cancelled = false;
     (async () => {
       const { data } = await supabase
         .from('mentorship_requests')
-        .select('mentor_id')
+        .select('id, mentee_id, message')
+        .eq('mentor_id', session.user.id)
+        .eq('status', 'pending');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows = (data ?? []) as any[];
+      if (cancelled || rows.length === 0) return;
+
+      const menteeIds = rows.map(r => r.mentee_id);
+      const { data: profiles } = await supabase.from('profiles').select('id, full_name, company').in('id', menteeIds);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pMap = new Map(((profiles ?? []) as any[]).map(p => [p.id, p]));
+
+      if (!cancelled) {
+        setRequests(rows.map(r => ({
+          id: r.id,
+          mentee_id: r.mentee_id,
+          message: r.message,
+          menteeName: pMap.get(r.mentee_id)?.full_name ?? 'Üye',
+          menteeFirm: pMap.get(r.mentee_id)?.company ?? '—',
+        })));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const respond = async (req: InboxRequest, accepted: boolean) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('mentorship_requests')
+      .update({ status: accepted ? 'accepted' : 'rejected' })
+      .eq('id', req.id);
+    if (!error) {
+      setRequests(prev => prev.filter(r => r.id !== req.id));
+      onResponded(req.menteeName, accepted);
+    }
+  };
+
+  if (requests.length === 0) return null;
+
+  return (
+    <View style={styles.inboxWrap}>
+      <Text style={styles.inboxHeader}>◆ GELEN MENTORLUK BAŞVURULARI ({requests.length})</Text>
+      {requests.map(req => (
+        <View key={req.id} style={styles.inboxCard}>
+          <Text style={styles.inboxName}>{req.menteeName}</Text>
+          <Text style={styles.inboxFirm}>{req.menteeFirm}</Text>
+          {!!req.message && <Text style={styles.inboxMsg}>"{req.message}"</Text>}
+          <View style={styles.inboxBtnRow}>
+            <TouchableOpacity style={styles.inboxAccept} onPress={() => respond(req, true)} activeOpacity={0.8}>
+              <Text style={styles.inboxAcceptText}>✓ KABUL ET</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.inboxReject} onPress={() => respond(req, false)} activeOpacity={0.8}>
+              <Text style={styles.inboxRejectText}>REDDET</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// ─── MENTÖRLER tab ────────────────────────────────────────────────────────────
+
+function MentorsTab() {
+  const { mentorRequests, addMentorRequest } = useAppContext();
+  const { session, profile } = useAuthContext();
+  const { mentors: supabaseMentors } = useMembers();
+  const [modalMentor, setModalMentor] = useState<Mentor | null>(null);
+  const [sentTo, setSentTo] = useState<Map<string, string>>(new Map());
+  const { show: showToast, ToastComponent } = useToast();
+
+  // Daha önce gönderilmiş başvuruları ve durumlarını işaretle
+  useEffect(() => {
+    if (!session?.user) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('mentorship_requests')
+        .select('mentor_id, status')
         .eq('mentee_id', session.user.id);
       if (!cancelled && data) {
-        setSentTo(new Set((data as { mentor_id: string }[]).map((r) => r.mentor_id)));
+        setSentTo(new Map((data as { mentor_id: string; status: string }[]).map((r) => [r.mentor_id, r.status])));
       }
     })();
     return () => { cancelled = true; };
@@ -540,7 +623,7 @@ function MentorsTab() {
         showToast('Başvuru gönderilemedi — bu mentora zaten başvurmuş olabilirsiniz.', 'error');
         return false;
       }
-      setSentTo(prev => new Set([...prev, modalMentor.uuid!]));
+      setSentTo(prev => new Map([...prev, [modalMentor.uuid!, 'pending']]));
     } else {
       addMentorRequest(modalMentor.id);
     }
@@ -549,17 +632,35 @@ function MentorsTab() {
     return true;
   };
 
+  const statusLabel = (uuid?: string): string | undefined => {
+    if (!uuid) return undefined;
+    const st = sentTo.get(uuid);
+    if (st === 'accepted') return '✓ Kabul edildi — mentörünüz sizinle iletişime geçecek';
+    if (st === 'rejected') return 'Bu dönem eşleşme sağlanamadı';
+    if (st === 'pending')  return '✓ Değerlendirmeye alındı';
+    return undefined;
+  };
+
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.tabContent}
       >
+        {profile?.is_mentor && (
+          <MentorInbox
+            onResponded={(name, accepted) =>
+              showToast(accepted ? `${name} başvurusu kabul edildi` : `${name} başvurusu reddedildi`, accepted ? 'success' : 'info')
+            }
+          />
+        )}
+
         {displayMentors.map((m) => (
           <MentorCard
             key={m.id}
             mentor={m}
             pending={m.uuid ? sentTo.has(m.uuid) : mentorRequests.has(m.id)}
+            statusText={statusLabel(m.uuid)}
             onApply={() => setModalMentor(m)}
           />
         ))}
@@ -691,6 +792,19 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.goldLine,
     marginTop: 8,
   },
+
+  // Mentor gelen kutusu
+  inboxWrap:       { marginHorizontal: 24, marginBottom: 8 },
+  inboxHeader:     { fontFamily: Fonts.jakarta, fontSize: 8, letterSpacing: 2, color: Colors.gold, fontWeight: '700', marginBottom: 12 },
+  inboxCard:       { borderWidth: 0.5, borderColor: Colors.gold, backgroundColor: 'rgba(217,200,150,0.05)', padding: 16, marginBottom: 12 },
+  inboxName:       { fontFamily: Fonts.cormorant, fontSize: 18, color: Colors.ivory, fontWeight: '500' },
+  inboxFirm:       { fontFamily: Fonts.jakarta, fontSize: 9, color: Colors.textMuted, marginTop: 2, marginBottom: 8 },
+  inboxMsg:        { fontFamily: Fonts.jakarta, fontSize: 11, color: Colors.ivory, opacity: 0.8, fontStyle: 'italic', lineHeight: 17, marginBottom: 12 },
+  inboxBtnRow:     { flexDirection: 'row', gap: 8 },
+  inboxAccept:     { flex: 1, backgroundColor: Colors.gold, paddingVertical: 10, alignItems: 'center' },
+  inboxAcceptText: { fontFamily: Fonts.jakarta, fontSize: 8, letterSpacing: 1.5, color: Colors.navyDeep, fontWeight: '700' },
+  inboxReject:     { paddingHorizontal: 18, borderWidth: 0.5, borderColor: Colors.goldLine, paddingVertical: 10, alignItems: 'center' },
+  inboxRejectText: { fontFamily: Fonts.jakarta, fontSize: 8, letterSpacing: 1.5, color: Colors.textMuted, fontWeight: '600' },
   tabFooterText: {
     fontFamily: Fonts.mono,
     fontSize: 8,
