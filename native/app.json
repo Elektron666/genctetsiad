@@ -1,8 +1,8 @@
 {
   "expo": {
     "name": "Genç TETSİAD",
-    "slug": "genc-tetsiad",
-    "owner": "yeniden",
+    "slug": "genctetsiad",
+    "owner": "elektron666",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -24,6 +24,13 @@
     "plugins": [
       "expo-router",
       "./gradle-config-plugin",
+      [
+        "expo-notifications",
+        {
+          "color": "#D9C896",
+          "defaultChannel": "default"
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -48,11 +55,11 @@
     },
     "extra": {
       "eas": {
-        "projectId": "e51c3f71-f3b8-48f3-95c8-0b5d700dac38"
+        "projectId": "83011c32-8359-4c20-8b34-8b5597ecb968"
       }
     },
     "updates": {
-      "url": "https://u.expo.dev/e51c3f71-f3b8-48f3-95c8-0b5d700dac38"
+      "url": "https://u.expo.dev/83011c32-8359-4c20-8b34-8b5597ecb968"
     },
     "runtimeVersion": {
       "policy": "appVersion"

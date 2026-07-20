@@ -13,6 +13,12 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Fonts } from '@/theme';
 import { useToast } from '@/components/Toast';
+import { useAppContext } from '@/context/AppContext';
+import { useAuthContext } from '@/context/AuthContext';
+import { useCourses } from '@/hooks/useCourses';
+import { useMembers } from '@/hooks/useMembers';
+import { supabase } from '@/lib/supabase';
+import type { Course as SupabaseCourse, CourseLevel } from '@/types/database';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -27,15 +33,18 @@ type Program = {
 
 type Course = {
   id: number;
+  uuid?: string;   // Supabase kaydıysa gerçek UUID
   title: string;
   tag: string;
   level: string;
   duration: string;
   progress: number;
+  enrolled?: boolean;
 };
 
 type Mentor = {
   id: number;
+  uuid?: string;   // Supabase profil UUID'si; başvuru DB'ye bununla yazılır
   name: string;
   title: string;
   firm: string;
@@ -93,6 +102,29 @@ const MENTORS: Mentor[] = [
   { id: 3, name: 'Murat Demir', title: 'Kurucu', firm: 'DEMIR DESIGN', expertise: 'Marka ve Tasarım', initials: 'MD' },
   { id: 4, name: 'Fatma Kara', title: 'İhracat Direktörü', firm: 'KARA TEKSTİL', expertise: 'Uluslararası Ticaret', initials: 'FK' },
 ];
+
+const LEVEL_LABELS: Record<CourseLevel, string> = {
+  beginner:     'BAŞLANGIÇ',
+  intermediate: 'ORTA',
+  advanced:     'İLERİ',
+};
+
+function supabaseToCourse(c: SupabaseCourse, index: number): Course {
+  return {
+    id:       index + 1,   // liste içi benzersiz key; gerçek kimlik uuid'de
+    uuid:     c.id,
+    title:    c.title,
+    tag:      c.instructor ?? 'EĞİTİM',
+    level:    LEVEL_LABELS[c.level ?? 'beginner'],
+    duration: c.duration_hours ? `${c.duration_hours} SAAT` : '—',
+    progress: c.enrollment?.progress ?? 0,
+    enrolled: !!c.enrollment,
+  };
+}
+
+function initials(name: string) {
+  return name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+}
 
 // ─── AppHeader ─────────────────────────────────────────────────────────────────
 
@@ -164,7 +196,7 @@ function ProgramCard({ program }: { program: Program }) {
 
 // ─── CourseCard (with animated progress bar) ──────────────────────────────────
 
-function CourseCard({ course }: { course: Course }) {
+function CourseCard({ course, onEnroll }: { course: Course; onEnroll?: () => void }) {
   const progressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -175,8 +207,11 @@ function CourseCard({ course }: { course: Course }) {
     }).start();
   }, [course.progress]);
 
+  // Supabase kursu: kayıtlı değilse durum 'KAYIT AÇIK'; demo kurslarda eski davranış
   const status =
-    course.progress >= 100
+    course.uuid && !course.enrolled
+      ? 'KAYIT AÇIK'
+      : course.progress >= 100
       ? 'TAMAMLANDI'
       : course.progress > 0
       ? 'DEVAM EDİYOR'
@@ -227,6 +262,13 @@ function CourseCard({ course }: { course: Course }) {
         <Text style={styles.courseStatus}>{status}</Text>
         <Text style={styles.coursePercent}>{course.progress}%</Text>
       </View>
+
+      {/* Enroll CTA — sadece kayıt olunmamış Supabase kurslarında */}
+      {onEnroll && (
+        <TouchableOpacity style={styles.courseEnrollBtn} onPress={onEnroll} activeOpacity={0.8}>
+          <Text style={styles.courseEnrollText}>KAYIT OL →</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -240,22 +282,23 @@ function MentorApplyModal({
 }: {
   mentor: Mentor;
   onClose: () => void;
-  onSent: () => void;
+  onSent: (message: string) => Promise<boolean>;
 }) {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!message.trim() || sending) return;
     setSending(true);
-    setTimeout(() => {
-      setSent(true);
-      setTimeout(() => {
-        onSent();
-        onClose();
-      }, 1500);
-    }, 400);
+    const ok = await onSent(message.trim());
+    setSending(false);
+    if (!ok) {
+      onClose();
+      return;
+    }
+    setSent(true);
+    setTimeout(onClose, 1500);
   };
 
   return (
@@ -330,10 +373,12 @@ function MentorApplyModal({
 function MentorCard({
   mentor,
   pending,
+  statusText,
   onApply,
 }: {
   mentor: Mentor;
   pending: boolean;
+  statusText?: string;
   onApply: () => void;
 }) {
   return (
@@ -370,7 +415,7 @@ function MentorCard({
         activeOpacity={pending ? 1 : 0.8}
       >
         <Text style={[styles.applyBtnText, pending && styles.applyBtnTextPending]}>
-          {pending ? '✓ Değerlendirmeye alındı' : 'BAŞVUR'}
+          {pending ? (statusText ?? '✓ Değerlendirmeye alındı') : 'BAŞVUR'}
         </Text>
       </TouchableOpacity>
     </View>
@@ -404,38 +449,18 @@ function ProgramsTab() {
 // ─── KURSLAR tab ──────────────────────────────────────────────────────────────
 
 function CoursesTab() {
-  return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.tabContent}
-    >
-      <View style={styles.coursesGrid}>
-        {COURSES.map((c) => (
-          <CourseCard key={c.id} course={c} />
-        ))}
-      </View>
-      <View style={styles.tabFooter}>
-        <Text style={styles.tabFooterText}>
-          {'06 KATEGORİ · TÜM ÜYELERE '}
-          <Text style={{ color: Colors.gold }}>ÜCRETSİZ</Text>
-        </Text>
-      </View>
-    </ScrollView>
-  );
-}
-
-// ─── MENTÖRLER tab ────────────────────────────────────────────────────────────
-
-function MentorsTab() {
-  const [pendingIds, setPendingIds] = useState<Set<number>>(new Set());
-  const [modalMentor, setModalMentor] = useState<Mentor | null>(null);
+  const { session } = useAuthContext();
+  const { courses: supabaseCourses, enroll } = useCourses(session?.user.id);
   const { show: showToast, ToastComponent } = useToast();
 
-  const handleSent = () => {
-    if (modalMentor) {
-      setPendingIds((prev) => new Set([...prev, modalMentor.id]));
-      showToast(`${modalMentor.name} için başvuru gönderildi`, 'success');
-    }
+  const displayCourses = supabaseCourses.length > 0
+    ? supabaseCourses.map(supabaseToCourse)
+    : COURSES;
+
+  const handleEnroll = async (course: Course) => {
+    if (!course.uuid) return;
+    await enroll(course.uuid);
+    showToast(`"${course.title}" kursuna kaydoldunuz`, 'success');
   };
 
   return (
@@ -444,11 +469,198 @@ function MentorsTab() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.tabContent}
       >
-        {MENTORS.map((m) => (
+        <View style={styles.coursesGrid}>
+          {displayCourses.map((c) => (
+            <CourseCard
+              key={c.id}
+              course={c}
+              onEnroll={c.uuid && !c.enrolled && session?.user ? () => handleEnroll(c) : undefined}
+            />
+          ))}
+        </View>
+        <View style={styles.tabFooter}>
+          <Text style={styles.tabFooterText}>
+            {`${String(displayCourses.length).padStart(2, '0')} KATEGORİ · TÜM ÜYELERE `}
+            <Text style={{ color: Colors.gold }}>ÜCRETSİZ</Text>
+          </Text>
+        </View>
+      </ScrollView>
+      {ToastComponent}
+    </View>
+  );
+}
+
+// ─── Mentor gelen kutusu (yalnızca is_mentor kullanıcılara görünür) ──────────
+
+type InboxRequest = {
+  id: string;
+  mentee_id: string;
+  message: string | null;
+  menteeName: string;
+  menteeFirm: string;
+};
+
+function MentorInbox({ onResponded }: { onResponded: (name: string, accepted: boolean) => void }) {
+  const { session } = useAuthContext();
+  const [requests, setRequests] = useState<InboxRequest[]>([]);
+
+  useEffect(() => {
+    if (!session?.user) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('mentorship_requests')
+        .select('id, mentee_id, message')
+        .eq('mentor_id', session.user.id)
+        .eq('status', 'pending');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows = (data ?? []) as any[];
+      if (cancelled || rows.length === 0) return;
+
+      const menteeIds = rows.map(r => r.mentee_id);
+      const { data: profiles } = await supabase.from('profiles').select('id, full_name, company').in('id', menteeIds);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pMap = new Map(((profiles ?? []) as any[]).map(p => [p.id, p]));
+
+      if (!cancelled) {
+        setRequests(rows.map(r => ({
+          id: r.id,
+          mentee_id: r.mentee_id,
+          message: r.message,
+          menteeName: pMap.get(r.mentee_id)?.full_name ?? 'Üye',
+          menteeFirm: pMap.get(r.mentee_id)?.company ?? '—',
+        })));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const respond = async (req: InboxRequest, accepted: boolean) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('mentorship_requests')
+      .update({ status: accepted ? 'accepted' : 'rejected' })
+      .eq('id', req.id);
+    if (!error) {
+      setRequests(prev => prev.filter(r => r.id !== req.id));
+      onResponded(req.menteeName, accepted);
+    }
+  };
+
+  if (requests.length === 0) return null;
+
+  return (
+    <View style={styles.inboxWrap}>
+      <Text style={styles.inboxHeader}>◆ GELEN MENTORLUK BAŞVURULARI ({requests.length})</Text>
+      {requests.map(req => (
+        <View key={req.id} style={styles.inboxCard}>
+          <Text style={styles.inboxName}>{req.menteeName}</Text>
+          <Text style={styles.inboxFirm}>{req.menteeFirm}</Text>
+          {!!req.message && <Text style={styles.inboxMsg}>"{req.message}"</Text>}
+          <View style={styles.inboxBtnRow}>
+            <TouchableOpacity style={styles.inboxAccept} onPress={() => respond(req, true)} activeOpacity={0.8}>
+              <Text style={styles.inboxAcceptText}>✓ KABUL ET</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.inboxReject} onPress={() => respond(req, false)} activeOpacity={0.8}>
+              <Text style={styles.inboxRejectText}>REDDET</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// ─── MENTÖRLER tab ────────────────────────────────────────────────────────────
+
+function MentorsTab() {
+  const { mentorRequests, addMentorRequest } = useAppContext();
+  const { session, profile } = useAuthContext();
+  const { mentors: supabaseMentors } = useMembers();
+  const [modalMentor, setModalMentor] = useState<Mentor | null>(null);
+  const [sentTo, setSentTo] = useState<Map<string, string>>(new Map());
+  const { show: showToast, ToastComponent } = useToast();
+
+  // Daha önce gönderilmiş başvuruları ve durumlarını işaretle
+  useEffect(() => {
+    if (!session?.user) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('mentorship_requests')
+        .select('mentor_id, status')
+        .eq('mentee_id', session.user.id);
+      if (!cancelled && data) {
+        setSentTo(new Map((data as { mentor_id: string; status: string }[]).map((r) => [r.mentor_id, r.status])));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const displayMentors: Mentor[] = supabaseMentors.length > 0
+    ? supabaseMentors.map((p, i) => ({
+        id:        i + 1,
+        uuid:      p.id,
+        name:      p.full_name,
+        title:     p.position ?? p.role,
+        firm:      p.company ?? '—',
+        expertise: p.mentor_bio ?? p.sector ?? '—',
+        initials:  initials(p.full_name),
+      }))
+    : MENTORS;
+
+  const handleSent = async (message: string): Promise<boolean> => {
+    if (!modalMentor) return false;
+
+    if (modalMentor.uuid && session?.user) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any).from('mentorship_requests').insert({
+        mentee_id: session.user.id,
+        mentor_id: modalMentor.uuid,
+        message,
+      });
+      if (error) {
+        showToast('Başvuru gönderilemedi — bu mentora zaten başvurmuş olabilirsiniz.', 'error');
+        return false;
+      }
+      setSentTo(prev => new Map([...prev, [modalMentor.uuid!, 'pending']]));
+    } else {
+      addMentorRequest(modalMentor.id);
+    }
+
+    showToast(`${modalMentor.name} için başvuru gönderildi`, 'success');
+    return true;
+  };
+
+  const statusLabel = (uuid?: string): string | undefined => {
+    if (!uuid) return undefined;
+    const st = sentTo.get(uuid);
+    if (st === 'accepted') return '✓ Kabul edildi — mentörünüz sizinle iletişime geçecek';
+    if (st === 'rejected') return 'Bu dönem eşleşme sağlanamadı';
+    if (st === 'pending')  return '✓ Değerlendirmeye alındı';
+    return undefined;
+  };
+
+  return (
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.tabContent}
+      >
+        {profile?.is_mentor && (
+          <MentorInbox
+            onResponded={(name, accepted) =>
+              showToast(accepted ? `${name} başvurusu kabul edildi` : `${name} başvurusu reddedildi`, accepted ? 'success' : 'info')
+            }
+          />
+        )}
+
+        {displayMentors.map((m) => (
           <MentorCard
             key={m.id}
             mentor={m}
-            pending={pendingIds.has(m.id)}
+            pending={m.uuid ? sentTo.has(m.uuid) : mentorRequests.has(m.id)}
+            statusText={statusLabel(m.uuid)}
             onApply={() => setModalMentor(m)}
           />
         ))}
@@ -463,6 +675,7 @@ function MentorsTab() {
 
       {modalMentor && (
         <MentorApplyModal
+          key={modalMentor.id}
           mentor={modalMentor}
           onClose={() => setModalMentor(null)}
           onSent={handleSent}
@@ -579,6 +792,19 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.goldLine,
     marginTop: 8,
   },
+
+  // Mentor gelen kutusu
+  inboxWrap:       { marginHorizontal: 24, marginBottom: 8 },
+  inboxHeader:     { fontFamily: Fonts.jakarta, fontSize: 8, letterSpacing: 2, color: Colors.gold, fontWeight: '700', marginBottom: 12 },
+  inboxCard:       { borderWidth: 0.5, borderColor: Colors.gold, backgroundColor: 'rgba(217,200,150,0.05)', padding: 16, marginBottom: 12 },
+  inboxName:       { fontFamily: Fonts.cormorant, fontSize: 18, color: Colors.ivory, fontWeight: '500' },
+  inboxFirm:       { fontFamily: Fonts.jakarta, fontSize: 9, color: Colors.textMuted, marginTop: 2, marginBottom: 8 },
+  inboxMsg:        { fontFamily: Fonts.jakarta, fontSize: 11, color: Colors.ivory, opacity: 0.8, fontStyle: 'italic', lineHeight: 17, marginBottom: 12 },
+  inboxBtnRow:     { flexDirection: 'row', gap: 8 },
+  inboxAccept:     { flex: 1, backgroundColor: Colors.gold, paddingVertical: 10, alignItems: 'center' },
+  inboxAcceptText: { fontFamily: Fonts.jakarta, fontSize: 8, letterSpacing: 1.5, color: Colors.navyDeep, fontWeight: '700' },
+  inboxReject:     { paddingHorizontal: 18, borderWidth: 0.5, borderColor: Colors.goldLine, paddingVertical: 10, alignItems: 'center' },
+  inboxRejectText: { fontFamily: Fonts.jakarta, fontSize: 8, letterSpacing: 1.5, color: Colors.textMuted, fontWeight: '600' },
   tabFooterText: {
     fontFamily: Fonts.mono,
     fontSize: 8,
@@ -739,6 +965,20 @@ const styles = StyleSheet.create({
     fontSize: 7,
     letterSpacing: 0.5,
     color: Colors.gold,
+  },
+  courseEnrollBtn: {
+    marginTop: 12,
+    borderWidth: 0.5,
+    borderColor: Colors.gold,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  courseEnrollText: {
+    fontFamily: Fonts.jakarta,
+    fontSize: 8,
+    letterSpacing: 1.5,
+    color: Colors.gold,
+    fontWeight: '700',
   },
 
   // ── Mentor cards ─────────────────────────────────────────

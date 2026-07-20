@@ -40,32 +40,32 @@ const IMG_PRESIDENT = require('../../assets/images/resul-oden-roportaj.jpg');
 const EVENTS = [
   {
     id: 1,
-    day: 22,
-    month: 'NİSAN',
+    day: 24,
+    month: 'TEMMUZ',
     tag: 'SAHA GEZİSİ',
     title: 'İstanbul Fabrika Ziyareti',
     src: IMG_FABRIKA,
   },
   {
     id: 2,
-    day: 14,
-    month: 'MAYIS',
+    day: 18,
+    month: 'AĞUSTOS',
     tag: 'FUAR',
-    title: 'HOMETEX Fuar Çalışması',
+    title: 'HOMETEX 2027 Fuar Hazırlığı',
     src: IMG_HOMETEX,
   },
   {
     id: 3,
-    day: 22,
-    month: 'MAYIS',
-    tag: 'KOMITE',
+    day: 9,
+    month: 'EYLÜL',
+    tag: 'KOMİTE',
     title: 'Bölge Komite Toplantısı',
     src: IMG_KOMITE,
   },
   {
     id: 4,
-    day: 12,
-    month: 'HAZİRAN',
+    day: 16,
+    month: 'EKİM',
     tag: 'SAHA GEZİSİ',
     title: 'Bursa Fabrika Ziyareti',
     src: 'https://picsum.photos/seed/gt-ev4/400/300',
@@ -77,7 +77,7 @@ const ANNOUNCEMENTS = [
     id: 1,
     pinned: true,
     label: 'DUYURU',
-    text: 'HOMETEX 2026 fuar katılım başvuruları 15 Haziran\'a kadar açık. Detaylar için takvime bakın.',
+    text: '3T — Türkiye Tekstil Temsilcileri programı başvuruları 15 Eylül\'e kadar açık. Detaylar Akademi sekmesinde.',
   },
 ];
 
@@ -260,18 +260,71 @@ function NotificationDrawer({ onClose }: { onClose: () => void }) {
   );
 }
 
+const MANIFESTO_PARAGRAPHS = [
+  'Türkiye ev tekstili sektörü, yüzyıllık bir dokuma geleneğinin üzerinde yükseliyor. Biz bu geleneği geleceğe taşıyacak nesil olarak bir araya geldik.',
+  'Genç TETSİAD; üretimi, tasarımı ve ihracatı birleştiren genç iş insanlarının platformudur. Rekabeti değil, dayanışmayı; kâr yarışını değil, ortak büyümeyi seçiyoruz.',
+  'Avrupa\'nın yeşil dönüşümünü tehdit değil fırsat olarak okuyoruz. Sürdürülebilir üretim standartlarını dünyadan önce benimsemek, bizi öne çıkaracak.',
+  'Mentorluk, kurs ve etkinliklerle birbirimizden öğreniyoruz. Sektördeki her genç isim hem öğrenci hem öğretmendir.',
+  'Değişim gençlerle olacak. Biz, o değişimin kendisiyiz.',
+];
+
+function ManifestoModal({ onClose }: { onClose: () => void }) {
+  return (
+    <Modal visible animationType="fade" transparent onRequestClose={onClose}>
+      <View style={manifStyles.backdrop}>
+        <View style={manifStyles.sheet}>
+          <View style={manifStyles.corner_tl} /><View style={manifStyles.corner_tr} />
+          <View style={manifStyles.corner_bl} /><View style={manifStyles.corner_br} />
+          <Text style={manifStyles.overline}>GENÇ TETSİAD</Text>
+          <Text style={manifStyles.title}>Manifesto</Text>
+          <View style={manifStyles.divider} />
+          <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 340 }}>
+            {MANIFESTO_PARAGRAPHS.map((p, i) => (
+              <Text key={i} style={[manifStyles.para, i > 0 && { marginTop: 16 }]}>{p}</Text>
+            ))}
+          </ScrollView>
+          <View style={manifStyles.divider} />
+          <Text style={manifStyles.sig}>{'GENÇ TETSİAD · 2026'}</Text>
+          <TouchableOpacity style={manifStyles.closeBtn} onPress={onClose} activeOpacity={0.8}>
+            <Text style={manifStyles.closeBtnText}>KAPAT</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const manifStyles = StyleSheet.create({
+  backdrop:    { flex: 1, backgroundColor: 'rgba(3,15,9,0.94)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
+  sheet:       { backgroundColor: Colors.navyDeep, borderWidth: 0.5, borderColor: Colors.gold, padding: 28, width: '100%' },
+  overline:    { fontFamily: Fonts.jakarta, fontSize: 8, letterSpacing: 3, color: Colors.gold, fontWeight: '700', marginBottom: 8 },
+  title:       { fontFamily: 'CormorantGaramond', fontSize: 34, color: Colors.ivory, fontStyle: 'italic', fontWeight: '300', lineHeight: 38 },
+  divider:     { height: 0.5, backgroundColor: Colors.goldLine, marginVertical: 18 },
+  para:        { fontFamily: Fonts.jakarta, fontSize: 12, color: Colors.ivory, lineHeight: 20, opacity: 0.85 },
+  sig:         { fontFamily: Fonts.mono, fontSize: 8, letterSpacing: 2, color: Colors.textMuted, textAlign: 'right', marginBottom: 20 },
+  closeBtn:    { borderWidth: 0.5, borderColor: Colors.goldLine, paddingVertical: 12, alignItems: 'center' },
+  closeBtnText:{ fontFamily: Fonts.jakarta, fontSize: 9, letterSpacing: 2.5, color: Colors.gold, fontWeight: '600' },
+  // corner brackets
+  corner_tl: { position: 'absolute', top: 8, left: 8, width: 14, height: 14, borderTopWidth: 1.5, borderLeftWidth: 1.5, borderColor: Colors.gold },
+  corner_tr: { position: 'absolute', top: 8, right: 8, width: 14, height: 14, borderTopWidth: 1.5, borderRightWidth: 1.5, borderColor: Colors.gold },
+  corner_bl: { position: 'absolute', bottom: 8, left: 8, width: 14, height: 14, borderBottomWidth: 1.5, borderLeftWidth: 1.5, borderColor: Colors.gold },
+  corner_br: { position: 'absolute', bottom: 8, right: 8, width: 14, height: 14, borderBottomWidth: 1.5, borderRightWidth: 1.5, borderColor: Colors.gold },
+});
+
 export default function HomeScreen() {
-  const { registeredEvents, unreadCount } = useAppContext();
+  const { registeredEvents, unreadCount, announcementBanner } = useAppContext();
   const [notifOpen, setNotifOpen] = useState(false);
-  const banner = ANNOUNCEMENTS.find((a) => a.pinned) ?? ANNOUNCEMENTS[0];
+  const [manifestoOpen, setManifestoOpen] = useState(false);
+  const banner = announcementBanner ?? ANNOUNCEMENTS.find((a) => a.pinned) ?? ANNOUNCEMENTS[0];
 
   const handleQuickCard = (target: string) => {
     if (target === 'directory') {
       router.push('/(tabs)/directory');
     } else if (target === 'academy') {
       router.push('/(tabs)/academy');
+    } else if (target === 'news') {
+      router.push('/(tabs)/sustainability');
     }
-    // news/toast — no-op for now
   };
 
   return (
@@ -340,7 +393,7 @@ export default function HomeScreen() {
               <TouchableOpacity style={styles.btnFill} activeOpacity={0.8} onPress={() => router.push('/(auth)/register')}>
                 <Text style={styles.btnFillText}>BAŞVUR</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.btnOutline} activeOpacity={0.8}>
+              <TouchableOpacity style={styles.btnOutline} activeOpacity={0.8} onPress={() => setManifestoOpen(true)}>
                 <Text style={styles.btnOutlineText}>MANİFESTO</Text>
               </TouchableOpacity>
             </View>
@@ -530,7 +583,7 @@ export default function HomeScreen() {
             <View style={styles.footerCol}>
               <Text style={styles.footerColLabel}>YAYINLAYAN</Text>
               <Text style={styles.footerColItalic}>{'Genç TETSİAD'}</Text>
-              <Text style={styles.footerColDetail}>TETSİAD ALT YAPILANMA</Text>
+              <Text style={styles.footerColDetail}>TETSİAD GENÇLİK YAPILANMASI</Text>
             </View>
           </View>
 
@@ -545,6 +598,7 @@ export default function HomeScreen() {
       </ScrollView>
 
       {notifOpen && <NotificationDrawer onClose={() => setNotifOpen(false)} />}
+      {manifestoOpen && <ManifestoModal onClose={() => setManifestoOpen(false)} />}
     </SafeAreaView>
   );
 }

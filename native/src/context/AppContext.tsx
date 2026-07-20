@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useAuthContext } from '@/context/AuthContext';
+import { registerPushToken } from '@/lib/notifications';
 
 type Notification = {
-  id: number;
+  id: number | string;   // number: demo verisi, string ("sb-<uuid>"): Supabase duyurusu
   category: 'DUYURU' | 'ETKİNLİK' | 'SİSTEM';
   title: string;
   body: string;
@@ -11,43 +12,108 @@ type Notification = {
   read: boolean;
 };
 
+type Banner = { label: string; text: string };
+
 type AppState = {
+  // Events
   registeredEvents: Set<number>;
   toggleEvent: (eventId: number) => void;
   isRegistered: (eventId: number) => boolean;
 
+  // Courses
+  enrolledCourses: Set<number>;
+  toggleCourse: (courseId: number) => void;
+
+  // Mentorship
+  mentorRequests: Set<number>;
+  addMentorRequest: (mentorId: number) => void;
+
+  // Notifications
   notifications: Notification[];
-  markRead: (id: number) => void;
+  markRead: (id: number | string) => void;
   markAllRead: () => void;
   unreadCount: number;
+
+  // Announcements (Supabase'den; yoksa null → ekran fallback kullanır)
+  announcementBanner: Banner | null;
 };
 
-// ─── Default notifications ─────────────────────────────────────────────────
-
 const DEFAULT_NOTIFICATIONS: Notification[] = [
-  { id: 1, category: 'SİSTEM',    title: 'Üyeliğiniz onaylandı',             body: 'Genç TETSİAD üyeliğiniz aktif edildi. Hoş geldiniz!', date: '18 MAYIS', read: false },
-  { id: 2, category: 'ETKİNLİK', title: 'HOMETEX 2026 yaklaşıyor',           body: 'Kayıtlı olduğunuz HOMETEX etkinliği 14 Mayıs\'ta başlıyor.', date: '12 MAYIS', read: false },
-  { id: 3, category: 'DUYURU',   title: 'Yeni kurs eklendi',                 body: 'AB Direktifleri & Uyum kursu eğitim kataloğuna eklendi.', date: '10 MAYIS', read: true },
-  { id: 4, category: 'SİSTEM',   title: 'Bağlantı isteği',                   body: 'Fatih Özdemir bağlantı isteği gönderdi.', date: '8 MAYIS', read: false },
-  { id: 5, category: 'ETKİNLİK', title: 'Yönetim Kurulu Toplantısı hatırlatıcı', body: '18 Haziran toplantısına 10 gün kaldı.', date: '8 HAZIRAN', read: true },
-  { id: 6, category: 'DUYURU',   title: '3T Programı başvuruları açıldı',    body: 'Türkiye Tekstil Temsilcileri programına başvurular 30 Mayıs\'a kadar.', date: '1 MAYIS', read: true },
+  { id: 1, category: 'ETKİNLİK', title: 'Fabrika ziyareti kayıtları açıldı',      body: '24 Temmuz İstanbul Fabrika Ziyareti için kontenjan sınırlı, takvimden yerinizi ayırtın.', date: '15 HAZİRAN', read: false },
+  { id: 2, category: 'DUYURU',   title: '3T Programı başvuruları açıldı',         body: "Türkiye Tekstil Temsilcileri programına başvurular 15 Eylül'e kadar.", date: '12 HAZİRAN', read: false },
+  { id: 3, category: 'DUYURU',   title: 'Yeni kurs eklendi',                      body: 'AB Direktifleri & Uyum kursu eğitim kataloğuna eklendi.',     date: '10 HAZİRAN', read: true },
+  { id: 4, category: 'SİSTEM',   title: 'Bağlantı isteği',                        body: 'Fatih Özdemir bağlantı isteği gönderdi.',                     date: '8 HAZİRAN',  read: false },
+  { id: 5, category: 'ETKİNLİK', title: 'HOMETEX 2026 fotoğrafları yayında',      body: 'Mayıs ayındaki fuar çalışmasının kareleri paylaşıldı.',       date: '2 HAZİRAN', read: true },
+  { id: 6, category: 'SİSTEM',   title: 'Üyeliğiniz onaylandı',                   body: 'Genç TETSİAD üyeliğiniz aktif edildi. Hoş geldiniz!',         date: '18 MAYIS', read: true },
 ];
 
-// ─── Context ──────────────────────────────────────────────────────────────────
+const MONTHS_TR = ['OCAK', 'ŞUBAT', 'MART', 'NİSAN', 'MAYIS', 'HAZİRAN', 'TEMMUZ', 'AĞUSTOS', 'EYLÜL', 'EKİM', 'KASIM', 'ARALIK'];
+
+function fmtDateTR(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getDate()} ${MONTHS_TR[d.getMonth()] ?? ''}`;
+}
 
 const AppCtx = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [registeredEvents, setRegisteredEvents] = useState<Set<number>>(
-    () => new Set([2, 5])
-  );
+  const { status, session } = useAuthContext();
+  const [registeredEvents, setRegisteredEvents] = useState<Set<number>>(() => new Set([2, 5]));
+  const [enrolledCourses, setEnrolledCourses] = useState<Set<number>>(() => new Set([1, 2, 4, 6]));
+  const [mentorRequests, setMentorRequests] = useState<Set<number>>(new Set());
   const [notifications, setNotifications] = useState<Notification[]>(DEFAULT_NOTIFICATIONS);
+  const [announcementBanner, setAnnouncementBanner] = useState<Banner | null>(null);
+
+  // Oturum açılınca cihazın push token'ını al ve DB'ye kaydet —
+  // admin duyuru yayınladığında bu token'lara bildirim gider.
+  useEffect(() => {
+    if (status !== 'authenticated' && status !== 'pending') return;
+    if (!session?.user) return;
+    (async () => {
+      const token = await registerPushToken();
+      if (!token) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any)
+        .from('push_tokens')
+        .upsert({ user_id: session.user.id, token, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    })();
+  }, [status, session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Oturum açılınca gerçek duyuruları çek; demo bildirimlerin yerini alır.
+  // RLS gereği anonim (demo mod) kullanıcı duyuru okuyamaz → fallback devrede kalır.
+  useEffect(() => {
+    if (status !== 'authenticated' && status !== 'pending') return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('announcements')
+        .select('*')
+        .order('published_at', { ascending: false })
+        .limit(20);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows = (data ?? []) as any[];
+      if (cancelled || rows.length === 0) return;
+
+      const catOf = (t: string): Notification['category'] =>
+        t === 'event' ? 'ETKİNLİK' : t === 'system' ? 'SİSTEM' : 'DUYURU';
+
+      setNotifications(rows.map((a) => ({
+        id: `sb-${a.id}`,
+        category: catOf(a.type),
+        title: a.title,
+        body: a.body,
+        date: fmtDateTR(a.published_at),
+        read: false,
+      })));
+      setAnnouncementBanner({ label: 'DUYURU', text: rows[0].body });
+    })();
+    return () => { cancelled = true; };
+  }, [status]);
 
   const toggleEvent = useCallback((id: number) => {
     setRegisteredEvents(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   }, []);
@@ -57,10 +123,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [registeredEvents]
   );
 
-  const markRead = useCallback((id: number) => {
-    setNotifications(prev =>
-      prev.map(n => n.id === id ? { ...n, read: true } : n)
-    );
+  const toggleCourse = useCallback((id: number) => {
+    setEnrolledCourses(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const addMentorRequest = useCallback((mentorId: number) => {
+    setMentorRequests(prev => new Set([...prev, mentorId]));
+  }, []);
+
+  const markRead = useCallback((id: number | string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   }, []);
 
   const markAllRead = useCallback(() => {
@@ -71,13 +147,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AppCtx.Provider value={{
-      registeredEvents,
-      toggleEvent,
-      isRegistered,
-      notifications,
-      markRead,
-      markAllRead,
-      unreadCount,
+      registeredEvents, toggleEvent, isRegistered,
+      enrolledCourses, toggleCourse,
+      mentorRequests, addMentorRequest,
+      notifications, markRead, markAllRead, unreadCount,
+      announcementBanner,
     }}>
       {children}
     </AppCtx.Provider>

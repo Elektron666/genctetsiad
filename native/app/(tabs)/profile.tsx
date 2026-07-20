@@ -9,11 +9,18 @@ import {
   Linking,
   ActionSheetIOS,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import QRCode from 'react-native-qrcode-svg';
 import { Colors, Fonts, FontSize } from '@/theme';
+import { useAppContext } from '@/context/AppContext';
+import { useAuthContext } from '@/context/AuthContext';
+import type { MemberRole } from '@/types/database';
+
+const ADMIN_ROLES: MemberRole[] = ['board', 'president', 'admin'];
 
 // ── Data ────────────────────────────────────────────────────────────────────
 
@@ -26,15 +33,25 @@ type Member = {
   memberNo: string;
   phone: string;
   sector: string;
+  email?: string;
 };
 
 const MEMBERS: Member[] = [
-  { id: 1, name: 'Resul Öden',      role: 'Başkan',          firm: 'ROSSA HOME',            city: 'İstanbul', memberNo: 'TG-2026-0001', phone: '+90 532 101 00 01', sector: 'Ev Tekstili' },
-  { id: 2, name: 'Fatih Özdemir',   role: 'Yönetim Kurulu',  firm: 'ORMEN TEKSTİL',         city: 'Ankara',   memberNo: 'TG-2026-0002', phone: '+90 542 312 04 60', sector: 'Dokuma' },
-  { id: 3, name: 'Elif Yıldız',     role: 'Üye',             firm: 'YILDIZ HOME',            city: 'Bursa',    memberNo: 'TG-2026-0003', phone: '+90 505 234 56 78', sector: 'Tasarım' },
-  { id: 4, name: 'Kerem Bayraktar', role: 'Üye',             firm: 'BAYRAKTAR TEKSTİL',     city: 'İstanbul', memberNo: 'TG-2026-0004', phone: '+90 533 456 78 90', sector: 'İhracat' },
-  { id: 5, name: 'Ayşe Kaya',       role: 'Öğrenci Üye',    firm: 'İTÜ Tekstil Müh.',      city: 'İstanbul', memberNo: 'TG-2026-0005', phone: '+90 544 567 89 01', sector: 'Öğrenci' },
+  { id: 1, name: 'Resul Öden',      role: 'Başkan',          firm: 'ROSSA HOME',            city: 'İstanbul', memberNo: 'GT-2026-00001', phone: '+90 532 101 00 01', sector: 'Ev Tekstili' },
+  { id: 2, name: 'Fatih Özdemir',   role: 'Yönetim Kurulu',  firm: 'ORMEN TEKSTİL',         city: 'Ankara',   memberNo: 'GT-2026-00002', phone: '+90 542 312 04 60', sector: 'Dokuma' },
+  { id: 3, name: 'Elif Yıldız',     role: 'Üye',             firm: 'YILDIZ HOME',            city: 'Bursa',    memberNo: 'GT-2026-00003', phone: '+90 505 234 56 78', sector: 'Tasarım' },
+  { id: 4, name: 'Kerem Bayraktar', role: 'Üye',             firm: 'BAYRAKTAR TEKSTİL',     city: 'İstanbul', memberNo: 'GT-2026-00004', phone: '+90 533 456 78 90', sector: 'İhracat' },
+  { id: 5, name: 'Ayşe Kaya',       role: 'Öğrenci Üye',    firm: 'İTÜ Tekstil Müh.',      city: 'İstanbul', memberNo: 'GT-2026-00005', phone: '+90 544 567 89 01', sector: 'Öğrenci' },
 ];
+
+const ROLE_LABELS: Record<MemberRole, string> = {
+  pending:   'Onay Bekliyor',
+  member:    'Üye',
+  student:   'Öğrenci Üye',
+  board:     'Yönetim Kurulu',
+  president: 'Başkan',
+  admin:     'Admin',
+};
 
 const ACTIVITY = [
   { id: 1, label: 'ETKİNLİK KATILIMI', desc: 'HOMETEX 2026 Fuar Çalışması', date: '14 MAYIS' },
@@ -56,7 +73,7 @@ function buildVCard(member: Member): string {
     `ORG:${member.firm}`,
     `TITLE:Genç TETSİAD ${member.role}`,
     `TEL;TYPE=CELL:${member.phone}`,
-    'EMAIL:genctetsiad@tetsiad.org',
+    `EMAIL:${member.email ?? 'genctetsiad@tetsiad.org'}`,
     `ADR:;;${member.city};;;Türkiye`,
     `NOTE:GENÇ TETSİAD · ${member.memberNo}`,
     'END:VCARD',
@@ -507,7 +524,7 @@ const cardStyles = StyleSheet.create({
 
 // ── ProfileScreen ─────────────────────────────────────────────────────────────
 
-function MemberPickerModal({ current, onSelect, onClose }: { current: number; onSelect: (idx: number) => void; onClose: () => void }) {
+function MemberPickerModal({ members, current, onSelect, onClose }: { members: Member[]; current: number; onSelect: (idx: number) => void; onClose: () => void }) {
   return (
     <Modal visible animationType="slide" transparent onRequestClose={onClose}>
       <View style={pickerStyles.overlay}>
@@ -516,7 +533,7 @@ function MemberPickerModal({ current, onSelect, onClose }: { current: number; on
           <Text style={pickerStyles.title}>ÜYE SEÇ</Text>
           <View style={pickerStyles.divider} />
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-            {MEMBERS.map((m, i) => (
+            {members.map((m, i) => (
               <TouchableOpacity
                 key={m.id}
                 style={[pickerStyles.row, i === current && pickerStyles.rowActive]}
@@ -570,18 +587,71 @@ export default function ProfileScreen() {
   const [memberIdx, setMemberIdx] = useState(0);
   const [showQR, setShowQR] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
-  const member = MEMBERS[memberIdx];
+
+  const { registeredEvents, enrolledCourses, mentorRequests } = useAppContext();
+  const { profile, signOut, deleteAccount } = useAuthContext();
+  const isAdmin = !!profile && ADMIN_ROLES.includes(profile.role);
+
+  const confirmDeleteAccount = () => {
+    Alert.alert(
+      'Hesabı Sil',
+      'Hesabınız ve tüm verileriniz (profil, etkinlik katılımları, kurs kayıtları, mentorluk başvuruları) KALICI olarak silinir. Bu işlem geri alınamaz.',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Devam Et',
+          style: 'destructive',
+          onPress: () => Alert.alert(
+            'Emin misiniz?',
+            'Son onay: hesabınız kalıcı olarak silinecek.',
+            [
+              { text: 'Vazgeç', style: 'cancel' },
+              {
+                text: 'KALICI OLARAK SİL',
+                style: 'destructive',
+                onPress: async () => {
+                  const { error } = await deleteAccount();
+                  if (error) {
+                    Alert.alert('Hata', 'Hesap silinemedi. Lütfen tekrar deneyin veya info@tetsiad.org adresine yazın.');
+                  } else {
+                    router.replace('/(auth)/login');
+                  }
+                },
+              },
+            ]
+          ),
+        },
+      ]
+    );
+  };
+
+  // Giriş yapan kullanıcının gerçek profili her zaman listenin başında
+  const ownMember: Member | null = profile
+    ? {
+        id: 0,
+        name: profile.full_name || 'Yeni Üye',
+        role: ROLE_LABELS[profile.role] ?? profile.role,
+        firm: profile.company ?? '—',
+        city: profile.city ?? '—',
+        memberNo: profile.member_code ?? `GT-REF-${profile.id.slice(0, 8).toUpperCase()}`,
+        phone: profile.phone ?? '—',
+        sector: profile.sector ?? '—',
+        email: profile.email ?? undefined,
+      }
+    : null;
+  const allMembers: Member[] = ownMember ? [ownMember, ...MEMBERS] : MEMBERS;
+  const member = allMembers[Math.min(memberIdx, allMembers.length - 1)];
 
   const handleSwitcher = () => {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: [...MEMBERS.map((m) => m.name), 'İPTAL'],
-          cancelButtonIndex: MEMBERS.length,
+          options: [...allMembers.map((m, i) => (i === 0 && ownMember ? `${m.name} (SİZ)` : m.name)), 'İPTAL'],
+          cancelButtonIndex: allMembers.length,
           title: 'ÜYE SEÇ',
         },
         (idx) => {
-          if (idx < MEMBERS.length) setMemberIdx(idx);
+          if (idx < allMembers.length) setMemberIdx(idx);
         }
       );
     } else {
@@ -589,11 +659,12 @@ export default function ProfileScreen() {
     }
   };
 
+  const fmt = (n: number) => String(n).padStart(2, '0');
   const STATS = [
-    { value: '08', label: 'ETKİNLİK' },
-    { value: '03', label: 'KURS' },
-    { value: '01', label: 'MENTORLUK' },
-    { value: '24', label: 'BAĞLANTI' },
+    { value: fmt(registeredEvents.size), label: 'ETKİNLİK' },
+    { value: fmt(enrolledCourses.size),  label: 'KURS' },
+    { value: fmt(mentorRequests.size),   label: 'MENTORLUK' },
+    { value: '24',                       label: 'BAĞLANTI' },
   ];
 
   return (
@@ -605,6 +676,7 @@ export default function ProfileScreen() {
       />
       {showPicker && (
         <MemberPickerModal
+          members={allMembers}
           current={memberIdx}
           onSelect={setMemberIdx}
           onClose={() => setShowPicker(false)}
@@ -630,6 +702,17 @@ export default function ProfileScreen() {
           >
             <Text style={styles.qrBtnText}>QR KARTVİZİT</Text>
           </TouchableOpacity>
+
+          {/* Yönetim paneli — yalnızca board/president/admin rollerine görünür */}
+          {isAdmin && (
+            <TouchableOpacity
+              style={styles.adminBtn}
+              onPress={() => router.push('/admin')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.adminBtnText}>◆  YÖNETİM PANELİ</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* ── Stats row ────────────────────────────────────── */}
@@ -680,13 +763,29 @@ export default function ProfileScreen() {
           </View>
           <View style={[styles.infoRow, styles.infoRowBorder]}>
             <Text style={styles.infoKey}>E-POSTA</Text>
-            <Text style={styles.infoVal}>genctetsiad@tetsiad.org</Text>
+            <Text style={styles.infoVal}>{member.email ?? 'genctetsiad@tetsiad.org'}</Text>
           </View>
           <View style={[styles.infoRow, styles.infoRowBorder]}>
             <Text style={styles.infoKey}>DURUM</Text>
             <Text style={[styles.infoVal, { color: Colors.gold }]}>AKTİF ÜYE · 2026</Text>
           </View>
         </View>
+
+        {/* ── Sign out + hesap silme — sadece gerçek oturumda ── */}
+        {profile && (
+          <View style={styles.signOutWrap}>
+            <TouchableOpacity
+              style={styles.signOutBtn}
+              onPress={async () => { await signOut(); router.replace('/(auth)/login'); }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.signOutText}>ÇIKIŞ YAP</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.deleteBtn} onPress={confirmDeleteAccount} activeOpacity={0.7}>
+              <Text style={styles.deleteText}>HESABIMI KALICI OLARAK SİL</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* ── Footer note ──────────────────────────────────── */}
         <View style={styles.footerNote}>
@@ -741,6 +840,48 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.navyDeep,
     letterSpacing: 3,
+  },
+  adminBtn: {
+    marginTop: 10,
+    borderWidth: 0.5,
+    borderColor: Colors.gold,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adminBtnText: {
+    fontFamily: Fonts.jakarta,
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+    color: Colors.gold,
+    letterSpacing: 2.5,
+  },
+  signOutWrap: {
+    paddingHorizontal: 24,
+    marginTop: 24,
+  },
+  signOutBtn: {
+    borderWidth: 0.5,
+    borderColor: Colors.goldLine,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  signOutText: {
+    fontFamily: Fonts.jakarta,
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    letterSpacing: 2,
+  },
+  deleteBtn: {
+    marginTop: 10,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  deleteText: {
+    fontFamily: Fonts.jakarta,
+    fontSize: 9,
+    color: 'rgba(224,96,96,0.75)',
+    letterSpacing: 1.5,
   },
 
   // Stats

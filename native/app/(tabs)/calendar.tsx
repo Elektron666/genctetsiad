@@ -7,11 +7,14 @@ import {
   ImageBackground,
   StyleSheet,
   Animated,
-  Platform,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Fonts } from '@/theme';
 import { useAppContext } from '@/context/AppContext';
+import { useAuthContext } from '@/context/AuthContext';
+import { useEvents } from '@/hooks/useEvents';
+import type { Event as SupabaseEvent } from '@/types/database';
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
@@ -19,6 +22,7 @@ type Speaker = { initials: string; name: string };
 
 type EventItem = {
   id: number;
+  uuid?: string;   // Supabase kaydıysa gerçek UUID; count/katılım bununla yönetilir
   day: number;
   month: string;
   tag: string;
@@ -33,8 +37,8 @@ type EventItem = {
 const EVENTS: EventItem[] = [
   {
     id: 1,
-    day: 22,
-    month: 'NİSAN',
+    day: 24,
+    month: 'TEMMUZ',
     tag: 'SAHA GEZİSİ',
     title: 'İstanbul Fabrika Ziyareti',
     place: 'İstanbul · Beylikdüzü OSB',
@@ -48,10 +52,10 @@ const EVENTS: EventItem[] = [
   },
   {
     id: 2,
-    day: 14,
-    month: 'MAYIS',
+    day: 18,
+    month: 'AĞUSTOS',
     tag: 'FUAR',
-    title: 'HOMETEX Fuar Çalışması',
+    title: 'HOMETEX 2027 Fuar Hazırlığı',
     place: 'CNR Expo · İstanbul',
     count: 120,
     src: 'https://picsum.photos/seed/gt-ev2/800/400',
@@ -59,14 +63,14 @@ const EVENTS: EventItem[] = [
       { initials: 'RÖ', name: 'Resul Öden' },
       { initials: 'AY', name: 'Aylin Yıldız' },
     ],
-    desc: 'Türkiye ev tekstilinin yıllık vitrini. Genç üyeler için özel stand turu, yurt dışı alıcı görüşmeleri ve networking programı.',
+    desc: 'Türkiye ev tekstilinin yıllık vitrinine hazırlık kampı. Genç üyeler için stand tasarımı, yurt dışı alıcı görüşme provaları ve networking programı.',
   },
   {
     id: 3,
-    day: 22,
-    month: 'MAYIS',
+    day: 9,
+    month: 'EYLÜL',
     tag: 'ÜNİVERSİTE',
-    title: 'İTÜ Tasarım Etkinlikleri',
+    title: 'İTÜ Tasarım Günleri',
     place: 'İTÜ Maçka Kampüsü',
     count: 64,
     src: 'https://picsum.photos/seed/gt-ev3/800/400',
@@ -78,8 +82,8 @@ const EVENTS: EventItem[] = [
   },
   {
     id: 4,
-    day: 12,
-    month: 'HAZİRAN',
+    day: 16,
+    month: 'EKİM',
     tag: 'SAHA GEZİSİ',
     title: 'Bursa Fabrika Ziyareti',
     place: 'Bursa · DEMİRTAŞ OSB',
@@ -90,8 +94,8 @@ const EVENTS: EventItem[] = [
   },
   {
     id: 5,
-    day: 18,
-    month: 'HAZİRAN',
+    day: 30,
+    month: 'TEMMUZ',
     tag: 'TOPLANTI',
     title: 'Yönetim Kurulu Toplantısı',
     place: 'TETSİAD Merkezi · İstanbul',
@@ -101,6 +105,25 @@ const EVENTS: EventItem[] = [
     desc: 'Genç TETSİAD yönetim kurulu aylık toplantısı.',
   },
 ];
+
+const MONTHS_TR = ['OCAK', 'ŞUBAT', 'MART', 'NİSAN', 'MAYIS', 'HAZİRAN', 'TEMMUZ', 'AĞUSTOS', 'EYLÜL', 'EKİM', 'KASIM', 'ARALIK'];
+
+function supabaseToEventItem(e: SupabaseEvent, index: number): EventItem {
+  const date = new Date(e.starts_at);
+  return {
+    id:       index + 1,   // liste içi benzersiz key; gerçek kimlik uuid'de
+    uuid:     e.id,
+    day:      date.getDate(),
+    month:    MONTHS_TR[date.getMonth()] ?? '',
+    tag:      e.city ?? 'ETKİNLİK',
+    title:    e.title,
+    place:    [e.location, e.city].filter(Boolean).join(' · ') || '—',
+    count:    e.attendee_count ?? 0,
+    src:      e.image_url ?? `https://picsum.photos/seed/${e.id}/800/400`,
+    speakers: [],
+    desc:     e.description ?? '',
+  };
+}
 
 const PRESET_REGISTERED = new Set([2, 5]);
 
@@ -177,8 +200,11 @@ function EventCard({
   onToggle: () => void;
   onPress: () => void;
 }) {
+  // Supabase event'inde count DB'den canlı gelir; demo veride lokal +1/-1 uygulanır
   const wasReg = PRESET_REGISTERED.has(event.id);
-  const liveCount = registered && !wasReg
+  const liveCount = event.uuid
+    ? event.count
+    : registered && !wasReg
     ? event.count + 1
     : !registered && wasReg
     ? event.count - 1
@@ -260,7 +286,9 @@ function EventDetail({
 }) {
   const insets = useSafeAreaInsets();
   const wasReg = PRESET_REGISTERED.has(event.id);
-  const liveCount = registered && !wasReg
+  const liveCount = event.uuid
+    ? event.count
+    : registered && !wasReg
     ? event.count + 1
     : !registered && wasReg
     ? event.count - 1
@@ -370,15 +398,51 @@ function EventDetail({
 
 export default function CalendarScreen() {
   const { registeredEvents, toggleEvent } = useAppContext();
+  const { session } = useAuthContext();
+  const { events: supabaseEvents, toggleAttendance, refetch } = useEvents(session?.user.id);
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
+
+  const displayEvents: EventItem[] = supabaseEvents.length > 0
+    ? supabaseEvents.map(supabaseToEventItem)
+    : EVENTS;
+
+  const isRegistered = (event: EventItem): boolean => {
+    if (event.uuid) {
+      return supabaseEvents.find((e) => e.id === event.uuid)?.is_attending ?? false;
+    }
+    return registeredEvents.has(event.id);
+  };
+
+  const handleToggle = (event: EventItem) => {
+    if (event.uuid) {
+      toggleAttendance(event.uuid);
+    } else {
+      toggleEvent(event.id);
+    }
+  };
+
+  const attendanceCount = supabaseEvents.length > 0
+    ? supabaseEvents.filter((e) => e.is_attending).length
+    : registeredEvents.size;
 
   if (selectedEvent) {
+    // Snapshot yerine güncel listeden oku ki katılım sonrası sayaç canlı kalsın
+    const liveSelected = displayEvents.find((e) =>
+      selectedEvent.uuid ? e.uuid === selectedEvent.uuid : e.id === selectedEvent.id
+    ) ?? selectedEvent;
     return (
       <SafeAreaView style={styles.container} edges={[]}>
         <EventDetail
-          event={selectedEvent}
-          registered={registeredEvents.has(selectedEvent.id)}
-          onToggle={() => toggleEvent(selectedEvent.id)}
+          event={liveSelected}
+          registered={isRegistered(liveSelected)}
+          onToggle={() => handleToggle(liveSelected)}
           onBack={() => setSelectedEvent(null)}
         />
       </SafeAreaView>
@@ -391,14 +455,17 @@ export default function CalendarScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} colors={[Colors.gold]} progressBackgroundColor={Colors.navyDeep} />
+        }
       >
         {/* Year + stats row */}
         <View style={styles.statsRow}>
           <Text style={styles.statsYear}>2026</Text>
           <Text style={styles.statsInfo}>
-            <Text style={styles.goldNum}>{EVENTS.length}</Text>
+            <Text style={styles.goldNum}>{displayEvents.length}</Text>
             {' ETKİNLİK · '}
-            <Text style={styles.goldNum}>{registeredEvents.size}</Text>
+            <Text style={styles.goldNum}>{attendanceCount}</Text>
             {' KATILIM'}
           </Text>
         </View>
@@ -407,12 +474,12 @@ export default function CalendarScreen() {
         <View style={styles.goldDivider} />
 
         {/* Event cards */}
-        {EVENTS.map((event) => (
+        {displayEvents.map((event) => (
           <EventCard
             key={event.id}
             event={event}
-            registered={registeredEvents.has(event.id)}
-            onToggle={() => toggleEvent(event.id)}
+            registered={isRegistered(event)}
+            onToggle={() => handleToggle(event)}
             onPress={() => setSelectedEvent(event)}
           />
         ))}
@@ -421,7 +488,7 @@ export default function CalendarScreen() {
         <View style={styles.listFooter}>
           <Text style={styles.footerText}>
             {'12 AYDA '}
-            <Text style={{ color: Colors.gold }}>10 ETKİNLİK</Text>
+            <Text style={{ color: Colors.gold }}>{displayEvents.length} ETKİNLİK</Text>
             {' · GENÇ TETSİAD 2026'}
           </Text>
         </View>

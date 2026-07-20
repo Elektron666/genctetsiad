@@ -7,6 +7,8 @@ const {
 } = require('@expo/config-plugins');
 
 const APP_PACKAGE = 'org.tetsiad.genc';
+// prebuild, paket adını uygulama ADINDAN türetir (slug'dan değil):
+// "Genç TETSİAD" → ascii dışı harfler düşer → com.gentetsiad
 const SLUG_PACKAGE = 'com.gentetsiad';
 
 const KOTLIN_VERSION = '2.1.20';

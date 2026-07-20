@@ -5,8 +5,22 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider } from '@/context/AppContext';
+import { AuthProvider } from '@/context/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
+
+// Auth yönlendirmesi app/index.tsx'te (status'a göre) ve ekranların kendi
+// useEffect'lerinde yapılır; "DEMO MOD İLE GİR" akışı bilinçli olarak serbest.
+function RootNavigator() {
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="admin" />
+    </Stack>
+  );
+}
 
 export default function RootLayout() {
   const [loaded] = useFonts({
@@ -28,15 +42,13 @@ export default function RootLayout() {
   if (!loaded) return null;
 
   return (
-    <AppProvider>
-      <SafeAreaProvider>
-        <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(tabs)" />
-        </Stack>
-      </SafeAreaProvider>
-    </AppProvider>
+    <AuthProvider>
+      <AppProvider>
+        <SafeAreaProvider>
+          <StatusBar style="light" />
+          <RootNavigator />
+        </SafeAreaProvider>
+      </AppProvider>
+    </AuthProvider>
   );
 }
