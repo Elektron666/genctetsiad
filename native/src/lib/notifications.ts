@@ -2,7 +2,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 
-const EXPO_PROJECT_ID = 'e51c3f71-f3b8-48f3-95c8-0b5d700dac38';
+const EXPO_PROJECT_ID = '83011c32-8359-4c20-8b34-8b5597ecb968';
 
 // Uygulama ön plandayken de bildirimi göster
 Notifications.setNotificationHandler({
