@@ -1,49 +1,61 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
 
 const EXPO_PROJECT_ID = '83011c32-8359-4c20-8b34-8b5597ecb968';
 
+// Expo Go'da uzaktan push desteklenmez (SDK 53+). Uygulama orada da
+// sorunsuz açılsın diye bildirim kurulumunu tamamen atlıyoruz.
+const IS_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
 // Uygulama ön plandayken de bildirimi göster
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+if (!IS_EXPO_GO) {
+  try {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  } catch {
+    // bildirim modülü yoksa sessizce geç
+  }
+}
 
 /**
  * Cihazdan Expo push token'ı alır (izin ister, Android kanalını kurar).
- * Emülatörde, izin reddedilirse veya FCM yapılandırması yoksa null döner —
- * app asla bu yüzden çökmez, push sessizce devre dışı kalır.
+ * Expo Go'da, emülatörde, izin reddedilirse veya FCM yapılandırması yoksa
+ * null döner — app asla bu yüzden çökmez, push sessizce devre dışı kalır.
  */
 export async function registerPushToken(): Promise<string | null> {
-  if (!Device.isDevice) return null;
-
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'Genç TETSİAD',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#D9C896',
-    });
-  }
-
-  const { status: existing } = await Notifications.getPermissionsAsync();
-  let status = existing;
-  if (existing !== 'granted') {
-    const req = await Notifications.requestPermissionsAsync();
-    status = req.status;
-  }
-  if (status !== 'granted') return null;
+  if (IS_EXPO_GO || !Device.isDevice) return null;
 
   try {
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'Genç TETSİAD',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#D9C896',
+      });
+    }
+
+    const { status: existing } = await Notifications.getPermissionsAsync();
+    let status = existing;
+    if (existing !== 'granted') {
+      const req = await Notifications.requestPermissionsAsync();
+      status = req.status;
+    }
+    if (status !== 'granted') return null;
+
     const token = await Notifications.getExpoPushTokenAsync({ projectId: EXPO_PROJECT_ID });
     return token.data;
   } catch {
-    // FCM credential'ları henüz kurulmamışsa buraya düşer
+    // İzin akışı veya FCM credential'ları hazır değilse buraya düşer —
+    // push sessizce devre dışı kalır, uygulama normal çalışmaya devam eder.
     return null;
   }
 }
