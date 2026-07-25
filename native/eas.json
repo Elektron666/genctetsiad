@@ -23,13 +23,25 @@
         "buildType": "apk",
         "credentialsSource": "remote"
       },
-      "ios": { "simulator": false }
+      "ios": { "simulator": true }
+    },
+    "ios-testflight": {
+      "extends": "base",
+      "autoIncrement": true,
+      "ios": {
+        "simulator": false,
+        "credentialsSource": "remote"
+      }
     },
     "production": {
       "extends": "base",
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle",
+        "credentialsSource": "remote"
+      },
+      "ios": {
+        "simulator": false,
         "credentialsSource": "remote"
       }
     }
