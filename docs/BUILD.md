@@ -30,7 +30,7 @@ Bilgisayarda (Windows/Linux/Mac fark etmez):
 git clone https://github.com/Elektron666/genctetsiad.git
 cd genctetsiad/native
 npm install --legacy-peer-deps
-npx expo start --tunnel
+npm start            # aynı WiFi'daysanız — en basit yol
 ```
 
 iPhone'da:
@@ -38,8 +38,19 @@ iPhone'da:
 2. Terminaldeki QR kodu **iPhone kamerasıyla** okut
 3. Uygulama Expo Go içinde açılır
 
-> `--tunnel` bayrağı şart — telefon ve bilgisayar farklı ağdaysa da çalışır.
 > İlk açılış yavaştır (dev modu). İkon/splash Expo Go'nunki görünür, bu normal.
+
+**Telefon ve bilgisayar farklı ağdaysa** (ya da WiFi cihazları izole ediyorsa) tunnel gerekir:
+
+```bash
+npm install -g @expo/ngrok    # bir kez
+npm run iphone                # = expo start --tunnel
+```
+
+> Windows'ta `npm run iphone` şu hatayı verirse:
+> `TypeError [ERR_INVALID_ARG_TYPE]: The "file" argument must be of type string. Received null`
+> → ngrok ikilisi inmemiş demektir. Yukarıdaki global kurulumu yap, sonra tekrar dene.
+> Alternatif: `npm start` ile LAN modunda kal (tunnel'a gerek kalmaz).
 
 ---
 
