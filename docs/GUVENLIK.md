@@ -107,20 +107,31 @@ RLS'ten gelir — bu yüzden yukarıdaki H1–H4 düzeltmeleri kritikti.
 Anahtar zaten gizli değil, **ama** tüm şema ve RLS politikalarını
 yayınlamak saldırgana bedava keşif sağlar.
 
-**Tavsiye: ana depoyu gizli yap.** Tek engel, gizlilik politikası sayfasının
-GitHub Pages'te olması (ücretsiz planda Pages public depo ister).
-Çözüm: metni tetsiad.org'a taşı veya yalnızca o sayfa için ayrı bir küçük
-public depo aç.
+**Karar: public kalıyor.** Gerekçe: gizlilik politikası GitHub Pages'te
+barınıyor ve mağazalar için zorunlu; ücretsiz planda Pages public depo
+istiyor. Depoyu gizlemek somut bir zorunluluğu kırar, karşılığında yalnızca
+"keşif zorlaştırma" kazandırır — RLS denetimi kapalı çıktığı için (0·0·0)
+şemayı görmek saldırgana eyleme dönüştürebileceği bir şey vermiyor.
 
-### Bildirim gönderimi yönetici cihazından yapılıyor
-Duyuru yayınlanırken push, adminin telefonundan Expo API'ye gönderilir.
-Bu, adminin **tüm üyelerin bildirim token'larını okumasını** gerektirir.
-Bir yönetici hesabı ele geçerse saldırgan tüm üyelere bildirim
-gönderebilir (veri sızıntısı değil, ama kötüye kullanım).
+İleride tetsiad.org'a kurumsal bir sayfa açılırsa metni oraya taşıyıp
+depoyu gizlemek mantıklı olur.
 
-**Daha güvenli mimari:** gönderimi bir Supabase Edge Function'a taşımak —
-token'lar istemciye hiç inmez, `service_role` sunucuda kalır.
-Uygulanabilir; Supabase CLI ile dağıtım gerektirir. İstersen yapayım.
+### Bildirim gönderimi — ✅ sunucuya taşındı
+Önceden push adminin telefonundan gönderiliyordu; bu, istemcinin **tüm
+üyelerin bildirim token'larını okumasını** gerektiriyordu. Yönetici hesabı
+ele geçerse saldırgan token'ları çekip üyelere istediği bildirimi
+gönderebilirdi.
+
+Artık `supabase/functions/broadcast-push` Edge Function'ı var: yetki
+çağıranın JWT'siyle doğrulanır, token okuma ve gönderim `service_role`
+ile sunucuda kalır — token'lar istemciye hiç inmez.
+
+Tamamlamak için iki adım:
+1. `supabase functions deploy broadcast-push`
+2. Ardından migration **008** (token'ları yöneticiden de gizler)
+
+Fonksiyon dağıtılmadan da uygulama çalışır: istemci eski yola geri
+düşer. 008'i yalnızca dağıtımdan SONRA çalıştır.
 
 ### Üye telefonları onaylı üyelere görünür
 Bu **bilinçli bir ürün kararı** — rehberin amacı bu. KVKK aydınlatma
