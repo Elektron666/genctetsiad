@@ -785,6 +785,16 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* ── Gizlilik / KVKK — kayıt sonrası da erişilebilir olmalı ── */}
+        <View style={styles.legalWrap}>
+          <TouchableOpacity
+            onPress={() => Linking.openURL('https://elektron666.github.io/genctetsiad/gizlilik-politikasi.html')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.legalLink}>Gizlilik Politikası & KVKK Aydınlatma Metni →</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* ── Sign out + hesap silme — sadece gerçek oturumda ── */}
         {profile && (
           <View style={styles.signOutWrap}>
@@ -869,6 +879,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.gold,
     letterSpacing: 2.5,
+  },
+  legalWrap: {
+    paddingHorizontal: 24,
+    marginTop: 24,
+    alignItems: 'center',
+  },
+  legalLink: {
+    fontFamily: Fonts.jakarta,
+    fontSize: 10,
+    color: Colors.gold,
+    letterSpacing: 0.3,
+    paddingVertical: 8,
   },
   signOutWrap: {
     paddingHorizontal: 24,

@@ -59,6 +59,7 @@ export default function RegisterScreen() {
   const [position, setPosition] = useState('');
   const [memberType, setMemberType] = useState<'student' | 'company'>('company');
   const [kvkkChecked, setKvkkChecked] = useState(false);
+  const [transferConsent, setTransferConsent] = useState(false);
   const [memberCode, setMemberCode] = useState('');
   const [codeAnim] = useState(new Animated.Value(0));
   const otpRefs = Array.from({ length: 6 }, () => useRef<TextInput>(null));
@@ -127,7 +128,7 @@ export default function RegisterScreen() {
   const canNext = () => {
     if (step === 2) return firstName.trim().length > 1 && lastName.trim().length > 1 && email.includes('@');
     if (step === 3) return firm.trim().length > 1 && city.length > 0 && sector.length > 0;
-    if (step === 5) return kvkkChecked;
+    if (step === 5) return kvkkChecked && transferConsent;
     return true;
   };
 
@@ -325,11 +326,30 @@ export default function RegisterScreen() {
 
               <ScrollView style={s.kvkkBox} nestedScrollEnabled>
                 <Text style={s.kvkkText}>
-                  TETSİAD Tekstil Sanayicileri ve İşadamları Derneği olarak kişisel verilerinizi 6698 sayılı KVKK kapsamında işlemekteyiz.{'\n\n'}
-                  Toplanan veriler: Ad, soyad, telefon, e-posta, firma bilgileri, üyelik durumu ve platform kullanım verileri.{'\n\n'}
-                  Amaç: Üyelik yönetimi, etkinlik bildirimleri, sektörel iletişim ve platform geliştirilmesi.{'\n\n'}
-                  Verileriniz üçüncü taraflarla paylaşılmaz. Haklarınız hakkında info@tetsiad.org adresine başvurabilirsiniz.{'\n\n'}
-                  Saklama süresi: Üyelik süresi boyunca ve sonrasında yasal zorunluluklar dahilinde 10 yıl.
+                  <Text style={s.kvkkHead}>VERİ SORUMLUSU{'\n'}</Text>
+                  TETSİAD — Tekstil Sanayicileri ve İşadamları Derneği{'\n'}
+                  info@tetsiad.org · +90 212 292 04 04{'\n\n'}
+
+                  <Text style={s.kvkkHead}>İŞLENEN VERİLER{'\n'}</Text>
+                  Ad, soyad, telefon numarası, e-posta adresi, firma adı, pozisyon, şehir, sektör; etkinlik katılımları, kurs kayıtları, mentorluk başvuruları ve bildirim izni verdiyseniz cihaz bildirim kimliği.{'\n\n'}
+
+                  <Text style={s.kvkkHead}>AMAÇ VE HUKUKİ SEBEP{'\n'}</Text>
+                  Üyelik başvurusunun değerlendirilmesi, üyelik kaydının yürütülmesi, etkinlik ve eğitim organizasyonu, üye rehberi ve duyuruların iletilmesi amaçlarıyla; KVKK m.5/2-c (sözleşmenin ifası) ve m.5/2-f (meşru menfaat) kapsamında, bildirim gönderimi için açık rızanıza dayanılarak işlenir.{'\n\n'}
+
+                  <Text style={s.kvkkHead}>AKTARIM VE YURT DIŞI AKTARIM{'\n'}</Text>
+                  Verileriniz pazarlama amacıyla kimseyle paylaşılmaz ve satılmaz. Hizmetin çalışması için şu tedarikçilere sınırlı teknik aktarım yapılır:{'\n'}
+                  • Supabase — veritabanı barındırma (Almanya / Frankfurt){'\n'}
+                  • Google Firebase & Expo — bildirim iletimi (ABD){'\n'}
+                  • SMS sağlayıcısı — doğrulama kodu iletimi{'\n'}
+                  Bu tedarikçilerin sunucuları yurt dışında bulunduğundan, verileriniz KVKK m.9 kapsamında yurt dışına aktarılmaktadır. Bu aktarım için ayrıca açık rızanız alınmaktadır.{'\n\n'}
+
+                  <Text style={s.kvkkHead}>SAKLAMA SÜRESİ{'\n'}</Text>
+                  Verileriniz üyeliğiniz süresince saklanır. Hesabınızı uygulama içinden sildiğinizde tüm kişisel verileriniz derhâl ve kalıcı olarak silinir. Yalnızca yasal saklama yükümlülüğü bulunan kayıtlar ilgili mevzuattaki süre boyunca tutulur.{'\n\n'}
+
+                  <Text style={s.kvkkHead}>HAKLARINIZ (KVKK m.11){'\n'}</Text>
+                  Verilerinizin işlenip işlenmediğini öğrenme, bilgi talep etme, işleme amacını öğrenme, aktarıldığı üçüncü kişileri bilme, düzeltilmesini veya silinmesini isteme, işlemeye itiraz etme ve zarara uğramanız hâlinde tazminat talep etme haklarına sahipsiniz. Başvurularınızı info@tetsiad.org adresine iletebilirsiniz.{'\n\n'}
+
+                  Tam metin: elektron666.github.io/genctetsiad/gizlilik-politikasi.html
                 </Text>
               </ScrollView>
 
@@ -338,7 +358,18 @@ export default function RegisterScreen() {
                   {kvkkChecked && <Text style={s.checkmark}>✓</Text>}
                 </View>
                 <Text style={s.checkLabel}>
-                  Aydınlatma metnini okudum, kişisel verilerimin işlenmesini onaylıyorum.
+                  Aydınlatma metnini okudum; kişisel verilerimin yukarıdaki amaçlarla işlenmesini kabul ediyorum.
+                </Text>
+              </TouchableOpacity>
+
+              {/* Yurt dışı aktarım KVKK m.9 gereği ayrı açık rıza ister —
+                  aydınlatma onayıyla birleştirilemez. */}
+              <TouchableOpacity style={[s.checkRow, { marginTop: 14 }]} onPress={() => setTransferConsent(v => !v)} activeOpacity={0.7}>
+                <View style={[s.checkbox, transferConsent && s.checkboxChecked]}>
+                  {transferConsent && <Text style={s.checkmark}>✓</Text>}
+                </View>
+                <Text style={s.checkLabel}>
+                  Verilerimin hizmetin sunulabilmesi için yurt dışındaki tedarikçilere (Supabase — Almanya, Google/Expo — ABD) aktarılmasına <Text style={{ color: Colors.gold }}>açık rıza</Text> veriyorum.
                 </Text>
               </TouchableOpacity>
             </View>
@@ -451,8 +482,9 @@ const s = StyleSheet.create({
   typeLabelActive:{ color: Colors.gold },
   typeDesc:       { fontFamily: Fonts.jakarta, fontSize: 9, color: Colors.textMuted, textAlign: 'center', lineHeight: 14 },
 
-  kvkkBox:        { maxHeight: 220, borderWidth: 0.5, borderColor: Colors.goldLine, padding: 16, marginBottom: 20 },
+  kvkkBox:        { maxHeight: 260, borderWidth: 0.5, borderColor: Colors.goldLine, padding: 16, marginBottom: 20 },
   kvkkText:       { fontFamily: Fonts.jakarta, fontSize: 10, color: Colors.textMuted, lineHeight: 16 },
+  kvkkHead:       { fontFamily: Fonts.jakarta, fontSize: 8, color: Colors.gold, letterSpacing: 1.5, fontWeight: '700' },
   checkRow:       { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
   checkbox:       { width: 20, height: 20, borderWidth: 0.5, borderColor: Colors.goldLine, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   checkboxChecked:{ backgroundColor: Colors.gold, borderColor: Colors.gold },

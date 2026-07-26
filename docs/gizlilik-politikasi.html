@@ -47,11 +47,20 @@ Erişim, satır bazlı güvenlik (RLS) kuralları ile sınırlandırılmıştır
 onaylı dernek üyelerine görünür; başvuru bilgileriniz yalnızca dernek yönetimine görünür.
 Oturum bilgileri cihazınızda şifreli alanda (Android Keystore) saklanır.</p>
 
-<h2>4. Verilerin Paylaşımı</h2>
+<h2>4. Verilerin Paylaşımı ve Yurt Dışına Aktarım</h2>
 <p>Kişisel verileriniz üçüncü taraflarla <strong>pazarlama amacıyla paylaşılmaz ve satılmaz</strong>.
-Sınırlı teknik paylaşımlar: SMS doğrulama kodunun iletilmesi için SMS sağlayıcısı;
-bildirim gönderimi için Expo/Google Firebase Cloud Messaging altyapısı. Bu sağlayıcılar veriyi
-yalnızca iletim amacıyla işler.</p>
+Hizmetin çalışabilmesi için aşağıdaki tedarikçilere sınırlı teknik aktarım yapılır:</p>
+<table>
+  <tr><th>Tedarikçi</th><th>Amaç</th><th>Sunucu konumu</th></tr>
+  <tr><td>Supabase Inc.</td><td>Veritabanı ve kimlik doğrulama</td><td>Almanya (Frankfurt)</td></tr>
+  <tr><td>Google Firebase (FCM) / Expo</td><td>Bildirim iletimi</td><td>ABD</td></tr>
+  <tr><td>SMS sağlayıcısı</td><td>Doğrulama kodu iletimi</td><td>Yurt dışı</td></tr>
+</table>
+<p>Bu tedarikçilerin sunucuları Türkiye dışında bulunduğundan, verileriniz
+<strong>KVKK m.9 kapsamında yurt dışına aktarılmaktadır</strong>. Bu aktarım için üyelik başvurusu
+sırasında ayrıca <strong>açık rızanız</strong> alınmaktadır; rıza vermemeniz hâlinde uygulama
+hizmeti teknik olarak sunulamaz. Tedarikçiler veriyi yalnızca belirtilen amaçla işler,
+kendi amaçları için kullanamaz.</p>
 
 <h2>5. Saklama Süresi</h2>
 <p>Verileriniz üyeliğiniz süresince saklanır. Hesabınızı sildiğinizde tüm kişisel verileriniz
