@@ -133,6 +133,15 @@ Tamamlamak için iki adım:
 Fonksiyon dağıtılmadan da uygulama çalışır: istemci eski yola geri
 düşer. 008'i yalnızca dağıtımdan SONRA çalıştır.
 
+### Çökme takibi (Sentry) — kişisel veri göndermeyecek şekilde
+Hata raporları ABD sunucularına gider. KVKK riskini baştan kesmek için
+kısıtlandı: `sendDefaultPii: false` (IP/cihaz kimliği yok), `setUser` hiç
+çağrılmıyor (kullanıcı eşlenmiyor), kullanıcının yazdığı metinler izlerden
+temizleniyor. Gönderilen: hata mesajı, kod konumu, cihaz modeli, sürüm.
+
+Gizlilik politikası ve uygulama içi aydınlatma metnine tedarikçi olarak
+eklendi. `EXPO_PUBLIC_SENTRY_DSN` boşsa Sentry hiç başlatılmaz.
+
 ### Üye telefonları onaylı üyelere görünür
 Bu **bilinçli bir ürün kararı** — rehberin amacı bu. KVKK aydınlatma
 metninde açıkça yazıyor. Onaylanmamış kişiler artık göremez (H1).

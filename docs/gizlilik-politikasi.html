@@ -33,6 +33,7 @@
   <tr><td>Firma, şehir, sektör, pozisyon</td><td>Üyelik başvuru formu</td><td>Üye rehberi, sektörel eşleştirme</td></tr>
   <tr><td>Etkinlik katılımları, kurs kayıtları, mentorluk başvuruları</td><td>Uygulama içi kullanım</td><td>Etkinlik/eğitim organizasyonu</td></tr>
   <tr><td>Bildirim aygıt kimliği (push token)</td><td>Cihazınız (izninizle)</td><td>Duyuru ve etkinlik bildirimleri</td></tr>
+  <tr><td>Teknik hata kaydı (cihaz modeli, sürüm, hata konumu)</td><td>Uygulama çökmesi hâlinde otomatik</td><td>Hatanın giderilmesi</td></tr>
 </table>
 <p>Uygulama; konum, rehber, fotoğraf, mikrofon gibi verilere erişmez. Reklam ve üçüncü taraf analitik/izleme aracı kullanılmaz.</p>
 
@@ -55,7 +56,14 @@ Hizmetin çalışabilmesi için aşağıdaki tedarikçilere sınırlı teknik ak
   <tr><td>Supabase Inc.</td><td>Veritabanı ve kimlik doğrulama</td><td>Almanya (Frankfurt)</td></tr>
   <tr><td>Google Firebase (FCM) / Expo</td><td>Bildirim iletimi</td><td>ABD</td></tr>
   <tr><td>SMS sağlayıcısı</td><td>Doğrulama kodu iletimi</td><td>Yurt dışı</td></tr>
+  <tr><td>Sentry</td><td>Teknik hata (çökme) kayıtları</td><td>ABD</td></tr>
 </table>
+<p><strong>Sentry hakkında:</strong> Uygulamada teknik bir hata oluştuğunda,
+sorunu giderebilmek için hata kaydı Sentry'ye iletilir. Bu kayıtta yalnızca
+hata mesajı, hatanın oluştuğu kod konumu, cihaz modeli, işletim sistemi ve
+uygulama sürümü yer alır. <em>Kimlik bilgisi, telefon numarası, e-posta,
+IP adresi veya uygulamaya yazdığınız metinler gönderilmez</em> — uygulama
+bu verileri göndermeyecek şekilde yapılandırılmıştır.</p>
 <p>Bu tedarikçilerin sunucuları Türkiye dışında bulunduğundan, verileriniz
 <strong>KVKK m.9 kapsamında yurt dışına aktarılmaktadır</strong>. Bu aktarım için üyelik başvurusu
 sırasında ayrıca <strong>açık rızanız</strong> alınmaktadır; rıza vermemeniz hâlinde uygulama
