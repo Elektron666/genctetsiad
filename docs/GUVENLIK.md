@@ -134,7 +134,8 @@ Fonksiyon dağıtılmadan da uygulama çalışır: istemci eski yola geri
 düşer. 008'i yalnızca dağıtımdan SONRA çalıştır.
 
 ### Çökme takibi (Sentry) — kişisel veri göndermeyecek şekilde
-Hata raporları ABD sunucularına gider. KVKK riskini baştan kesmek için
+Hata raporları Sentry'nin AB (Almanya) bölgesine gider — DSN `ingest.de.sentry.io`.
+KVKK riskini baştan kesmek için
 kısıtlandı: `sendDefaultPii: false` (IP/cihaz kimliği yok), `setUser` hiç
 çağrılmıyor (kullanıcı eşlenmiyor), kullanıcının yazdığı metinler izlerden
 temizleniyor. Gönderilen: hata mesajı, kod konumu, cihaz modeli, sürüm.
