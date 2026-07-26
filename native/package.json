@@ -12,6 +12,7 @@
     "@expo-google-fonts/cormorant-garamond": "^0.4.1",
     "@expo-google-fonts/jetbrains-mono": "^0.4.1",
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
+    "@sentry/react-native": "^8.20.0",
     "@supabase/supabase-js": "2.105.4",
     "expo": "~56.0.3",
     "expo-build-properties": "~56.0.13",

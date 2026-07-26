@@ -294,6 +294,46 @@ function ManifestoModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+function CreditsModal({ onClose }: { onClose: () => void }) {
+  return (
+    <Modal visible animationType="fade" transparent onRequestClose={onClose}>
+      <View style={credStyles.backdrop}>
+        <View style={credStyles.sheet}>
+          <View style={credStyles.mark}>
+            <Text style={credStyles.markText}>FÖ</Text>
+          </View>
+          <Text style={credStyles.overline}>KONSEPT & TASARIM</Text>
+          <Text style={credStyles.name}>Fatih Özdemir</Text>
+          <View style={credStyles.rule} />
+          <Text style={credStyles.firm}>ORMEN TEKSTİL</Text>
+          <Text style={credStyles.meta}>ANKARA · 2026</Text>
+          <Text style={credStyles.note}>
+            Bu uygulama, Genç TETSİAD üyeleri için tasarlandı ve geliştirildi.
+          </Text>
+          <TouchableOpacity style={credStyles.closeBtn} onPress={onClose} activeOpacity={0.8}>
+            <Text style={credStyles.closeText}>KAPAT</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const credStyles = StyleSheet.create({
+  backdrop:  { flex: 1, backgroundColor: 'rgba(3,15,9,0.96)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+  sheet:     { backgroundColor: Colors.navyDeep, borderWidth: 0.5, borderColor: Colors.gold, paddingVertical: 36, paddingHorizontal: 28, width: '100%', alignItems: 'center' },
+  mark:      { width: 56, height: 56, borderRadius: 28, borderWidth: 1, borderColor: Colors.gold, alignItems: 'center', justifyContent: 'center', marginBottom: 22 },
+  markText:  { fontFamily: Fonts.cormorant, fontStyle: 'italic', fontSize: 20, color: Colors.gold },
+  overline:  { fontFamily: Fonts.jakarta, fontSize: 7, letterSpacing: 3, color: Colors.textMuted, fontWeight: '700', marginBottom: 10 },
+  name:      { fontFamily: Fonts.cormorant, fontStyle: 'italic', fontSize: 30, color: Colors.ivory, fontWeight: '300' },
+  rule:      { height: 0.5, width: 48, backgroundColor: Colors.gold, marginVertical: 18 },
+  firm:      { fontFamily: Fonts.jakarta, fontSize: 10, letterSpacing: 2.5, color: Colors.gold, fontWeight: '600' },
+  meta:      { fontFamily: Fonts.mono, fontSize: 8, letterSpacing: 2, color: Colors.textMuted, marginTop: 6 },
+  note:      { fontFamily: Fonts.jakarta, fontSize: 9.5, color: Colors.textMuted, textAlign: 'center', lineHeight: 15, marginTop: 22 },
+  closeBtn:  { marginTop: 26, borderWidth: 0.5, borderColor: Colors.goldLine, paddingVertical: 11, paddingHorizontal: 36 },
+  closeText: { fontFamily: Fonts.jakarta, fontSize: 8.5, letterSpacing: 2.5, color: Colors.textMuted },
+});
+
 const manifStyles = StyleSheet.create({
   backdrop:    { flex: 1, backgroundColor: 'rgba(3,15,9,0.94)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   sheet:       { backgroundColor: Colors.navyDeep, borderWidth: 0.5, borderColor: Colors.gold, padding: 28, width: '100%' },
@@ -315,6 +355,7 @@ export default function HomeScreen() {
   const { registeredEvents, unreadCount, announcementBanner } = useAppContext();
   const [notifOpen, setNotifOpen] = useState(false);
   const [manifestoOpen, setManifestoOpen] = useState(false);
+  const [creditsOpen, setCreditsOpen] = useState(false);
   const banner = announcementBanner ?? ANNOUNCEMENTS.find((a) => a.pinned) ?? ANNOUNCEMENTS[0];
 
   const handleQuickCard = (target: string) => {
@@ -564,9 +605,14 @@ export default function HomeScreen() {
           {/* Logo text */}
           <View style={styles.footerLogoRow}>
             <View style={styles.footerLogoLine} />
-            <View style={styles.footerLogoCenter}>
+            <TouchableOpacity
+              style={styles.footerLogoCenter}
+              activeOpacity={1}
+              delayLongPress={900}
+              onLongPress={() => setCreditsOpen(true)}
+            >
               <Text style={styles.footerLogoMain}>GENÇ TETSİAD</Text>
-            </View>
+            </TouchableOpacity>
             <View style={styles.footerLogoLine} />
           </View>
 
@@ -599,6 +645,7 @@ export default function HomeScreen() {
 
       {notifOpen && <NotificationDrawer onClose={() => setNotifOpen(false)} />}
       {manifestoOpen && <ManifestoModal onClose={() => setManifestoOpen(false)} />}
+      {creditsOpen && <CreditsModal onClose={() => setCreditsOpen(false)} />}
     </SafeAreaView>
   );
 }

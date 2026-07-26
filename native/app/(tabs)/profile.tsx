@@ -785,6 +785,19 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* ── Profili düzenle — KVKK m.11 düzeltme hakkı ── */}
+        {profile && (
+          <View style={styles.qrBtnWrap}>
+            <TouchableOpacity
+              style={styles.adminBtn}
+              onPress={() => router.push('/profile-edit')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.adminBtnText}>PROFİLİ DÜZENLE</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* ── Gizlilik / KVKK — kayıt sonrası da erişilebilir olmalı ── */}
         <View style={styles.legalWrap}>
           <TouchableOpacity

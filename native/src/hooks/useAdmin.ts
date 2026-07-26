@@ -13,8 +13,24 @@ export type AdminStats = {
   announcements: number;
 };
 
-export type AdminAnnouncement = { id: string; title: string; body: string; published_at: string };
-export type AdminEvent = { id: string; title: string; starts_at: string; city: string | null };
+export type AdminAnnouncement = {
+  id: string; title: string; body: string;
+  type: 'general' | 'event' | 'system'; published_at: string;
+};
+export type AdminEvent = {
+  id: string; title: string; description: string | null;
+  location: string | null; city: string | null;
+  starts_at: string; max_attendees: number | null;
+};
+export type AdminCourse = {
+  id: string; title: string; description: string | null;
+  instructor: string | null; duration_hours: number | null;
+  level: 'beginner' | 'intermediate' | 'advanced' | null;
+};
+export type Attendee = {
+  user_id: string; full_name: string; company: string | null;
+  phone: string | null; registered_at: string;
+};
 
 export function useAdmin() {
   const [pending, setPending] = useState<Profile[]>([]);
@@ -150,7 +166,7 @@ export function useAdmin() {
   const listAnnouncements = useCallback(async (): Promise<AdminAnnouncement[]> => {
     const { data } = await supabase
       .from('announcements')
-      .select('id, title, body, published_at')
+      .select('id, title, body, type, published_at')
       .order('published_at', { ascending: false })
       .limit(30);
     return (data ?? []) as AdminAnnouncement[];
@@ -165,7 +181,7 @@ export function useAdmin() {
   const listEvents = useCallback(async (): Promise<AdminEvent[]> => {
     const { data } = await supabase
       .from('events')
-      .select('id, title, starts_at, city')
+      .select('id, title, description, location, city, starts_at, max_attendees')
       .order('starts_at', { ascending: false })
       .limit(30);
     return (data ?? []) as AdminEvent[];
@@ -177,9 +193,103 @@ export function useAdmin() {
     return error;
   }, []);
 
+  // ── Düzenleme ───────────────────────────────────────────────
+  // Yayınlanan içerikte yazım hatası olduğunda silip yeniden yazmak
+  // gerekiyordu — bu, üyelere ikinci kez bildirim gitmesine yol açıyordu.
+  // Düzenlemede bildirim GÖNDERİLMEZ.
+
+  const updateAnnouncement = useCallback(async (
+    id: string,
+    input: { title: string; body: string; type: 'general' | 'event' | 'system' },
+  ) => {
+    const { error } = await sb.from('announcements').update(input).eq('id', id);
+    return error;
+  }, []);
+
+  const updateEvent = useCallback(async (
+    id: string,
+    input: {
+      title: string; description?: string; location?: string;
+      city?: string; starts_at: string; max_attendees?: number | null;
+    },
+  ) => {
+    const { error } = await sb.from('events').update(input).eq('id', id);
+    return error;
+  }, []);
+
+  // ── Kurs yönetimi ───────────────────────────────────────────
+  // Kurslar yalnızca seed verisiyle geliyordu; yönetimin uygulama
+  // içinden kurs ekleyip kaldırabilmesi gerekir.
+
+  const listCourses = useCallback(async (): Promise<AdminCourse[]> => {
+    const { data } = await supabase
+      .from('courses')
+      .select('id, title, description, instructor, duration_hours, level')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    return (data ?? []) as AdminCourse[];
+  }, []);
+
+  const createCourse = useCallback(async (input: {
+    title: string; description?: string; instructor?: string;
+    duration_hours?: number | null;
+    level?: 'beginner' | 'intermediate' | 'advanced';
+  }) => {
+    const { error } = await sb.from('courses').insert({ ...input, is_published: true });
+    return error;
+  }, []);
+
+  const updateCourse = useCallback(async (id: string, input: {
+    title: string; description?: string; instructor?: string;
+    duration_hours?: number | null;
+    level?: 'beginner' | 'intermediate' | 'advanced';
+  }) => {
+    const { error } = await sb.from('courses').update(input).eq('id', id);
+    return error;
+  }, []);
+
+  const deleteCourse = useCallback(async (id: string) => {
+    const { error } = await sb.from('courses').delete().eq('id', id);
+    return error;
+  }, []);
+
+  // ── Etkinlik katılımcı listesi ──────────────────────────────
+  // Yönetim yalnızca katılımcı SAYISINI görüyordu; etkinliği organize
+  // etmek için kimlerin geldiğini bilmek şart (yaka kartı, yoklama,
+  // ulaşım, ikram planlaması).
+
+  const listAttendees = useCallback(async (eventId: string): Promise<Attendee[]> => {
+    const { data: rows } = await supabase
+      .from('event_attendees')
+      .select('user_id, registered_at')
+      .eq('event_id', eventId)
+      .order('registered_at', { ascending: true });
+
+    const list = (rows ?? []) as { user_id: string; registered_at: string }[];
+    if (list.length === 0) return [];
+
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, company, phone')
+      .in('id', list.map(r => r.user_id));
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pMap = new Map(((profiles ?? []) as any[]).map(p => [p.id, p]));
+    return list.map(r => ({
+      user_id: r.user_id,
+      full_name: pMap.get(r.user_id)?.full_name ?? 'Üye',
+      company: pMap.get(r.user_id)?.company ?? null,
+      phone: pMap.get(r.user_id)?.phone ?? null,
+      registered_at: r.registered_at,
+    }));
+  }, []);
+
   return {
     pending, members, stats, loading, refetch, approve, setRole,
     publishAnnouncement, createEvent,
-    listAnnouncements, deleteAnnouncement, listEvents, deleteEvent,
+    listAnnouncements, deleteAnnouncement, updateAnnouncement,
+    listEvents, deleteEvent, updateEvent,
+    listCourses, createCourse, updateCourse, deleteCourse,
+    listAttendees,
   };
 }

@@ -14,7 +14,7 @@ import type { Profile } from '@/types/database';
 
 const ADMIN_ROLES = ['board', 'president', 'admin'];
 
-type AdminTab = 'ONAYLAR' | 'ÜYELER' | 'DUYURU' | 'ETKİNLİK';
+type AdminTab = 'ONAYLAR' | 'ÜYELER' | 'DUYURU' | 'ETKİNLİK' | 'KURS';
 
 const ROLE_LABELS: Record<string, string> = {
   pending:   'Onay Bekliyor',
@@ -194,6 +194,140 @@ function MembersTab({
   );
 }
 
+// ─── Kurs formu ───────────────────────────────────────────────────────────────
+
+const LEVELS: { key: 'beginner' | 'intermediate' | 'advanced'; label: string }[] = [
+  { key: 'beginner',     label: 'BAŞLANGIÇ' },
+  { key: 'intermediate', label: 'ORTA' },
+  { key: 'advanced',     label: 'İLERİ' },
+];
+
+function CourseForm({ onCreate }: {
+  onCreate: (input: {
+    title: string; description?: string; instructor?: string;
+    duration_hours?: number | null;
+    level?: 'beginner' | 'intermediate' | 'advanced';
+  }) => Promise<boolean>;
+}) {
+  const [title, setTitle] = useState('');
+  const [desc, setDesc] = useState('');
+  const [instructor, setInstructor] = useState('');
+  const [hours, setHours] = useState('');
+  const [level, setLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
+  const [busy, setBusy] = useState(false);
+
+  const valid = title.trim().length > 3;
+
+  const submit = async () => {
+    if (!valid || busy) return;
+    setBusy(true);
+    const ok = await onCreate({
+      title: title.trim(),
+      description: desc.trim() || undefined,
+      instructor: instructor.trim() || undefined,
+      duration_hours: hours.trim() ? parseInt(hours.trim(), 10) || null : null,
+      level,
+    });
+    setBusy(false);
+    if (ok) { setTitle(''); setDesc(''); setInstructor(''); setHours(''); setLevel('beginner'); }
+  };
+
+  return (
+    <View style={s.form}>
+      <Text style={s.fieldLabel}>KURS ADI</Text>
+      <TextInput style={s.input} value={title} onChangeText={setTitle} placeholder="Örn. İhracatta Dijital Pazarlama" placeholderTextColor={Colors.textMuted} maxLength={80} />
+      <View style={s.underline} />
+
+      <Text style={[s.fieldLabel, { marginTop: 20 }]}>AÇIKLAMA</Text>
+      <TextInput style={[s.input, s.textArea, { minHeight: 70 }]} value={desc} onChangeText={setDesc} placeholder="Kurs içeriği (opsiyonel)" placeholderTextColor={Colors.textMuted} multiline textAlignVertical="top" maxLength={400} />
+      <View style={s.underline} />
+
+      <View style={s.row2}>
+        <View style={{ flex: 1 }}>
+          <Text style={[s.fieldLabel, { marginTop: 20 }]}>EĞİTMEN</Text>
+          <TextInput style={s.input} value={instructor} onChangeText={setInstructor} placeholder="Ad Soyad" placeholderTextColor={Colors.textMuted} />
+          <View style={s.underline} />
+        </View>
+        <View style={{ width: 100 }}>
+          <Text style={[s.fieldLabel, { marginTop: 20 }]}>SÜRE (SAAT)</Text>
+          <TextInput style={s.input} value={hours} onChangeText={setHours} placeholder="8" placeholderTextColor={Colors.textMuted} keyboardType="number-pad" maxLength={3} />
+          <View style={s.underline} />
+        </View>
+      </View>
+
+      <Text style={[s.fieldLabel, { marginTop: 20 }]}>SEVİYE</Text>
+      <View style={s.pillRow}>
+        {LEVELS.map(l => (
+          <TouchableOpacity key={l.key} style={[s.pill, level === l.key && s.pillActive]} onPress={() => setLevel(l.key)} activeOpacity={0.8}>
+            <Text style={[s.pillText, level === l.key && s.pillTextActive]}>{l.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <TouchableOpacity style={[s.cta, (!valid || busy) && s.disabled]} onPress={submit} disabled={!valid || busy} activeOpacity={0.8}>
+        <Text style={s.ctaText}>{busy ? 'EKLENİYOR...' : 'KURSU YAYINLA'}</Text>
+      </TouchableOpacity>
+      <Text style={s.helper}>Kurs, Akademi sekmesinde tüm üyelere anında açılır.</Text>
+    </View>
+  );
+}
+
+// ─── Katılımcı listesi ────────────────────────────────────────────────────────
+
+function AttendeeSheet({
+  eventTitle,
+  load,
+  onClose,
+}: {
+  eventTitle: string;
+  load: () => Promise<{ user_id: string; full_name: string; company: string | null; phone: string | null }[]>;
+  onClose: () => void;
+}) {
+  const [rows, setRows] = useState<{ user_id: string; full_name: string; company: string | null; phone: string | null }[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    load().then(r => { if (!cancelled) setRows(r); });
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <View style={s.roleSheetOverlay}>
+        <TouchableOpacity style={{ flex: 1 }} onPress={onClose} activeOpacity={1} />
+        <View style={[s.roleSheet, { maxHeight: '75%' }]}>
+          <Text style={s.roleSheetName} numberOfLines={2}>{eventTitle}</Text>
+          <Text style={s.roleSheetSub}>
+            {rows === null ? 'YÜKLENİYOR...' : `${rows.length} KATILIMCI`}
+          </Text>
+          <View style={s.roleSheetDivider} />
+
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {rows?.length === 0 && (
+              <Text style={s.emptySub}>Bu etkinliğe henüz kimse kaydolmadı.</Text>
+            )}
+            {rows?.map((r, i) => (
+              <View key={r.user_id} style={s.attRow}>
+                <Text style={s.attNo}>{String(i + 1).padStart(2, '0')}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.attName}>{r.full_name}</Text>
+                  <Text style={s.attMeta}>
+                    {[r.company, r.phone].filter(Boolean).join(' · ') || '—'}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+
+          <TouchableOpacity style={s.roleCancel} onPress={onClose} activeOpacity={0.7}>
+            <Text style={s.roleCancelText}>KAPAT</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── Yayınlananlar listesi (silme) ───────────────────────────────────────────
 
 type PublishedItem = { id: string; title: string; subtitle: string };
@@ -202,11 +336,15 @@ function PublishedList({
   heading,
   load,
   onDelete,
+  onDetail,
+  detailLabel,
   reloadKey,
 }: {
   heading: string;
   load: () => Promise<PublishedItem[]>;
   onDelete: (item: PublishedItem) => Promise<boolean>;
+  onDetail?: (item: PublishedItem) => void;
+  detailLabel?: string;
   reloadKey: number;
 }) {
   const [items, setItems] = useState<PublishedItem[]>([]);
@@ -247,6 +385,11 @@ function PublishedList({
             <Text style={s.pubTitle} numberOfLines={1}>{item.title}</Text>
             <Text style={s.pubSub} numberOfLines={1}>{item.subtitle}</Text>
           </View>
+          {onDetail && (
+            <TouchableOpacity onPress={() => onDetail(item)} activeOpacity={0.7} style={s.pubDetailBtn}>
+              <Text style={s.pubDetailText}>{detailLabel ?? 'DETAY'}</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={() => confirmDelete(item)} activeOpacity={0.7} style={s.pubDelBtn}>
             <Text style={s.pubDelText}>KALDIR</Text>
           </TouchableOpacity>
@@ -432,10 +575,14 @@ export default function AdminScreen() {
   const {
     pending, members, stats, loading, refetch, approve, setRole,
     publishAnnouncement, createEvent,
-    listAnnouncements, deleteAnnouncement, listEvents, deleteEvent,
+    listAnnouncements, deleteAnnouncement, updateAnnouncement,
+    listEvents, deleteEvent, updateEvent,
+    listCourses, createCourse, updateCourse, deleteCourse,
+    listAttendees,
   } = useAdmin();
   const [tab, setTab] = useState<AdminTab>('ONAYLAR');
   const [reloadKey, setReloadKey] = useState(0);
+  const [attendeesFor, setAttendeesFor] = useState<{ id: string; title: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const { show: showToast, ToastComponent } = useToast();
 
@@ -492,7 +639,7 @@ export default function AdminScreen() {
     { value: stats.announcements, label: 'DUYURU' },
   ];
 
-  const TABS: AdminTab[] = ['ONAYLAR', 'ÜYELER', 'DUYURU', 'ETKİNLİK'];
+  const TABS: AdminTab[] = ['ONAYLAR', 'ÜYELER', 'DUYURU', 'ETKİNLİK', 'KURS'];
 
   return (
     <SafeAreaView style={s.root}>
@@ -597,11 +744,49 @@ export default function AdminScreen() {
                   showToast(error ? 'Etkinlik kaldırılamadı.' : 'Etkinlik kaldırıldı.', error ? 'error' : 'success');
                   return !error;
                 }}
+                onDetail={(item) => setAttendeesFor(item)}
+                detailLabel="KATILIMCI"
+              />
+            </>
+          )}
+
+          {tab === 'KURS' && (
+            <>
+              <CourseForm
+                onCreate={async (input) => {
+                  const error = await createCourse(input);
+                  showToast(error ? 'Kurs eklenemedi.' : 'Kurs yayınlandı.', error ? 'error' : 'success');
+                  if (!error) setReloadKey(k => k + 1);
+                  return !error;
+                }}
+              />
+              <PublishedList
+                heading="YAYINDAKİ KURSLAR"
+                reloadKey={reloadKey}
+                load={async () => (await listCourses()).map(c => ({
+                  id: c.id,
+                  title: c.title,
+                  subtitle: [c.instructor, c.duration_hours ? `${c.duration_hours} saat` : null]
+                    .filter(Boolean).join(' · ') || '—',
+                }))}
+                onDelete={async (item) => {
+                  const error = await deleteCourse(item.id);
+                  showToast(error ? 'Kurs kaldırılamadı.' : 'Kurs kaldırıldı.', error ? 'error' : 'success');
+                  return !error;
+                }}
               />
             </>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {attendeesFor && (
+        <AttendeeSheet
+          eventTitle={attendeesFor.title}
+          load={() => listAttendees(attendeesFor.id)}
+          onClose={() => setAttendeesFor(null)}
+        />
+      )}
 
       {ToastComponent}
     </SafeAreaView>
@@ -692,6 +877,12 @@ const s = StyleSheet.create({
   pubSub:         { fontFamily: Fonts.mono, fontSize: 8, color: Colors.textMuted, letterSpacing: 0.5 },
   pubDelBtn:      { paddingHorizontal: 12, paddingVertical: 7, borderWidth: 0.5, borderColor: 'rgba(224,96,96,0.4)' },
   pubDelText:     { fontFamily: Fonts.jakarta, fontSize: 7.5, letterSpacing: 1.2, color: 'rgba(224,96,96,0.85)', fontWeight: '700' },
+  pubDetailBtn:   { paddingHorizontal: 10, paddingVertical: 7, borderWidth: 0.5, borderColor: Colors.goldLine },
+  pubDetailText:  { fontFamily: Fonts.jakarta, fontSize: 7.5, letterSpacing: 1.2, color: Colors.gold, fontWeight: '700' },
+  attRow:         { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, borderBottomWidth: 0.5, borderBottomColor: Colors.goldLine },
+  attNo:          { fontFamily: Fonts.mono, fontSize: 9, color: Colors.gold, width: 22 },
+  attName:        { fontFamily: Fonts.jakarta, fontSize: 12, color: Colors.ivory, fontWeight: '600' },
+  attMeta:        { fontFamily: Fonts.mono, fontSize: 8, color: Colors.textMuted, marginTop: 2 },
 
   // Empty state
   empty:          { alignItems: 'center', paddingTop: 64, paddingHorizontal: 40 },

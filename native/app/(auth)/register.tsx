@@ -341,6 +341,10 @@ export default function RegisterScreen() {
                   • Supabase — veritabanı barındırma (Almanya / Frankfurt){'\n'}
                   • Google Firebase & Expo — bildirim iletimi (ABD){'\n'}
                   • SMS sağlayıcısı — doğrulama kodu iletimi{'\n'}
+                  • Sentry — teknik hata kayıtları (ABD). Yalnızca hata mesajı,
+                  kod konumu, cihaz modeli ve uygulama sürümü gönderilir;
+                  kimlik bilgisi, telefon numarası veya yazdığınız metinler
+                  gönderilmez.{'\n'}
                   Bu tedarikçilerin sunucuları yurt dışında bulunduğundan, verileriniz KVKK m.9 kapsamında yurt dışına aktarılmaktadır. Bu aktarım için ayrıca açık rızanız alınmaktadır.{'\n\n'}
 
                   <Text style={s.kvkkHead}>SAKLAMA SÜRESİ{'\n'}</Text>

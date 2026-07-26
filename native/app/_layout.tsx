@@ -6,8 +6,12 @@ import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider } from '@/context/AppContext';
 import { AuthProvider } from '@/context/AuthContext';
+import { initSentry } from '@/lib/sentry';
 
 SplashScreen.preventAutoHideAsync();
+
+// Çökme takibi — DSN yoksa hiçbir şey yapmaz (bkz. src/lib/sentry.ts)
+initSentry();
 
 // Auth yönlendirmesi app/index.tsx'te (status'a göre) ve ekranların kendi
 // useEffect'lerinde yapılır; "DEMO MOD İLE GİR" akışı bilinçli olarak serbest.
@@ -18,6 +22,7 @@ function RootNavigator() {
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="admin" />
+      <Stack.Screen name="profile-edit" />
     </Stack>
   );
 }
