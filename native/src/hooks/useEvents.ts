@@ -56,10 +56,16 @@ export function useEvents(userId?: string) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sb = supabase as any;
-    if (event.is_attending) {
-      await sb.from('event_attendees').delete().eq('event_id', eventId).eq('user_id', userId);
-    } else {
-      await sb.from('event_attendees').insert({ event_id: eventId, user_id: userId });
+    const { error } = event.is_attending
+      ? await sb.from('event_attendees').delete().eq('event_id', eventId).eq('user_id', userId)
+      : await sb.from('event_attendees').insert({ event_id: eventId, user_id: userId });
+
+    // Sunucu reddettiyse arayüzü değiştirmiyoruz — aksi hâlde kullanıcı
+    // katıldığını sanır ama kayıt oluşmamış olur. Kontenjan tetikleyicisi
+    // (migration 006) yarışan kayıtları burada yakalar.
+    if (error) {
+      await fetchEvents();
+      return { full: !event.is_attending };
     }
 
     setEvents((prev) =>
@@ -72,7 +78,7 @@ export function useEvents(userId?: string) {
       )
     );
     return {};
-  }, [events, userId]);
+  }, [events, userId, fetchEvents]);
 
   return { events, loading, refetch: fetchEvents, toggleAttendance };
 }
