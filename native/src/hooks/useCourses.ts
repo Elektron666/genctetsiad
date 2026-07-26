@@ -60,18 +60,22 @@ export function useCourses(userId?: string) {
   }, [userId]);
 
   const updateProgress = useCallback(async (courseId: string, progress: number) => {
-    if (!userId) return;
+    if (!userId) return { error: new Error('No session') };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
+    const { error } = await (supabase as any)
       .from('course_enrollments')
       .update({ progress })
       .eq('course_id', courseId)
       .eq('user_id', userId);
+    // Sunucu reddettiyse arayüzü ilerletmiyoruz — yoksa kullanıcı
+    // kaydedilmemiş bir ilerleme görür.
+    if (error) return { error };
     setCourses((prev) =>
       prev.map((c) =>
         c.id !== courseId ? c : { ...c, enrollment: c.enrollment ? { ...c.enrollment, progress } : c.enrollment }
       )
     );
+    return { error: null };
   }, [userId]);
 
   return { courses, loading, refetch: fetchCourses, enroll, updateProgress };

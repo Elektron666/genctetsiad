@@ -72,6 +72,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       const token = await registerPushToken();
       if (!token) return;
+      // Token kaydı "elinden geldiğince" bir işlemdir: başarısız olursa
+      // yalnızca push bildirimi çalışmaz, kullanıcı akışı etkilenmez.
+      // Bu yüzden hata bilinçli olarak sessiz geçilir.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase as any)
         .from('push_tokens')

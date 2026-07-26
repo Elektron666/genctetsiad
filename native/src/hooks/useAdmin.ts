@@ -93,9 +93,24 @@ export function useAdmin() {
   }, []);
 
   // Kayıtlı tüm cihazlara push gönderir; gönderilen cihaz sayısını döner
+  // Toplu bildirim. Tercih edilen yol: broadcast-push Edge Function —
+  // token'lar istemciye hiç inmez, gönderim service_role ile sunucuda yapılır.
+  // Fonksiyon henüz dağıtılmadıysa eski istemci-taraflı yola düşer, böylece
+  // dağıtımdan önce de bildirim çalışmaya devam eder.
   const pushToAll = useCallback(async (title: string, body: string): Promise<number> => {
-    const { data } = await supabase.from('push_tokens').select('token');
-    const tokens = ((data ?? []) as { token: string }[]).map(t => t.token);
+    try {
+      const { data, error } = await supabase.functions.invoke('broadcast-push', {
+        body: { title, body },
+      });
+      if (!error && data && typeof (data as { sent?: number }).sent === 'number') {
+        return (data as { sent: number }).sent;
+      }
+    } catch {
+      // fonksiyon dağıtılmamış veya ulaşılamıyor → geri düşüş
+    }
+
+    const { data: rows } = await supabase.from('push_tokens').select('token');
+    const tokens = ((rows ?? []) as { token: string }[]).map(t => t.token);
     if (tokens.length === 0) return 0;
     return sendPushBatch(tokens, title, body);
   }, []);
