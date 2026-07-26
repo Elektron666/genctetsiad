@@ -23,6 +23,7 @@ type Speaker = { initials: string; name: string };
 type EventItem = {
   id: number;
   uuid?: string;   // Supabase kaydıysa gerçek UUID; count/katılım bununla yönetilir
+  max?: number | null;   // kontenjan (null = sınırsız)
   day: number;
   month: string;
   tag: string;
@@ -119,6 +120,7 @@ function supabaseToEventItem(e: SupabaseEvent, index: number): EventItem {
     title:    e.title,
     place:    [e.location, e.city].filter(Boolean).join(' · ') || '—',
     count:    e.attendee_count ?? 0,
+    max:      e.max_attendees,
     src:      e.image_url ?? `https://picsum.photos/seed/${e.id}/800/400`,
     speakers: [],
     desc:     e.description ?? '',
@@ -166,22 +168,25 @@ function RegisterButton({
   registered,
   onToggle,
   liveCount,
+  max,
 }: {
   registered: boolean;
   onToggle: () => void;
   liveCount: number;
+  max?: number | null;
 }) {
+  const isFull = !registered && max != null && liveCount >= max;
   return (
     <TouchableOpacity
-      onPress={onToggle}
-      activeOpacity={0.8}
-      style={[styles.regBtn, registered && styles.regBtnActive]}
+      onPress={isFull ? undefined : onToggle}
+      activeOpacity={isFull ? 1 : 0.8}
+      style={[styles.regBtn, registered && styles.regBtnActive, isFull && styles.regBtnFull]}
     >
-      <Text style={[styles.regBtnText, registered && styles.regBtnTextActive]}>
-        {registered ? '✓ KATILDIM' : 'KATIL'}
+      <Text style={[styles.regBtnText, registered && styles.regBtnTextActive, isFull && styles.regBtnTextFull]}>
+        {registered ? '✓ KATILDIM' : isFull ? 'KONTENJAN DOLU' : 'KATIL'}
       </Text>
-      <Text style={[styles.regBtnCount, registered && styles.regBtnTextActive]}>
-        {liveCount}
+      <Text style={[styles.regBtnCount, registered && styles.regBtnTextActive, isFull && styles.regBtnTextFull]}>
+        {max != null ? `${liveCount}/${max}` : liveCount}
       </Text>
     </TouchableOpacity>
   );
@@ -263,6 +268,7 @@ function EventCard({
               registered={registered}
               onToggle={handleToggle}
               liveCount={liveCount}
+              max={event.max}
             />
           </Animated.View>
         </View>
@@ -360,7 +366,9 @@ function EventDetail({
           <Text style={styles.sectionLabel}>KATILIMCILAR</Text>
           <View style={styles.attendeeRow}>
             <Text style={styles.attendeeCount}>{liveCount}</Text>
-            <Text style={styles.attendeeLabel}>KAYITLI KATILIMCI</Text>
+            <Text style={styles.attendeeLabel}>
+              {event.max != null ? `/ ${event.max} KONTENJAN` : 'KAYITLI KATILIMCI'}
+            </Text>
           </View>
         </View>
 
@@ -378,6 +386,12 @@ function EventDetail({
               >
                 <Text style={styles.cancelBtnText}>KATILIMI İPTAL ET</Text>
               </TouchableOpacity>
+            </View>
+          ) : event.max != null && liveCount >= event.max ? (
+            <View style={[styles.joinBtn, styles.joinBtnFull]}>
+              <Text style={[styles.joinBtnText, { color: 'rgba(224,96,96,0.9)' }]}>
+                KONTENJAN DOLU
+              </Text>
             </View>
           ) : (
             <TouchableOpacity
@@ -709,6 +723,13 @@ const styles = StyleSheet.create({
   regBtnTextActive: {
     color: Colors.navy,
   },
+  regBtnFull: {
+    borderColor: 'rgba(224,96,96,0.45)',
+    backgroundColor: 'transparent',
+  },
+  regBtnTextFull: {
+    color: 'rgba(224,96,96,0.8)',
+  },
   regBtnCount: {
     fontFamily: Fonts.mono,
     fontSize: 8,
@@ -936,6 +957,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.gold,
     paddingVertical: 14,
     alignItems: 'center',
+  },
+  joinBtnFull: {
+    backgroundColor: 'transparent',
+    borderWidth: 0.5,
+    borderColor: 'rgba(224,96,96,0.45)',
   },
   joinBtnText: {
     fontFamily: Fonts.jakarta,

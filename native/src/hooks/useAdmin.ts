@@ -13,6 +13,9 @@ export type AdminStats = {
   announcements: number;
 };
 
+export type AdminAnnouncement = { id: string; title: string; body: string; published_at: string };
+export type AdminEvent = { id: string; title: string; starts_at: string; city: string | null };
+
 export function useAdmin() {
   const [pending, setPending] = useState<Profile[]>([]);
   const [members, setMembers] = useState<Profile[]>([]);
@@ -125,5 +128,43 @@ export function useAdmin() {
     return { error: null, sent };
   }, [pushToAll]);
 
-  return { pending, members, stats, loading, refetch, approve, setRole, publishAnnouncement, createEvent };
+  // ── Yayınlananları geri alma ────────────────────────────────
+  // Yanlış duyuru/etkinlik yayınlandığında yönetimin bunu uygulama
+  // içinden kaldırabilmesi gerekir (RLS: *_manage_admin FOR ALL).
+
+  const listAnnouncements = useCallback(async (): Promise<AdminAnnouncement[]> => {
+    const { data } = await supabase
+      .from('announcements')
+      .select('id, title, body, published_at')
+      .order('published_at', { ascending: false })
+      .limit(30);
+    return (data ?? []) as AdminAnnouncement[];
+  }, []);
+
+  const deleteAnnouncement = useCallback(async (id: string) => {
+    const { error } = await sb.from('announcements').delete().eq('id', id);
+    if (!error) setStats(prev => ({ ...prev, announcements: Math.max(0, prev.announcements - 1) }));
+    return error;
+  }, []);
+
+  const listEvents = useCallback(async (): Promise<AdminEvent[]> => {
+    const { data } = await supabase
+      .from('events')
+      .select('id, title, starts_at, city')
+      .order('starts_at', { ascending: false })
+      .limit(30);
+    return (data ?? []) as AdminEvent[];
+  }, []);
+
+  const deleteEvent = useCallback(async (id: string) => {
+    const { error } = await sb.from('events').delete().eq('id', id);
+    if (!error) setStats(prev => ({ ...prev, events: Math.max(0, prev.events - 1) }));
+    return error;
+  }, []);
+
+  return {
+    pending, members, stats, loading, refetch, approve, setRole,
+    publishAnnouncement, createEvent,
+    listAnnouncements, deleteAnnouncement, listEvents, deleteEvent,
+  };
 }

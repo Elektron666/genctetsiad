@@ -83,9 +83,11 @@ export default function DirectoryScreen() {
     await refetch();
     setRefreshing(false);
   };
+  // Yayın sürümünde kurgu üye gösterilmez — gerçek rehber neyse odur.
+  // Demo verisi yalnızca geliştirme/sunumda devreye girer.
   const allMembers: Member[] = supabaseMembers.length > 0
     ? supabaseMembers.map(profileToMember)
-    : FALLBACK_MEMBERS;
+    : __DEV__ ? FALLBACK_MEMBERS : [];
 
   const filtered = useMemo(() => {
     let list = allMembers;
@@ -140,6 +142,21 @@ export default function DirectoryScreen() {
         onRefresh={onRefresh}
         contentContainerStyle={{ paddingBottom: 100 }}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ListEmptyComponent={
+          loading ? null : (
+            <View style={styles.emptyWrap}>
+              <View style={styles.emptyDot} />
+              <Text style={styles.emptyTitle}>
+                {search.trim() || filter !== 'TÜMÜ' ? 'Sonuç bulunamadı.' : 'Rehber henüz oluşturuluyor.'}
+              </Text>
+              <Text style={styles.emptySub}>
+                {search.trim() || filter !== 'TÜMÜ'
+                  ? 'Farklı bir arama veya filtre deneyin.'
+                  : 'Onaylanan üyeler burada listelenecek. Aşağı çekerek yenileyebilirsiniz.'}
+              </Text>
+            </View>
+          )
+        }
         renderItem={({ item: m }) => (
           <TouchableOpacity style={styles.row} onPress={() => setSelected(m)} activeOpacity={0.7}>
             <View style={styles.avatar}>
@@ -211,6 +228,10 @@ const styles = StyleSheet.create({
   countRow:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 10 },
   count:          { fontFamily: Fonts.mono, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 1.5 },
   separator:      { height: 0.5, backgroundColor: Colors.goldLine },
+  emptyWrap:      { alignItems: 'center', paddingTop: 72, paddingHorizontal: 44 },
+  emptyDot:       { width: 10, height: 10, borderRadius: 5, borderWidth: 1, borderColor: Colors.goldLine, marginBottom: 20 },
+  emptyTitle:     { fontFamily: 'CormorantGaramond', fontSize: 20, color: Colors.ivory, fontStyle: 'italic', fontWeight: '300', marginBottom: 10, textAlign: 'center' },
+  emptySub:       { fontFamily: Fonts.jakarta, fontSize: 10, color: Colors.textMuted, textAlign: 'center', lineHeight: 16 },
   row:            { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 16, gap: 14 },
   avatar:         { width: 48, height: 48, borderRadius: 24, borderWidth: 1.5, borderColor: Colors.gold, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.navyMid },
   avatarText:     { fontFamily: Fonts.mono, fontSize: 11, color: Colors.gold, fontWeight: '500' },

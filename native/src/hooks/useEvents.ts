@@ -42,11 +42,17 @@ export function useEvents(userId?: string) {
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
-  const toggleAttendance = useCallback(async (eventId: string) => {
-    if (!userId) return;
+  const toggleAttendance = useCallback(async (eventId: string): Promise<{ full?: boolean }> => {
+    if (!userId) return {};
 
     const event = events.find((e) => e.id === eventId);
-    if (!event) return;
+    if (!event) return {};
+
+    // Kontenjan dolu ise yeni katılım kabul edilmez (iptal her zaman serbest)
+    if (!event.is_attending && event.max_attendees != null
+        && (event.attendee_count ?? 0) >= event.max_attendees) {
+      return { full: true };
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sb = supabase as any;
@@ -65,6 +71,7 @@ export function useEvents(userId?: string) {
         }
       )
     );
+    return {};
   }, [events, userId]);
 
   return { events, loading, refetch: fetchEvents, toggleAttendance };
