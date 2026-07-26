@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Animated,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Fonts } from '@/theme';
@@ -434,9 +435,15 @@ export default function CalendarScreen() {
     return registeredEvents.has(event.id);
   };
 
-  const handleToggle = (event: EventItem) => {
+  const handleToggle = async (event: EventItem) => {
     if (event.uuid) {
-      toggleAttendance(event.uuid);
+      const res = await toggleAttendance(event.uuid);
+      if (res.full) {
+        Alert.alert(
+          'Kontenjan Doldu',
+          'Bu etkinliğin kontenjanı bu sırada doldu. Katılım kaydı oluşturulamadı.'
+        );
+      }
     } else {
       toggleEvent(event.id);
     }
