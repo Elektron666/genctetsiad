@@ -29,6 +29,13 @@ function initials(name: string) {
   return name.trim().split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '—';
 }
 
+const MONTHS_TR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+
+function fmtDate(iso: string) {
+  const d = new Date(iso);
+  return `${d.getDate()} ${MONTHS_TR[d.getMonth()] ?? ''} ${d.getFullYear()}`;
+}
+
 // ─── Bekleyen başvuru kartı ───────────────────────────────────────────────────
 
 function PendingCard({ p, onApprove }: { p: Profile; onApprove: (role: 'member' | 'student') => void }) {
@@ -183,6 +190,68 @@ function MembersTab({
         </View>
         </Modal>
       )}
+    </View>
+  );
+}
+
+// ─── Yayınlananlar listesi (silme) ───────────────────────────────────────────
+
+type PublishedItem = { id: string; title: string; subtitle: string };
+
+function PublishedList({
+  heading,
+  load,
+  onDelete,
+  reloadKey,
+}: {
+  heading: string;
+  load: () => Promise<PublishedItem[]>;
+  onDelete: (item: PublishedItem) => Promise<boolean>;
+  reloadKey: number;
+}) {
+  const [items, setItems] = useState<PublishedItem[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    load().then(rows => { if (!cancelled) setItems(rows); });
+    return () => { cancelled = true; };
+  }, [reloadKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const confirmDelete = (item: PublishedItem) => {
+    Alert.alert(
+      'Kaldır',
+      `"${item.title}" kalıcı olarak kaldırılacak. Bu işlem geri alınamaz.`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'KALDIR',
+          style: 'destructive',
+          onPress: async () => {
+            const ok = await onDelete(item);
+            if (ok) setItems(prev => prev.filter(i => i.id !== item.id));
+          },
+        },
+      ]
+    );
+  };
+
+  if (items.length === 0) return null;
+
+  return (
+    <View style={s.pubWrap}>
+      <View style={s.pubDivider} />
+      <Text style={s.pubHeading}>{heading} ({items.length})</Text>
+      {items.map(item => (
+        <View key={item.id} style={s.pubRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.pubTitle} numberOfLines={1}>{item.title}</Text>
+            <Text style={s.pubSub} numberOfLines={1}>{item.subtitle}</Text>
+          </View>
+          <TouchableOpacity onPress={() => confirmDelete(item)} activeOpacity={0.7} style={s.pubDelBtn}>
+            <Text style={s.pubDelText}>KALDIR</Text>
+          </TouchableOpacity>
+        </View>
+      ))}
     </View>
   );
 }
@@ -360,8 +429,13 @@ function EventForm({ onCreate }: { onCreate: (input: { title: string; descriptio
 
 export default function AdminScreen() {
   const { profile, status } = useAuthContext();
-  const { pending, members, stats, loading, refetch, approve, setRole, publishAnnouncement, createEvent } = useAdmin();
+  const {
+    pending, members, stats, loading, refetch, approve, setRole,
+    publishAnnouncement, createEvent,
+    listAnnouncements, deleteAnnouncement, listEvents, deleteEvent,
+  } = useAdmin();
   const [tab, setTab] = useState<AdminTab>('ONAYLAR');
+  const [reloadKey, setReloadKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const { show: showToast, ToastComponent } = useToast();
 
@@ -393,6 +467,7 @@ export default function AdminScreen() {
     const { error, sent } = await publishAnnouncement(input);
     if (error) { showToast('Duyuru yayınlanamadı.', 'error'); return false; }
     showToast(sent > 0 ? `Duyuru yayınlandı — ${sent} cihaza bildirim gönderildi.` : 'Duyuru yayınlandı.', 'success');
+    setReloadKey(k => k + 1);
     return true;
   };
 
@@ -400,6 +475,7 @@ export default function AdminScreen() {
     const { error, sent } = await createEvent(input);
     if (error) { showToast('Etkinlik eklenemedi.', 'error'); return false; }
     showToast(sent > 0 ? `Etkinlik yayınlandı — ${sent} cihaza bildirim gönderildi.` : 'Etkinlik yayınlandı.', 'success');
+    setReloadKey(k => k + 1);
     return true;
   };
 
@@ -486,8 +562,44 @@ export default function AdminScreen() {
             <MembersTab members={members} currentUserId={profile?.id} onSetRole={handleSetRole} />
           )}
 
-          {tab === 'DUYURU' && <AnnouncementForm onPublish={handlePublish} />}
-          {tab === 'ETKİNLİK' && <EventForm onCreate={handleCreateEvent} />}
+          {tab === 'DUYURU' && (
+            <>
+              <AnnouncementForm onPublish={handlePublish} />
+              <PublishedList
+                heading="YAYINDAKİ DUYURULAR"
+                reloadKey={reloadKey}
+                load={async () => (await listAnnouncements()).map(a => ({
+                  id: a.id,
+                  title: a.title,
+                  subtitle: fmtDate(a.published_at),
+                }))}
+                onDelete={async (item) => {
+                  const error = await deleteAnnouncement(item.id);
+                  showToast(error ? 'Duyuru kaldırılamadı.' : 'Duyuru kaldırıldı.', error ? 'error' : 'success');
+                  return !error;
+                }}
+              />
+            </>
+          )}
+          {tab === 'ETKİNLİK' && (
+            <>
+              <EventForm onCreate={handleCreateEvent} />
+              <PublishedList
+                heading="YAYINDAKİ ETKİNLİKLER"
+                reloadKey={reloadKey}
+                load={async () => (await listEvents()).map(e => ({
+                  id: e.id,
+                  title: e.title,
+                  subtitle: [fmtDate(e.starts_at), e.city].filter(Boolean).join(' · '),
+                }))}
+                onDelete={async (item) => {
+                  const error = await deleteEvent(item.id);
+                  showToast(error ? 'Etkinlik kaldırılamadı.' : 'Etkinlik kaldırıldı.', error ? 'error' : 'success');
+                  return !error;
+                }}
+              />
+            </>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -570,6 +682,16 @@ const s = StyleSheet.create({
   roleOptionDesc: { fontFamily: Fonts.jakarta, fontSize: 9, color: Colors.textMuted, marginTop: 3 },
   roleCancel:     { marginTop: 18, borderWidth: 0.5, borderColor: Colors.goldLine, paddingVertical: 12, alignItems: 'center' },
   roleCancelText: { fontFamily: Fonts.jakarta, fontSize: 9, letterSpacing: 2, color: Colors.textMuted },
+
+  // Yayınlananlar listesi
+  pubWrap:        { paddingHorizontal: 24, paddingTop: 8 },
+  pubDivider:     { height: 0.5, backgroundColor: Colors.goldLine, marginBottom: 18, marginTop: 12 },
+  pubHeading:     { fontFamily: Fonts.jakarta, fontSize: 8, letterSpacing: 2, color: Colors.gold, fontWeight: '700', marginBottom: 12 },
+  pubRow:         { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: Colors.goldLine },
+  pubTitle:       { fontFamily: Fonts.jakarta, fontSize: 11, color: Colors.ivory, fontWeight: '600', marginBottom: 3 },
+  pubSub:         { fontFamily: Fonts.mono, fontSize: 8, color: Colors.textMuted, letterSpacing: 0.5 },
+  pubDelBtn:      { paddingHorizontal: 12, paddingVertical: 7, borderWidth: 0.5, borderColor: 'rgba(224,96,96,0.4)' },
+  pubDelText:     { fontFamily: Fonts.jakarta, fontSize: 7.5, letterSpacing: 1.2, color: 'rgba(224,96,96,0.85)', fontWeight: '700' },
 
   // Empty state
   empty:          { alignItems: 'center', paddingTop: 64, paddingHorizontal: 40 },
