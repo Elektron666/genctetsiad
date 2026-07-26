@@ -99,9 +99,14 @@ function AppHeader({
           <Text style={headerStyles.section}>{section}</Text>
           <Text style={headerStyles.title}>{title}</Text>
         </View>
-        <TouchableOpacity onPress={onSwitcher} activeOpacity={0.7} style={headerStyles.switcherBtn}>
-          <Text style={headerStyles.switcherText}>ÜYE DEĞİŞTİR</Text>
-        </TouchableOpacity>
+        {/* Üye değiştirici sunum/geliştirme aracıdır — yayın sürümünde
+            görünmez, yoksa kullanıcı başka üyelerin kartını ve telefon
+            numarasını görebilir (KVKK açısından da sakıncalı). */}
+        {__DEV__ && (
+          <TouchableOpacity onPress={onSwitcher} activeOpacity={0.7} style={headerStyles.switcherBtn}>
+            <Text style={headerStyles.switcherText}>ÜYE DEĞİŞTİR</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -639,7 +644,11 @@ export default function ProfileScreen() {
         email: profile.email ?? undefined,
       }
     : null;
-  const allMembers: Member[] = ownMember ? [ownMember, ...MEMBERS] : MEMBERS;
+  // Yayın sürümünde yalnızca kullanıcının kendi kartı görünür;
+  // demo kartları sadece geliştirme/sunum modunda listeye eklenir.
+  const allMembers: Member[] = __DEV__
+    ? (ownMember ? [ownMember, ...MEMBERS] : MEMBERS)
+    : (ownMember ? [ownMember] : MEMBERS);
   const member = allMembers[Math.min(memberIdx, allMembers.length - 1)];
 
   const handleSwitcher = () => {
@@ -660,11 +669,16 @@ export default function ProfileScreen() {
   };
 
   const fmt = (n: number) => String(n).padStart(2, '0');
+  // Dördüncü hücre üyelik yılını gösterir — daha önce sabit '24 BAĞLANTI'
+  // yazıyordu; uygulamada bağlantı özelliği yok, uydurma sayıydı.
+  const memberSince = profile?.created_at
+    ? String(new Date(profile.created_at).getFullYear())
+    : '2026';
   const STATS = [
     { value: fmt(registeredEvents.size), label: 'ETKİNLİK' },
     { value: fmt(enrolledCourses.size),  label: 'KURS' },
     { value: fmt(mentorRequests.size),   label: 'MENTORLUK' },
-    { value: '24',                       label: 'BAĞLANTI' },
+    { value: memberSince,                label: 'ÜYELİK' },
   ];
 
   return (

@@ -150,15 +150,22 @@ export default function LoginScreen() {
                 <Text style={styles.ctaButtonText}>{loading ? 'GÖNDERİLİYOR...' : 'DEVAM ET'}</Text>
               </TouchableOpacity>
 
-              <View style={styles.orRow}>
-                <View style={styles.orLine} />
-                <Text style={styles.orText}>VEYA</Text>
-                <View style={styles.orLine} />
-              </View>
+              {/* Demo modu yalnızca geliştirme/sunum içindir — yayın sürümünde
+                  görünmez, yoksa üyeliğe özel uygulamaya kimlik doğrulamadan
+                  girilebilir. */}
+              {__DEV__ && (
+                <>
+                  <View style={styles.orRow}>
+                    <View style={styles.orLine} />
+                    <Text style={styles.orText}>VEYA</Text>
+                    <View style={styles.orLine} />
+                  </View>
 
-              <TouchableOpacity style={styles.outlineButton} onPress={() => router.replace('/(tabs)')} activeOpacity={0.7}>
-                <Text style={styles.outlineButtonText}>DEMO MOD İLE GİR</Text>
-              </TouchableOpacity>
+                  <TouchableOpacity style={styles.outlineButton} onPress={() => router.replace('/(tabs)')} activeOpacity={0.7}>
+                    <Text style={styles.outlineButtonText}>DEMO MOD İLE GİR</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           )}
 
