@@ -8,7 +8,7 @@
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://zylxpaxhrqximbvokrvm.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5bHhwYXhocnF4aW1idm9rcnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTk2NjQsImV4cCI6MjA5NTI3NTY2NH0.saXQB2zX8u3Lr-_pvRIEziSVvCUZnGeyO6pw4haFBtc",
-        "EXPO_PUBLIC_SENTRY_DSN": ""
+        "EXPO_PUBLIC_SENTRY_DSN": "https://182d8df9fe658c795db873ab60959410@o4511803150565376.ingest.de.sentry.io/4511803153383504"
       }
     },
     "development": {

@@ -49,6 +49,16 @@ module.exports = () => {
       plugins: [
         'expo-router',
         './gradle-config-plugin',
+        // Kaynak haritası yükleme: çökme raporlarında okunabilir satır
+        // numarası görünmesi için. SENTRY_AUTH_TOKEN yoksa yükleme
+        // atlanır, build yine başarılı olur.
+        [
+          '@sentry/react-native/expo',
+          {
+            organization: 'elektron666',
+            project: 'react-native',
+          },
+        ],
         [
           'expo-notifications',
           {
