@@ -806,6 +806,12 @@ export default function ProfileScreen() {
           >
             <Text style={styles.legalLink}>Gizlilik Politikası & KVKK Aydınlatma Metni →</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => Linking.openURL('https://elektron666.github.io/genctetsiad/kullanim-kosullari.html')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.legalLink}>Kullanım Koşulları →</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ── Sign out + hesap silme — sadece gerçek oturumda ── */}

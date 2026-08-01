@@ -42,6 +42,25 @@ module.exports = () => {
         },
         package: 'org.tetsiad.genc',
         versionCode: 1,
+        // Yalnızca gerçekten kullanılan izinler.
+        // POST_NOTIFICATIONS Android 13+ (API 33) için ZORUNLU — bu izin
+        // olmadan bildirim izni isteği sessizce başarısız olur ve hiçbir
+        // bildirim görünmez.
+        permissions: [
+          'android.permission.INTERNET',
+          'android.permission.VIBRATE',
+          'android.permission.POST_NOTIFICATIONS',
+        ],
+        // Kütüphanelerin otomatik eklediği, bizim kullanmadığımız izinler.
+        // SYSTEM_ALERT_WINDOW ('diğer uygulamaların üstüne çiz') React
+        // Native'in geliştirme hata ekranı için gelir; Play Store bunu
+        // hassas izin olarak ayrıca sorgular. Depolama izinlerine de
+        // ihtiyaç yok — uygulama dosya okumuyor/yazmıyor.
+        blockedPermissions: [
+          'android.permission.SYSTEM_ALERT_WINDOW',
+          'android.permission.READ_EXTERNAL_STORAGE',
+          'android.permission.WRITE_EXTERNAL_STORAGE',
+        ],
         // yalnızca dosya mevcutsa eklenir
         ...(googleServicesFile ? { googleServicesFile } : {}),
       },

@@ -5,6 +5,7 @@ import type { Event } from '@/types/database';
 export function useEvents(userId?: string) {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchEvents = useCallback(async () => {
     setLoading(true);
@@ -15,9 +16,11 @@ export function useEvents(userId?: string) {
       .order('starts_at', { ascending: true });
 
     if (error || !data) {
+      setError('Bağlantı kurulamadı');
       setLoading(false);
       return;
     }
+    setError(null);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rows = data as any[];
@@ -80,5 +83,5 @@ export function useEvents(userId?: string) {
     return {};
   }, [events, userId, fetchEvents]);
 
-  return { events, loading, refetch: fetchEvents, toggleAttendance };
+  return { events, loading, error, refetch: fetchEvents, toggleAttendance };
 }

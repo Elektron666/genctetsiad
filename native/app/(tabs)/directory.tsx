@@ -75,7 +75,7 @@ export default function DirectoryScreen() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Member | null>(null);
 
-  const { members: supabaseMembers, loading, refetch } = useMembers();
+  const { members: supabaseMembers, loading, error, refetch } = useMembers();
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = async () => {
@@ -147,10 +147,16 @@ export default function DirectoryScreen() {
             <View style={styles.emptyWrap}>
               <View style={styles.emptyDot} />
               <Text style={styles.emptyTitle}>
-                {search.trim() || filter !== 'TÜMÜ' ? 'Sonuç bulunamadı.' : 'Rehber henüz oluşturuluyor.'}
+                {error
+                  ? 'Bağlantı kurulamadı.'
+                  : search.trim() || filter !== 'TÜMÜ'
+                  ? 'Sonuç bulunamadı.'
+                  : 'Rehber henüz oluşturuluyor.'}
               </Text>
               <Text style={styles.emptySub}>
-                {search.trim() || filter !== 'TÜMÜ'
+                {error
+                  ? 'İnternet bağlantınızı kontrol edip aşağı çekerek yeniden deneyin.'
+                  : search.trim() || filter !== 'TÜMÜ'
                   ? 'Farklı bir arama veya filtre deneyin.'
                   : 'Onaylanan üyeler burada listelenecek. Aşağı çekerek yenileyebilirsiniz.'}
               </Text>
