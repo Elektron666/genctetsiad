@@ -9,13 +9,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Fonts, FontSize } from '@/theme';
 import { useAuthContext } from '@/context/AuthContext';
 
-type Step = 'phone' | 'otp';
+type Step = 'email' | 'otp';
 
 export default function LoginScreen() {
-  const { sendOtp, verifyOtp, status } = useAuthContext();
+  const { sendEmailOtp, verifyEmailOtp, status } = useAuthContext();
 
-  const [step, setStep] = useState<Step>('phone');
-  const [phone, setPhone] = useState('');
+  const [step, setStep] = useState<Step>('email');
+  const [email, setEmail] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [otpError, setOtpError] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -34,14 +34,15 @@ export default function LoginScreen() {
     return () => clearTimeout(t);
   }, [countdown]);
 
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
   const handleDevam = async () => {
-    const digits = phone.replace(/\D/g, '');
-    if (digits.length < 10) return;
+    if (!emailValid) return;
     setLoading(true);
-    const error = await sendOtp(digits);
+    const error = await sendEmailOtp(email);
     setLoading(false);
     if (error) {
-      Alert.alert('Hata', error.message ?? 'SMS gönderilemedi. Lütfen tekrar deneyin.');
+      Alert.alert('Hata', error.message ?? 'Doğrulama e-postası gönderilemedi. Lütfen tekrar deneyin.');
       return;
     }
     Animated.timing(slideAnim, { toValue: 1, duration: 320, useNativeDriver: true }).start(() => {
@@ -61,7 +62,7 @@ export default function LoginScreen() {
     }
     if (next.every(d => d !== '')) {
       setLoading(true);
-      const error = await verifyOtp(phone, next.join(''));
+      const error = await verifyEmailOtp(email, next.join(''));
       setLoading(false);
       if (error) {
         setOtpError(true);
@@ -81,7 +82,7 @@ export default function LoginScreen() {
   const handleResend = async () => {
     setOtp(['', '', '', '', '', '']);
     setLoading(true);
-    await sendOtp(phone);
+    await sendEmailOtp(email);
     setLoading(false);
     setCountdown(60);
     otpRefs[0].current?.focus();
@@ -107,42 +108,38 @@ export default function LoginScreen() {
             <View style={styles.modeBadge}>
               <View style={styles.modeDot} />
               <Text style={styles.modeBadgeText}>
-                {step === 'phone' ? 'GİRİŞ · OTP' : 'DOĞRULAMA · SMS'}
+                {step === 'email' ? 'GİRİŞ · E-POSTA' : 'DOĞRULAMA · E-POSTA'}
               </Text>
               <View style={styles.modeDot} />
             </View>
             <Text style={styles.subtitle}>
-              {step === 'phone'
+              {step === 'email'
                 ? 'Türkiye ev tekstilinin genç iş insanları platformu.'
-                : `+90 ${phone.replace(/\D/g, '').replace(/^0+/, '')} numarasına 6 haneli kod gönderdik.`}
+                : `${email.trim()} adresine 6 haneli kod gönderdik.`}
             </Text>
           </View>
 
           <View style={styles.rule} />
 
-          {/* PHONE STEP */}
-          {step === 'phone' && (
+          {/* E-POSTA ADIMI */}
+          {step === 'email' && (
             <View style={styles.formSection}>
-              <Text style={styles.fieldLabel}>TELEFON NUMARASI</Text>
-              <View style={styles.phoneRow}>
-                <View style={styles.countryCodeWrap}>
-                  <Text style={styles.countryCodeText}>+90</Text>
-                </View>
-                <TextInput
-                  style={styles.phoneInput}
-                  value={phone}
-                  onChangeText={setPhone}
-                  placeholder="5__ ___ __ __"
-                  placeholderTextColor={Colors.textMuted}
-                  keyboardType="phone-pad"
-                  maxLength={13}
-                  editable={!loading}
-                />
-              </View>
+              <Text style={styles.fieldLabel}>E-POSTA ADRESİ</Text>
+              <TextInput
+                style={styles.phoneInput}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="ornek@firma.com"
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!loading}
+              />
               <View style={styles.inputUnderline} />
-              <Text style={styles.helperText}>SMS ile tek kullanımlık doğrulama kodu gönderilecektir.</Text>
+              <Text style={styles.helperText}>E-posta adresinize tek kullanımlık doğrulama kodu gönderilecektir.</Text>
               <TouchableOpacity
-                style={[styles.ctaButton, (phone.replace(/\D/g,'').length < 10 || loading) && styles.ctaDisabled]}
+                style={[styles.ctaButton, (!emailValid || loading) && styles.ctaDisabled]}
                 onPress={handleDevam}
                 activeOpacity={0.8}
                 disabled={loading}
@@ -208,15 +205,15 @@ export default function LoginScreen() {
 
               <View style={{ height: 24 }} />
 
-              <TouchableOpacity style={styles.textBack} onPress={() => { setStep('phone'); setOtp(['','','','','','']); }}>
-                <Text style={styles.textBackText}>← Telefon numarasını değiştir</Text>
+              <TouchableOpacity style={styles.textBack} onPress={() => { setStep('email'); setOtp(['','','','','','']); }}>
+                <Text style={styles.textBackText}>← E-posta adresini değiştir</Text>
               </TouchableOpacity>
             </View>
           )}
 
           <View style={styles.spacer} />
 
-          {step === 'phone' && (
+          {step === 'email' && (
             <View style={styles.bottomSection}>
               <Text style={styles.registerIntro}>Henüz üye değil misiniz?</Text>
               <TouchableOpacity style={styles.registerLink} activeOpacity={0.7} onPress={() => router.push('/(auth)/register')}>

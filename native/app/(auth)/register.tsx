@@ -43,7 +43,7 @@ const pb = StyleSheet.create({
 });
 
 export default function RegisterScreen() {
-  const { sendOtp, verifyOtp, updateProfile, session } = useAuthContext();
+  const { sendEmailOtp, verifyEmailOtp, updateProfile, session } = useAuthContext();
 
   const [step, setStep] = useState(1);
   const [phone, setPhone] = useState('');
@@ -64,14 +64,15 @@ export default function RegisterScreen() {
   const [codeAnim] = useState(new Animated.Value(0));
   const otpRefs = Array.from({ length: 6 }, () => useRef<TextInput>(null));
 
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
   const handleOtpSend = async () => {
-    const digits = phone.replace(/\D/g, '');
-    if (digits.length < 10) return;
+    if (!emailValid) return;
     setOtpLoading(true);
-    const error = await sendOtp(digits);
+    const error = await sendEmailOtp(email);
     setOtpLoading(false);
     if (error) {
-      Alert.alert('Hata', error.message ?? 'SMS gönderilemedi.');
+      Alert.alert('Hata', error.message ?? 'Doğrulama e-postası gönderilemedi.');
       return;
     }
     setOtpSent(true);
@@ -85,7 +86,7 @@ export default function RegisterScreen() {
     if (val && i < 5) otpRefs[i + 1].current?.focus();
     if (next.every(d => d)) {
       setOtpLoading(true);
-      const error = await verifyOtp(phone, next.join(''));
+      const error = await verifyEmailOtp(email, next.join(''));
       setOtpLoading(false);
       if (error) {
         Alert.alert('Hata', 'Kod hatalı. Tekrar deneyin.');
@@ -101,7 +102,8 @@ export default function RegisterScreen() {
     if (step === TOTAL_STEPS) {
       const { error } = await updateProfile({
         full_name: `${firstName} ${lastName}`.trim(),
-        email,
+        email: email.trim().toLowerCase(),
+        phone: phone.trim() ? `+90${phone.replace(/\D/g, '').replace(/^0+/, '')}` : null,
         company: firm,
         city,
         sector,
@@ -126,7 +128,7 @@ export default function RegisterScreen() {
   };
 
   const canNext = () => {
-    if (step === 2) return firstName.trim().length > 1 && lastName.trim().length > 1 && email.includes('@');
+    if (step === 2) return firstName.trim().length > 1 && lastName.trim().length > 1 && phone.replace(/\D/g, '').length >= 10;
     if (step === 3) return firm.trim().length > 1 && city.length > 0 && sector.length > 0;
     if (step === 5) return kvkkChecked && transferConsent;
     return true;
@@ -154,32 +156,30 @@ export default function RegisterScreen() {
           {step === 1 && (
             <View style={s.stepWrap}>
               <Text style={s.stepNum}>01</Text>
-              <Text style={s.stepTitle}>Telefon Doğrulama</Text>
-              <Text style={s.stepSub}>Kayıt sürecine başlamak için telefon numaranızı doğrulayın.</Text>
+              <Text style={s.stepTitle}>E-posta Doğrulama</Text>
+              <Text style={s.stepSub}>Kayıt sürecine başlamak için e-posta adresinizi doğrulayın.</Text>
 
               <View style={s.rule} />
 
-              <Text style={s.fieldLabel}>TELEFON NUMARASI</Text>
-              <View style={s.phoneRow}>
-                <Text style={s.cc}>+90</Text>
-                <TextInput
-                  style={s.phoneInput}
-                  value={phone}
-                  onChangeText={setPhone}
-                  placeholder="5__ ___ __ __"
-                  placeholderTextColor={Colors.textMuted}
-                  keyboardType="phone-pad"
-                  maxLength={13}
-                />
-              </View>
+              <Text style={s.fieldLabel}>E-POSTA ADRESİ</Text>
+              <TextInput
+                style={s.phoneInput}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="ornek@firma.com"
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
               <View style={s.underline} />
 
               <View style={{ height: 32 }} />
               <TouchableOpacity
-                style={[s.ctaButton, { marginBottom: 24 }, phone.replace(/\D/g,'').length < 10 && s.ctaDisabled]}
+                style={[s.ctaButton, { marginBottom: 24 }, !emailValid && s.ctaDisabled]}
                 onPress={handleOtpSend}
                 activeOpacity={0.8}
-                disabled={otpLoading || phone.replace(/\D/g,'').length < 10}
+                disabled={otpLoading || !emailValid}
               >
                 <Text style={s.ctaText}>
                   {otpLoading ? 'GÖNDERİLİYOR...' : otpSent ? 'KODU TEKRAR GÖNDER' : 'KOD GÖNDER'}
@@ -204,8 +204,8 @@ export default function RegisterScreen() {
               </View>
               <Text style={s.helper}>
                 {otpSent
-                  ? `+90 ${phone} numarasına gönderilen 6 haneli kodu girin.`
-                  : 'Telefon numaranızı yazıp KOD GÖNDER butonuna basın.'}
+                  ? `${email.trim()} adresine gönderilen 6 haneli kodu girin.`
+                  : 'E-posta adresinizi yazıp KOD GÖNDER butonuna basın.'}
               </Text>
             </View>
           )}
@@ -221,7 +221,7 @@ export default function RegisterScreen() {
               {[
                 { label: 'AD', value: firstName, set: setFirstName, placeholder: 'Adınız' },
                 { label: 'SOYAD', value: lastName, set: setLastName, placeholder: 'Soyadınız' },
-                { label: 'E-POSTA', value: email, set: setEmail, placeholder: 'ornek@firma.com', keyboard: 'email-address' as const },
+                { label: 'TELEFON', value: phone, set: setPhone, placeholder: '5__ ___ __ __', keyboard: 'phone-pad' as const },
               ].map(f => (
                 <View key={f.label} style={s.fieldWrap}>
                   <Text style={s.fieldLabel}>{f.label}</Text>

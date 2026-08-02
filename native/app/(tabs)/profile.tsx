@@ -785,6 +785,19 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* Onay bekleyen üyeye durum hatırlatması */}
+        {profile?.role === 'pending' && (
+          <TouchableOpacity
+            style={styles.pendingBanner}
+            onPress={() => router.replace('/(auth)/pending')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.pendingBannerText}>
+              ÜYELİĞİNİZ ONAY BEKLİYOR — rehber ve bülten onaydan sonra açılır
+            </Text>
+          </TouchableOpacity>
+        )}
+
         {/* ── Profili düzenle — KVKK m.11 düzeltme hakkı ── */}
         {profile && (
           <View style={styles.qrBtnWrap}>
@@ -899,6 +912,8 @@ const styles = StyleSheet.create({
     color: Colors.gold,
     letterSpacing: 2.5,
   },
+  pendingBanner: { marginHorizontal: 24, marginTop: 20, borderWidth: 0.5, borderColor: Colors.gold, backgroundColor: 'rgba(217,200,150,0.08)', paddingVertical: 12, paddingHorizontal: 14 },
+  pendingBannerText: { fontFamily: Fonts.jakarta, fontSize: 9, color: Colors.gold, letterSpacing: 0.5, textAlign: 'center', lineHeight: 14 },
   legalWrap: {
     paddingHorizontal: 24,
     marginTop: 24,

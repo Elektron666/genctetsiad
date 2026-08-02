@@ -7,6 +7,8 @@ type AuthCtxType = {
   session: Session | null;
   profile: Profile | null;
   status: AuthStatus;
+  sendEmailOtp: (email: string) => Promise<any>;
+  verifyEmailOtp: (email: string, token: string) => Promise<any>;
   sendOtp: (phone: string) => Promise<any>;
   verifyOtp: (phone: string, token: string) => Promise<any>;
   signOut: () => Promise<void>;

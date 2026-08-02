@@ -63,6 +63,28 @@ export function useAuth() {
     return () => subscription.unsubscribe();
   }, [loadProfile]);
 
+  // ── E-posta ile doğrulama (birincil yöntem) ────────────────
+  // SMS parayla, e-posta bedava. Kimlik doğrulamanın asıl kapısı zaten
+  // yönetim onayı; e-posta yalnızca "bu adres gerçekten senin mi" sorusunu
+  // cevaplıyor. Telefon numarası profil alanı olarak toplanmaya devam eder.
+  const sendEmailOtp = useCallback(async (email: string) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim().toLowerCase(),
+      options: { shouldCreateUser: true },
+    });
+    return error;
+  }, []);
+
+  const verifyEmailOtp = useCallback(async (email: string, token: string) => {
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim().toLowerCase(),
+      token,
+      type: 'email',
+    });
+    return error;
+  }, []);
+
+  // ── SMS ile doğrulama (Twilio bağlandığında devreye alınacak) ──
   const sendOtp = useCallback(async (phone: string) => {
     const { error } = await supabase.auth.signInWithOtp({
       phone: normalizePhone(phone),
@@ -114,5 +136,5 @@ export function useAuth() {
     return { error };
   }, [session]);
 
-  return { session, profile, status, sendOtp, verifyOtp, signOut, deleteAccount, updateProfile, refreshProfile };
+  return { session, profile, status, sendEmailOtp, verifyEmailOtp, sendOtp, verifyOtp, signOut, deleteAccount, updateProfile, refreshProfile };
 }

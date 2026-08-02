@@ -15,6 +15,8 @@ export default function Index() {
   }
 
   if (status === 'authenticated') return <Redirect href="/(tabs)" />;
+  // Onay bekleyen kullanıcı önce durum ekranına düşer; oradan
+  // duyuru/etkinliklere göz atmayı seçebilir (rehber ve bülten RLS ile kapalı).
   if (status === 'pending') return <Redirect href="/(auth)/pending" />;
   return <Redirect href="/(auth)/login" />;
 }
