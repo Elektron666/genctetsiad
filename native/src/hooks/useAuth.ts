@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import type { Profile } from '@/types/database';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 type SupabaseRow = any;
 
 export type AuthStatus = 'loading' | 'unauthenticated' | 'pending' | 'authenticated';
@@ -116,7 +116,7 @@ export function useAuth() {
     // almaya DEVAM ediyordu — ortak kullanılan bir cihazda başkasının
     // bildirimlerini görmek demek.
     if (session?.user) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       try {
         await (supabase as any).from('push_tokens').delete().eq('user_id', session.user.id);
       } catch { /* token silinemezse çıkış yine de yapılmalı */ }
@@ -127,7 +127,7 @@ export function useAuth() {
   // Mağaza zorunluluğu: kullanıcı kendi hesabını kalıcı olarak silebilmeli.
   // RPC auth.users kaydını siler; tüm veriler CASCADE ile temizlenir.
   const deleteAccount = useCallback(async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { error } = await (supabase as any).rpc('delete_own_account');
     if (!error) {
       await supabase.auth.signOut().catch(() => {});
@@ -144,7 +144,7 @@ export function useAuth() {
 
   const updateProfile = useCallback(async (updates: Partial<Profile>) => {
     if (!session?.user) return { error: new Error('No session') };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { error } = await (supabase as any)
       .from('profiles')
       .update(updates)

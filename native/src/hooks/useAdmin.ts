@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { sendPushBatch } from '@/lib/notifications';
 import type { Profile, MemberRole } from '@/types/database';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const sb = supabase as any;
 
 export type AdminStats = {
@@ -30,6 +30,12 @@ export type AdminCourse = {
 export type PendingArticle = {
   id: string; title: string; summary: string | null; body: string;
   author_id: string; author_name: string; created_at: string;
+};
+
+export type AuditRow = {
+  id: string; actor_name: string | null; action: string;
+  target_type: string | null; target_name: string | null;
+  details: Record<string, unknown> | null; created_at: string;
 };
 
 export type Attendee = {
@@ -79,12 +85,23 @@ export function useAdmin() {
 
   useEffect(() => { refetch(); }, [refetch]);
 
+  // Silinmiş uygulamaların token'ları kayıtta kalıyor ve her duyuruda
+  // boşuna gönderiliyordu. Expo 'DeviceNotRegistered' biletini döndürünce
+  // kaydı temizliyoruz. (RLS yalnızca kendi satırını silmeye izin verirse
+  // sessizce başarısız olur — zararsız.)
+  const pruneDeadTokens = useCallback(async (dead: string[]) => {
+    if (dead.length === 0) return;
+    try { await sb.from('push_tokens').delete().in('token', dead); } catch { /* yok say */ }
+  }, []);
+
   // Tek kullanıcının cihazına push gönderir (token yoksa sessizce geçer)
-  const pushToUser = useCallback(async (userId: string, title: string, body: string) => {
+  const pushToUser = useCallback(async (userId: string, title: string, body: string, screen?: string) => {
     const { data } = await supabase.from('push_tokens').select('token').eq('user_id', userId);
     const tokens = ((data ?? []) as { token: string }[]).map(t => t.token);
-    if (tokens.length > 0) await sendPushBatch(tokens, title, body);
-  }, []);
+    if (tokens.length === 0) return;
+    const { dead } = await sendPushBatch(tokens, title, body, screen);
+    await pruneDeadTokens(dead);
+  }, [pruneDeadTokens]);
 
   // Başvuruyu onayla — rol değişince DB trigger'ı GT-YYYY-XXXXX üye kodunu atar,
   // kullanıcının telefonuna hoş geldin bildirimi gider
@@ -105,7 +122,8 @@ export function useAdmin() {
       pushToUser(
         userId,
         'Üyeliğiniz Onaylandı 🎉',
-        'Genç TETSİAD üyeliğiniz aktif edildi. Üye kodunuz profilinizde hazır — hoş geldiniz!'
+        'Genç TETSİAD üyeliğiniz aktif edildi. Üye kodunuz profilinizde hazır — hoş geldiniz!',
+        '/(tabs)/profile',
       ).catch(() => {});
     }
     return error;
@@ -135,10 +153,10 @@ export function useAdmin() {
   // token'lar istemciye hiç inmez, gönderim service_role ile sunucuda yapılır.
   // Fonksiyon henüz dağıtılmadıysa eski istemci-taraflı yola düşer, böylece
   // dağıtımdan önce de bildirim çalışmaya devam eder.
-  const pushToAll = useCallback(async (title: string, body: string): Promise<number> => {
+  const pushToAll = useCallback(async (title: string, body: string, screen?: string): Promise<number> => {
     try {
       const { data, error } = await supabase.functions.invoke('broadcast-push', {
-        body: { title, body },
+        body: { title, body, screen },
       });
       if (!error && data && typeof (data as { sent?: number }).sent === 'number') {
         return (data as { sent: number }).sent;
@@ -154,11 +172,13 @@ export function useAdmin() {
       const { data: rows } = await supabase.from('push_tokens').select('token');
       const tokens = ((rows ?? []) as { token: string }[]).map(t => t.token);
       if (tokens.length === 0) return 0;
-      return await sendPushBatch(tokens, title, body);
+      const { sent, dead } = await sendPushBatch(tokens, title, body, screen);
+      await pruneDeadTokens(dead);
+      return sent;
     } catch {
       return 0;
     }
-  }, []);
+  }, [pruneDeadTokens]);
 
   const publishAnnouncement = useCallback(async (input: { title: string; body: string; type: 'general' | 'event' | 'system' }) => {
     const { error } = await sb.from('announcements').insert(input);
@@ -180,10 +200,12 @@ export function useAdmin() {
     if (error) return { error, sent: 0 };
     setStats(prev => ({ ...prev, events: prev.events + 1 }));
     const when = new Date(input.starts_at);
-    const dateStr = `${when.getDate()}.${when.getMonth() + 1}.${when.getFullYear()}`;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const dateStr = `${pad(when.getDate())}.${pad(when.getMonth() + 1)}.${when.getFullYear()}`;
     const sent = await pushToAll(
       'Yeni Etkinlik 📅',
-      `${input.title} — ${dateStr}${input.city ? ` · ${input.city}` : ''}. Takvimden yerinizi ayırtın.`
+      `${input.title} — ${dateStr}${input.city ? ` · ${input.city}` : ''}. Takvimden yerinizi ayırtın.`,
+      '/(tabs)/calendar',
     );
     return { error: null, sent };
   }, [pushToAll]);
@@ -295,14 +317,14 @@ export function useAdmin() {
       .eq('status', 'pending')
       .order('created_at', { ascending: true });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const rows = (data ?? []) as any[];
     if (rows.length === 0) return [];
 
     const { data: profs } = await supabase
       .from('profiles').select('id, full_name')
       .in('id', [...new Set(rows.map(r => r.author_id))]);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const map = new Map(((profs ?? []) as any[]).map(p => [p.id, p.full_name]));
 
     return rows.map(r => ({ ...r, author_name: map.get(r.author_id) ?? 'Üye' }));
@@ -324,6 +346,7 @@ export function useAdmin() {
       const sent = await pushToAll(
         'Bültende yeni yazı 📄',
         title ? `${title} — Akademi > Bülten'den okuyabilirsiniz.` : 'Yeni bir üye yazısı yayımlandı.',
+        '/(tabs)/academy',
       );
       return { error: null, sent };
     }
@@ -341,6 +364,18 @@ export function useAdmin() {
     return error;
   }, []);
 
+  // Denetim kaydı tutuluyordu ama uygulamada GÖRÜNTÜLENEMİYORDU;
+  // yalnızca Supabase SQL Editor'den okunabiliyordu. Resmî bir talep
+  // geldiğinde yönetimin kaydı kendi görebilmesi gerekir.
+  const listAudit = useCallback(async (): Promise<AuditRow[]> => {
+    const { data } = await sb
+      .from('audit_log')
+      .select('id, actor_name, action, target_type, target_name, details, created_at')
+      .order('created_at', { ascending: false })
+      .limit(100);
+    return (data ?? []) as AuditRow[];
+  }, []);
+
   const listAttendees = useCallback(async (eventId: string): Promise<Attendee[]> => {
     const { data: rows } = await supabase
       .from('event_attendees')
@@ -356,7 +391,7 @@ export function useAdmin() {
       .select('id, full_name, company, phone')
       .in('id', list.map(r => r.user_id));
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const pMap = new Map(((profiles ?? []) as any[]).map(p => [p.id, p]));
     return list.map(r => ({
       user_id: r.user_id,
@@ -374,6 +409,6 @@ export function useAdmin() {
     listEvents, deleteEvent, updateEvent,
     listCourses, createCourse, updateCourse, deleteCourse,
     listAttendees,
-    listPendingArticles, reviewArticle,
+    listPendingArticles, reviewArticle, listAudit,
   };
 }

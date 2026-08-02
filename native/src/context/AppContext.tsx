@@ -1,7 +1,29 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { AppState } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/context/AuthContext';
 import { registerPushToken } from '@/lib/notifications';
+import * as SecureStore from 'expo-secure-store';
+
+// Okundu bilgisi hiçbir yerde saklanmıyordu: uygulama kapanınca tüm
+// duyurular yeniden "okunmamış" oluyor ve zil rozeti hiç sıfırlanmıyordu.
+const READ_KEY = 'gt_read_notifications';
+
+async function loadReadIds(): Promise<Set<string>> {
+  try {
+    const raw = await SecureStore.getItemAsync(READ_KEY);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+async function saveReadIds(ids: Set<string>) {
+  try {
+    // Sınırsız büyümesin: en son 200 kimlik yeter.
+    await SecureStore.setItemAsync(READ_KEY, JSON.stringify([...ids].slice(-200)));
+  } catch { /* kalıcılık en iyi çabadır */ }
+}
 
 type Notification = {
   id: number | string;   // number: demo verisi, string ("sb-<uuid>"): Supabase duyurusu
@@ -14,7 +36,7 @@ type Notification = {
 
 type Banner = { label: string; text: string };
 
-type AppState = {
+type AppCtxValue = {
   // Events
   registeredEvents: Set<number>;
   toggleEvent: (eventId: number) => void;
@@ -36,6 +58,8 @@ type AppState = {
 
   // Announcements (Supabase'den; yoksa null → ekran fallback kullanır)
   announcementBanner: Banner | null;
+  announcementsError: boolean;
+  refreshAnnouncements: () => Promise<void>;
 };
 
 // Demo bildirimleri YAYINDA GÖSTERİLMEZ. Daha önce Supabase'den kayıt
@@ -60,7 +84,7 @@ function fmtDateTR(iso: string): string {
   return `${d.getDate()} ${MONTHS_TR[d.getMonth()] ?? ''}`;
 }
 
-const AppCtx = createContext<AppState | null>(null);
+const AppCtx = createContext<AppCtxValue | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const { status, session } = useAuthContext();
@@ -71,6 +95,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [mentorRequests, setMentorRequests] = useState<Set<number>>(new Set());
   const [notifications, setNotifications] = useState<Notification[]>(DEFAULT_NOTIFICATIONS);
   const [announcementBanner, setAnnouncementBanner] = useState<Banner | null>(null);
+  const [announcementsError, setAnnouncementsError] = useState(false);
+  const readIdsRef = React.useRef<Set<string>>(new Set());
+
+  useEffect(() => { loadReadIds().then(ids => { readIdsRef.current = ids; }); }, []);
 
   // Oturum açılınca cihazın push token'ını al ve DB'ye kaydet —
   // admin duyuru yayınladığında bu token'lara bildirim gider.
@@ -83,7 +111,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // Token kaydı "elinden geldiğince" bir işlemdir: başarısız olursa
       // yalnızca push bildirimi çalışmaz, kullanıcı akışı etkilenmez.
       // Bu yüzden hata bilinçli olarak sessiz geçilir.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       await (supabase as any)
         .from('push_tokens')
         .upsert({ user_id: session.user.id, token, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
@@ -91,43 +119,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [status, session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Oturum açılınca gerçek duyuruları çek; demo bildirimlerin yerini alır.
-  // RLS gereği anonim (demo mod) kullanıcı duyuru okuyamaz → fallback devrede kalır.
+  const refreshAnnouncements = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('announcements')
+      .select('*')
+      .order('published_at', { ascending: false })
+      .limit(20);
+
+    // Ağ hatasında elimizdeki listeyi koru; başarılı ama boş yanıtta
+    // listeyi GERÇEKTEN boşalt (yayında demo verisi asılı kalmasın).
+    if (error) { setAnnouncementsError(true); return; }
+    setAnnouncementsError(false);
+
+     
+    const rows = (data ?? []) as any[];
+    if (rows.length === 0) {
+      setNotifications(DEFAULT_NOTIFICATIONS);
+      setAnnouncementBanner(null);
+      return;
+    }
+
+    const catOf = (t: string): Notification['category'] =>
+      t === 'event' ? 'ETKİNLİK' : t === 'system' ? 'SİSTEM' : 'DUYURU';
+
+    setNotifications(rows.map((a) => ({
+      id: `sb-${a.id}`,
+      category: catOf(a.type),
+      title: a.title,
+      body: a.body,
+      date: fmtDateTR(a.published_at),
+      read: readIdsRef.current.has(`sb-${a.id}`),
+    })));
+    setAnnouncementBanner({ label: catOf(rows[0].type), text: rows[0].body });
+  }, []);
+
+  // Uygulama açıkken yayınlanan duyuru, yeniden başlatana kadar hiç
+  // görünmüyordu. Ön plana her dönüşte tazeleniyor.
   useEffect(() => {
     if (status !== 'authenticated' && status !== 'pending') return;
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase
-        .from('announcements')
-        .select('*')
-        .order('published_at', { ascending: false })
-        .limit(20);
-      if (cancelled) return;
-      // Ağ hatasında elimizdeki listeyi koru; başarılı ama boş yanıtta
-      // listeyi GERÇEKTEN boşalt (yayında demo verisi asılı kalmasın).
-      if (error) return;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows = (data ?? []) as any[];
-      if (rows.length === 0) {
-        setNotifications(DEFAULT_NOTIFICATIONS);
-        setAnnouncementBanner(null);
-        return;
-      }
-
-      const catOf = (t: string): Notification['category'] =>
-        t === 'event' ? 'ETKİNLİK' : t === 'system' ? 'SİSTEM' : 'DUYURU';
-
-      setNotifications(rows.map((a) => ({
-        id: `sb-${a.id}`,
-        category: catOf(a.type),
-        title: a.title,
-        body: a.body,
-        date: fmtDateTR(a.published_at),
-        read: false,
-      })));
-      setAnnouncementBanner({ label: 'DUYURU', text: rows[0].body });
-    })();
-    return () => { cancelled = true; };
-  }, [status]);
+    refreshAnnouncements();
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'active') refreshAnnouncements();
+    });
+    return () => sub.remove();
+  }, [status, refreshAnnouncements]);
 
   const toggleEvent = useCallback((id: number) => {
     setRegisteredEvents(prev => {
@@ -155,11 +190,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const markRead = useCallback((id: number | string) => {
+    readIdsRef.current.add(String(id));
+    saveReadIds(readIdsRef.current);
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   }, []);
 
   const markAllRead = useCallback(() => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setNotifications(prev => {
+      prev.forEach(n => readIdsRef.current.add(String(n.id)));
+      saveReadIds(readIdsRef.current);
+      return prev.map(n => ({ ...n, read: true }));
+    });
   }, []);
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -170,7 +211,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       enrolledCourses, toggleCourse,
       mentorRequests, addMentorRequest,
       notifications, markRead, markAllRead, unreadCount,
-      announcementBanner,
+      announcementBanner, announcementsError, refreshAnnouncements,
     }}>
       {children}
     </AppCtx.Provider>

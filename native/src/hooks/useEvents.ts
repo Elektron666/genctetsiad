@@ -22,7 +22,7 @@ export function useEvents(userId?: string) {
     }
     setError(null);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const rows = data as any[];
     const enriched: Event[] = rows.map((row) => ({
       ...row,
@@ -57,7 +57,7 @@ export function useEvents(userId?: string) {
       return { full: true };
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const sb = supabase as any;
     const { error } = event.is_attending
       ? await sb.from('event_attendees').delete().eq('event_id', eventId).eq('user_id', userId)
@@ -72,7 +72,7 @@ export function useEvents(userId?: string) {
     // (migration 006) check_violation, RLS reddi ise 42501 döner.
     if (error) {
       await fetchEvents();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const code = String((error as any).code ?? '');
       const msg  = String((error as any).message ?? '');
       if (code === '42501' || /row-level security/i.test(msg)) return { denied: true };

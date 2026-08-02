@@ -20,7 +20,7 @@ const CITIES = ['İstanbul', 'Bursa', 'Denizli', 'Ankara', 'İzmir', 'Gaziantep'
 const SECTORS = ['Havlu & Bornoz', 'Yatak & Nevresim', 'Perde & Döşeme', 'Halı & Kilim', 'İplik & Örme', 'Teknik Tekstil', 'Diğer'];
 
 export default function ProfileEditScreen() {
-  const { profile, updateProfile, refreshProfile } = useAuthContext();
+  const { profile, session, updateProfile, refreshProfile } = useAuthContext();
 
   const [fullName, setFullName] = useState(profile?.full_name ?? '');
   const [email, setEmail] = useState(profile?.email ?? '');
@@ -29,6 +29,7 @@ export default function ProfileEditScreen() {
   const [phone, setPhone] = useState(profile?.phone ?? '');
   const [city, setCity] = useState(profile?.city ?? '');
   const [sector, setSector] = useState(profile?.sector ?? '');
+  const [mentorBio, setMentorBio] = useState(profile?.mentor_bio ?? '');
   const [busy, setBusy] = useState(false);
 
   const emailOk = email.trim() === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -45,6 +46,7 @@ export default function ProfileEditScreen() {
       position: position.trim() || null,
       city: city || null,
       sector: sector || null,
+      ...(profile?.is_mentor ? { mentor_bio: mentorBio.trim() || null } : {}),
     });
     setBusy(false);
 
@@ -113,21 +115,44 @@ export default function ProfileEditScreen() {
             ))}
           </View>
 
+          {/* Mentor tanıtımı — yönetim bir üyeyi mentor yapıyordu ama
+              üye kendi tanıtımını YAZAMIYORDU; mentor kartı sektör
+              alanına düşüyordu. */}
+          {profile?.is_mentor && (
+            <>
+              <Text style={[s.fieldLabel, { marginTop: 24 }]}>MENTOR TANITIMINIZ</Text>
+              <TextInput
+                style={[s.input, { minHeight: 80, paddingTop: 6 }]}
+                value={mentorBio}
+                onChangeText={setMentorBio}
+                placeholder="Hangi konularda mentorluk verebilirsiniz?"
+                placeholderTextColor={Colors.textMuted}
+                multiline
+                textAlignVertical="top"
+                maxLength={300}
+              />
+              <View style={s.underline} />
+              <Text style={s.helperNote}>{mentorBio.length} / 300 · mentör listesinde görünür</Text>
+            </>
+          )}
+
           {/* Değiştirilemeyen alanlar — neden değiştirilemediği açıkça yazılı */}
           <View style={s.lockedBox}>
             <Text style={s.lockedHead}>DEĞİŞTİRİLEMEYEN BİLGİLER</Text>
             <View style={s.lockedRow}>
-              <Text style={s.lockedKey}>TELEFON</Text>
-              <Text style={s.lockedVal}>{profile?.phone ?? '—'}</Text>
-            </View>
-            <View style={s.lockedRow}>
               <Text style={s.lockedKey}>ÜYE KODU</Text>
               <Text style={s.lockedVal}>{profile?.member_code ?? 'Onay bekliyor'}</Text>
             </View>
+            <View style={s.lockedRow}>
+              <Text style={s.lockedKey}>GİRİŞ E-POSTASI</Text>
+              <Text style={s.lockedVal}>{session?.user?.email ?? '—'}</Text>
+            </View>
             <Text style={s.lockedNote}>
-              Telefon numaranız kimlik doğrulamada kullanıldığı için, üye kodunuz ve
-              üyelik tipiniz ise dernek kayıtlarına bağlı olduğu için buradan
-              değiştirilemez. Değişiklik için info@tetsiad.org adresine yazabilirsiniz.
+              Üye kodunuz ve üyelik rolünüz dernek kayıtlarına bağlı olduğu için
+              buradan değiştirilemez. Giriş e-postanız kimlik doğrulamada
+              kullanıldığından ayrıca değiştirilir — yukarıdaki e-posta alanı
+              yalnızca rehberde görünen adrestir. Değişiklik için
+              info@tetsiad.org adresine yazabilirsiniz.
             </Text>
           </View>
 
@@ -152,6 +177,7 @@ const s = StyleSheet.create({
 
   fieldLabel:  { fontFamily: Fonts.jakarta, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 2, fontWeight: '600', marginBottom: 10 },
   input:       { fontFamily: Fonts.cormorant, fontSize: 20, color: Colors.ivory, paddingBottom: 8, paddingTop: 0 },
+  helperNote: { fontFamily: Fonts.jakarta, fontSize: 9, color: Colors.textMuted, marginTop: 6 },
   underline:   { height: 0.5, backgroundColor: Colors.goldLine },
 
   pill:           { paddingHorizontal: 14, paddingVertical: 8, borderWidth: 0.5, borderColor: Colors.goldLine, marginRight: 8, marginTop: 8 },

@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Fonts, FontSize } from '@/theme';
 import { useAuthContext } from '@/context/AuthContext';
+import { authErrorTR } from '@/lib/errors';
 
 type Step = 'email' | 'otp';
 
@@ -20,8 +21,14 @@ export default function LoginScreen() {
   const [otpError, setOtpError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  // Altı kutu doluyken yapılan her düzeltme yeni bir doğrulama isteği
+  // gönderiyordu: art arda istek → Supabase kilitlenmesi.
+  const verifyingRef = useRef(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
-  const otpRefs = Array.from({ length: 6 }, () => useRef<TextInput>(null));
+  // useRef bir döngü/geri çağırma içinde çağrılıyordu — uzunluk sabit
+  // olduğu için çalışıyordu ama hook kuralı ihlali; tek bir ref dizisi
+  // hem doğru hem daha ucuz.
+  const otpRefs = useRef<(TextInput | null)[]>([]);
 
   useEffect(() => {
     if (status === 'authenticated') router.replace('/(tabs)');
@@ -42,13 +49,13 @@ export default function LoginScreen() {
     const error = await sendEmailOtp(email);
     setLoading(false);
     if (error) {
-      Alert.alert('Hata', error.message ?? 'Doğrulama e-postası gönderilemedi. Lütfen tekrar deneyin.');
+      Alert.alert('Kod gönderilemedi', authErrorTR(error));
       return;
     }
     Animated.timing(slideAnim, { toValue: 1, duration: 320, useNativeDriver: true }).start(() => {
       setStep('otp');
       setCountdown(60);
-      setTimeout(() => otpRefs[0].current?.focus(), 100);
+      setTimeout(() => otpRefs.current[0]?.focus(), 100);
     });
   };
 
@@ -63,21 +70,23 @@ export default function LoginScreen() {
     if (digits.length > 1) {
       for (let i = 0; i < 6 - idx; i++) next[idx + i] = digits[i] ?? '';
       setOtp(next);
-      otpRefs[Math.min(idx + digits.length, 5)].current?.focus();
+      otpRefs.current[Math.min(idx + digits.length, 5)]?.focus();
     } else {
       next[idx] = digits.slice(-1);
       setOtp(next);
-      if (digits && idx < 5) otpRefs[idx + 1].current?.focus();
+      if (digits && idx < 5) otpRefs.current[idx + 1]?.focus();
     }
 
-    if (next.every(d => d !== '')) {
+    if (next.every(d => d !== '') && !verifyingRef.current) {
+      verifyingRef.current = true;
       setLoading(true);
       const error = await verifyEmailOtp(email, next.join(''));
       setLoading(false);
+      verifyingRef.current = false;
       if (error) {
         setOtpError(true);
         setOtp(['', '', '', '', '', '']);
-        otpRefs[0].current?.focus();
+        otpRefs.current[0]?.focus();
       }
       // on success, useEffect handles redirect via status change
     }
@@ -85,7 +94,7 @@ export default function LoginScreen() {
 
   const handleOtpKeyPress = (e: any, idx: number) => {
     if (e.nativeEvent.key === 'Backspace' && !otp[idx] && idx > 0) {
-      otpRefs[idx - 1].current?.focus();
+      otpRefs.current[idx - 1]?.focus();
     }
   };
 
@@ -97,11 +106,11 @@ export default function LoginScreen() {
     // Hata yutuluyordu: Supabase saatlik gönderim sınırına takıldığında
     // hiçbir şey olmuyor ama geri sayım "gönderildi" gibi yeniden başlıyordu.
     if (error) {
-      Alert.alert('Kod gönderilemedi', 'Kısa süre içinde çok fazla deneme yapıldı. Lütfen birkaç dakika bekleyin.');
+      Alert.alert('Kod gönderilemedi', authErrorTR(error));
       return;
     }
     setCountdown(60);
-    otpRefs[0].current?.focus();
+    otpRefs.current[0]?.focus();
   };
 
   return (
@@ -192,7 +201,7 @@ export default function LoginScreen() {
                 {otp.map((digit, i) => (
                   <TextInput
                     key={i}
-                    ref={otpRefs[i]}
+                    ref={el => { otpRefs.current[i] = el; }}
                     style={[styles.otpBox, digit && styles.otpBoxFilled, otpError && styles.otpBoxError]}
                     value={digit}
                     onChangeText={v => handleOtpChange(v, i)}

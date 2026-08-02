@@ -65,7 +65,7 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── 2) Gövdeyi doğrula ──────────────────────────────────
-  let payload: { title?: string; body?: string };
+  let payload: { title?: string; body?: string; screen?: string };
   try {
     payload = await req.json();
   } catch {
@@ -75,6 +75,11 @@ Deno.serve(async (req: Request) => {
   const title = (payload.title ?? '').toString().trim().slice(0, 120);
   const body = (payload.body ?? '').toString().trim().slice(0, 500);
   if (!title || !body) return json({ error: 'title_and_body_required' }, 400);
+
+  // Yalnızca bilinen uygulama içi rotalara izin ver — açık yönlendirme
+  // benzeri bir kullanımın önüne geçmek için beyaz liste.
+  const ALLOWED = ['/(tabs)', '/(tabs)/calendar', '/(tabs)/academy', '/(tabs)/profile', '/(tabs)/directory'];
+  const screen = ALLOWED.includes(String(payload.screen ?? '')) ? String(payload.screen) : '/(tabs)';
 
   // ── 3) Token'ları service_role ile oku (istemciye hiç inmez) ──
   const asService = createClient(SUPABASE_URL, SERVICE_KEY, {
@@ -90,10 +95,11 @@ Deno.serve(async (req: Request) => {
   const messages = ((rows ?? []) as { token: string }[])
     .map((r) => r.token)
     .filter((t) => typeof t === 'string' && t.startsWith('ExponentPushToken'))
-    .map((to) => ({ to, sound: 'default', title, body, priority: 'high' }));
+    .map((to) => ({ to, sound: 'default', title, body, priority: 'high', data: { screen } }));
 
   // ── 4) Expo Push API'ye 100'lük parçalar hâlinde gönder ──
   let sent = 0;
+  const dead: string[] = [];
   for (let i = 0; i < messages.length; i += 100) {
     const chunk = messages.slice(i, i + 100);
     try {
@@ -102,11 +108,23 @@ Deno.serve(async (req: Request) => {
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(chunk),
       });
-      if (res.ok) sent += chunk.length;
+      // Yanıtı okuyoruz: her HTTP 200 "teslim edildi" demek değil.
+      // Expo mesaj başına bilet döner; DeviceNotRegistered olanlar
+      // (uygulamayı silmiş kullanıcılar) kayıttan düşürülür.
+      const tickets = (await res.json().catch(() => null))?.data ?? [];
+      chunk.forEach((m: { to: string }, k: number) => {
+        const t = tickets[k];
+        if (!t || t.status === 'ok') { sent += 1; return; }
+        if (t.details?.error === 'DeviceNotRegistered') dead.push(m.to);
+      });
     } catch {
       // tek parça başarısız olsa da kalanları göndermeye devam et
     }
   }
 
-  return json({ sent, total: messages.length });
+  if (dead.length > 0) {
+    await asService.from('push_tokens').delete().in('token', dead);
+  }
+
+  return json({ sent, total: messages.length, pruned: dead.length });
 });

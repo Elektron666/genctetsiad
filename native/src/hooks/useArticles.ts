@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Article } from '@/types/database';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const sb = supabase as any;
 
 // Yazar adlarını ayrı sorguyla alıyoruz: profiles üzerindeki RLS,
@@ -15,7 +15,7 @@ async function attachAuthors(rows: Article[]): Promise<Article[]> {
     .from('profiles')
     .select('id, full_name, company')
     .in('id', ids);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const map = new Map(((data ?? []) as any[]).map(p => [p.id, p]));
   return rows.map(r => ({
     ...r,

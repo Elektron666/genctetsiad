@@ -1,8 +1,11 @@
-# 200 MADDELİK MAĞAZA ÖNCESİ DENETİM
+# MAĞAZA ÖNCESİ TAM DENETİM — 201 MADDE
 
 **Kapsam:** 11.702 satır — `native/` (29 dosya), `supabase/` (12 dosya), `.github/`, `docs/`, `project/`
 **Yöntem:** her dosya baştan sona okundu. Tahmin yok; her madde bir satıra dayanıyor.
-**Tarih:** 2 Ağustos 2026 · **Durum:** 200 bulgu — **74'ü bu PR'da düzeltildi**, 126'sı gerekçeli olarak açık.
+**Tarih:** 2 Ağustos 2026 · **Durum:** 201 bulgu — **99'u düzeltildi**, 102'si gerekçeli olarak açık.
+
+> **2. tur (bu commit):** ilk turda açık bırakılan 25 madde daha kapatıldı ve
+> ESLint kurulunca **yeni bir ölü özellik** ortaya çıktı (madde 201).
 
 > Bu belgenin amacı listelemek değil, **karar verilebilir hâle getirmek**.
 > Her madde: ne bozuk · kullanıcı ne yaşıyor · ne yapıldı.
@@ -14,9 +17,9 @@
 | Ağırlık | Adet | Düzeltildi | Açık |
 |---|---|---|---|
 | 🔴 Kritik — veri/güvenlik/yayın engeli | 24 | 22 | 2 |
-| 🟠 Yüksek — yanlış bilgi, bozuk akış | 51 | 33 | 18 |
-| 🟡 Orta — UX, performans, tutarlılık | 78 | 17 | 61 |
-| ⚪ Düşük — temizlik, ileri sürüm | 47 | 2 | 45 |
+| 🟠 Yüksek — yanlış bilgi, bozuk akış | 52 | 41 | 11 |
+| 🟡 Orta — UX, performans, tutarlılık | 78 | 29 | 49 |
+| ⚪ Düşük — temizlik, ileri sürüm | 47 | 7 | 40 |
 
 ---
 
@@ -100,7 +103,7 @@ Kayıt ekranında iki onay kutusu var, ikisi de zorunlu — ve **işaretlendikle
 
 ---
 
-# 🟠 YÜKSEK (25–75)
+# 🟠 YÜKSEK (25–75, +201)
 
 ### Hata gizleyen kod
 
@@ -152,11 +155,10 @@ Kayıt ekranında iki onay kutusu var, ikisi de zorunlu — ve **işaretlendikle
 
 **47. KVKK tam metin bağlantısı tıklanamıyordu.** ✅ Düz metin olarak yazılıydı — kullanıcı politikanın tamamını okuyamıyordu. → Dokunulabilir bağlantı.
 
-**48. Kayıt yarıda bırakılırsa hesap "yarım" kalıyor.** ⚠️ AÇIK
-1. adımda OTP doğrulanınca kullanıcı **zaten giriş yapmış** olur. 2. adımda vazgeçerse boş `full_name` ile bir profil kalır; uygulamayı tekrar açtığında her alanı "—" gösteren onay ekranına düşer ve kaydı tamamlamanın **hiçbir yolu yoktur**.
-**Öneri:** onay ekranından "Başvuruyu tamamla" ile kayıt akışına dönüş.
+**48. Kayıt yarıda bırakılırsa hesap "yarım" kalıyordu.** ✅
+1. adımda OTP doğrulanınca kullanıcı **zaten giriş yapmış** olur. 2. adımda vazgeçerse boş `full_name` ile bir profil kalıyor; uygulamayı tekrar açtığında her alanı "—" gösteren onay ekranına düşüyor ve kaydı tamamlamanın **hiçbir yolu kalmıyordu**. → *Onay ekranında "BAŞVURUNUZU TAMAMLAYIN" uyarısı; kayıt akışı oturum varsa doğrulama adımını atlayıp mevcut bilgileri ön dolduruyor.*
 
-**49. Android donanım geri tuşu kayıt akışını tamamen terk ediyor.** ⚠️ AÇIK — 5 adım doldurup geri tuşuna basan kullanıcı her şeyi kaybediyor.
+**49. Android donanım geri tuşu kayıt akışını tamamen terk ediyordu.** ✅ 5 adım doldurup geri tuşuna basan kullanıcı her şeyi kaybediyordu. → *`BackHandler` adım adım geri gidiyor; veri girilmişse çıkış onayı soruyor.*
 
 **50. `login` ekranı `shouldCreateUser: true` kullanıyor.** ⚠️ AÇIK — giriş ekranına yazılan her e-posta yeni `auth.users` kaydı yaratır. Hesap sayımı ve gönderim kotası bundan etkilenir.
 
@@ -212,7 +214,7 @@ Kayıt ekranında iki onay kutusu var, ikisi de zorunlu — ve **işaretlendikle
 
 **74. Katılımcı telefonları denetimsiz görülebiliyor.** ⚠️ AÇIK — organizasyon için gerekli ama görüntüleme audit_log'a yazılmıyor.
 
-**75. Onay ekranı kendini tazelemiyor.** ⚠️ AÇIK — yönetim onayladıktan sonra kullanıcı **uygulamayı kapatıp açmadan** içeri giremiyor; ekranda yalnızca `useEffect(…, [])` var.
+**75. Onay ekranı kendini tazelemiyordu.** ✅ Yönetim onayladıktan sonra kullanıcı **uygulamayı kapatıp açmadan** içeri giremiyordu. → *Aşağı çekip yenileme + görünür ipucu.*
 
 ---
 
@@ -230,7 +232,7 @@ Kayıt ekranında iki onay kutusu var, ikisi de zorunlu — ve **işaretlendikle
 **83.** Doğrudan `member` olarak açılan profile hiç üye kodu atanmıyordu. ✅ *011: INSERT trigger'ı.*
 **84.** `generate_member_code` / `assign_member_code` `search_path` sabitlenmemişti. ✅ *011*
 **85.** `notifications` tablosu tamamen ölü — RLS'i var, indeksi var, tipi var, **hiçbir kod yazmıyor/okumuyor**. ⚠️ AÇIK
-**86.** Bildirim okundu durumu hiç saklanmıyor — uygulama kapanınca hepsi tekrar okunmamış. ⚠️ AÇIK (85 ile birlikte çözülmeli)
+**86.** Bildirim okundu durumu hiç saklanmıyordu — uygulama kapanınca hepsi tekrar okunmamış oluyor, zil rozeti hiç sıfırlanmıyordu. ✅ *Okunan kimlikler cihazda saklanıyor (son 200).*
 **87.** `mentorship_requests` DELETE politikası yoktu — başvuru geri çekilemiyordu. ✅ *011*
 **88.** `002_seed_data.sql` `migrations/` klasöründe duruyor ve "Production'da çalıştırma!" yorumuna güveniyor; siz migration'ları elle yapıştırıyorsunuz. ⚠️ AÇIK — `supabase/seed/` altına taşınmalı.
 **89.** Seed duyurusu "erken kayıt indirimi" diyor; uygulama her etkinliğin ücretsiz olduğunu söylüyor. ⚠️ AÇIK
@@ -239,22 +241,22 @@ Kayıt ekranında iki onay kutusu var, ikisi de zorunlu — ve **işaretlendikle
 
 ### Ekran davranışı
 
-**92.** Ana sayfadaki 4 etkinlik **tamamen sabit** — `useEvents` hiç çağrılmıyor. Bugün 2 Ağustos; "YAKLAŞAN" başlığı altında 24 Temmuz görünüyor. ⚠️ AÇIK
-**93.** Ana sayfa etkinlik kartları sayısal id kullanıyor, gerçek etkinlikler UUID — "✓ KATILDIM" rozeti hiçbir zaman gerçeği yansıtamaz. ⚠️ AÇIK
+**92.** Ana sayfadaki 4 etkinlik **tamamen sabitti** — `useEvents` hiç çağrılmıyordu. "YAKLAŞAN" başlığı altında geçmiş tarihler görünüyordu. ✅ *Gerçek etkinliklere bağlandı, geçmişler süzülüyor, boş/hata durumu var.*
+**93.** Ana sayfa kartları sayısal id kullanıyordu, gerçek etkinlikler UUID — "✓ KATILDIM" rozeti gerçeği asla yansıtamıyordu. ✅ *Artık `is_attending` üzerinden.*
 **94.** Ana sayfa "HOMETEX 2027" diyor, görseli `hometex-2026-acilis.jpg`, bildirim metni "HOMETEX 2026". ⚠️ AÇIK
 **95.** 4. etkinlik "Bursa Fabrika Ziyareti" ama komite toplantısı fotoğrafını kullanıyor. ⚠️ AÇIK
-**96.** Duyuru bandı `banner.label` alanını yok sayıp her zaman "DUYURU" yazıyor — ETKİNLİK türü duyuru da "DUYURU" görünüyor. ⚠️ AÇIK
+**96.** Duyuru bandı `banner.label` alanını yok sayıyordu. ✅ *Kategori gerçek türden okunuyor.*
 **97.** Ana sayfada **giriş yapmış üyeye "BAŞVUR" düğmesi** gösteriliyor. ⚠️ AÇIK
 **98.** Ana sayfa istatistikleri (1.500+ üye / 55 il / 40 ülke / 10 etkinlik) sabit ve takvimdeki sayıyla çelişiyor. ⚠️ AÇIK — dernek onayı gerekiyor.
 **99.** `useCounter` 4 ayrı `setTimeout(…, 16)` zinciri çalıştırıyor; `requestAnimationFrame` yerine timer — düşük segment Android'de takılma. ⚠️ AÇIK
 **100.** `SCREEN_WIDTH` modül düzeyinde okunuyor — döndürme/katlanabilir cihazda bayat kalıyor. ⚠️ AÇIK
 **101.** Kapak yüksekliği sabit `580px` — küçük telefonlarda CTA ile başlık üst üste biniyor. ⚠️ AÇIK
 **102.** Kapak üst çubuğu `top: Platform.OS === 'ios' ? 0 : 12` — güvenli alan yerine sabit değer; çentikli Android'de zil simgesi durum çubuğunun altında kalıyor. ⚠️ AÇIK
-**103.** Alt sekme çubuğu yüksekliği sabit; jest çubuğu olan cihazlarda sistem çubuğuyla çakışıyor. ⚠️ AÇIK
-**104.** REHBER sekmesi onay bekleyen kullanıcıya da görünüyor, açınca RLS boş dönüyor. ⚠️ AÇIK
-**105.** Bildirim çekmecesinde boş durum yok — filtre sonuç vermezse bomboş sayfa. ⚠️ AÇIK
-**106.** Çekmecedeki "tutamak" çubuğu sürüklenebilir görünüyor ama sürüklenmiyor. ⚠️ AÇIK
-**107.** Duyurular yalnızca oturum açılışında bir kez çekiliyor; uygulama açıkken yayınlanan duyuru yeniden başlatana kadar görünmüyor. ⚠️ AÇIK
+**103.** Alt sekme çubuğu yüksekliği sabitti; jest çubuğu olan cihazlarda sistem çubuğuyla çakışıyordu. ✅ *`useSafeAreaInsets` ile hesaplanıyor.*
+**104.** REHBER sekmesi onay bekleyen kullanıcıya da görünüyordu, açınca RLS boş dönüyordu. ✅ *Onaya kadar sekme gizli.*
+**105.** Bildirim çekmecesinde boş durum yoktu. ✅ *Boş, filtreli-boş ve hata durumları ayrı ayrı.*
+**106.** Çekmecedeki tutamak sürüklenebilir görünüyordu ama hiçbir şey yapmıyordu. ✅ *Dokunmak kapatıyor.*
+**107.** Duyurular yalnızca oturum açılışında bir kez çekiliyordu. ✅ *Ön plana her dönüşte tazeleniyor + çekmecede aşağı çekip yenileme.*
 **108.** Ana sayfada aşağı çekip yenileme yok. ⚠️ AÇIK
 **109.** Künye iletişim bilgileri tıklanamıyordu. ✅ Düzeltildi.
 **110.** "Trendleri Keşfet / GÜNDEM" kartı sürdürülebilirlik sekmesini açıyordu. ✅ Etiket gerçeğe uyduruldu.
@@ -277,11 +279,11 @@ Kayıt ekranında iki onay kutusu var, ikisi de zorunlu — ve **işaretlendikle
 **127.** Programlar (3T/TBA/Altın Mekik/UTGİK) tamamen sabit; yönetimin düzenleme yolu yok. ⚠️ AÇIK
 **128.** Sürdürülebilirlik sekmesi 191 satır sabit metin — tek bir düğme, bağlantı veya kaynak yok; AB mevzuatı tarihleri eskiyecek ve güncellenemeyecek. ⚠️ AÇIK
 **129.** Aynı sekmedeki istatistiklerin kaynağı belirtilmiyor. ⚠️ AÇIK
-**130.** Bülten yazısı taslak olarak saklanmıyor — uygulama arka plana atılıp öldürülürse 2.000 kelimelik yazı kayboluyor. ⚠️ AÇIK (uygulamadaki en uzun form)
-**131.** Bülten yazma penceresi kaydedilmemiş değişiklik uyarısı vermiyor. ⚠️ AÇIK
+**130.** Bülten yazısı taslak olarak saklanmıyordu — uygulama bellekten düşerse 20.000 karaktere kadar yazı yok oluyordu. ✅ *Yazdıkça yerel taslak; açılışta geri yükleniyor.*
+**131.** Bülten yazma penceresi kaydedilmemiş değişiklik uyarısı vermiyordu. ✅
 **132.** Profil ekranında aşağı çekip yenileme yok; onay sonrası kart eski durumu gösteriyor. ⚠️ AÇIK
-**133.** Toast bileşeninde `accessibilityLiveRegion` yok — ekran okuyucu bildirimleri hiç duyurmuyor. ⚠️ AÇIK
-**134.** Toast Android'de `elevation` kullanmıyor; bazı düzenlerde altta kalabilir. ⚠️ AÇIK
+**133.** Toast'ta `accessibilityLiveRegion` yoktu — ekran okuyucu bildirimleri hiç duyurmuyordu. ✅
+**134.** Toast Android'de `elevation` kullanmıyordu. ✅
 **135.** Hata sınırındaki "TEKRAR DENE" belirleyici bir hatada sonsuz döngüye girer — çıkış yolu yok. ⚠️ AÇIK
 **136.** Hata sınırındaki e-posta adresi tıklanabilir değil. ⚠️ AÇIK
 
@@ -291,9 +293,9 @@ Kayıt ekranında iki onay kutusu var, ikisi de zorunlu — ve **işaretlendikle
 **138.** Supabase istemcisinde istek zaman aşımı yok; takılan bir istek sonsuza kadar bekliyor. ⚠️ AÇIK
 **139.** `getSession()` ve `onAuthStateChange` aynı anda `loadProfile` tetikleyebiliyor — yarış durumu. ⚠️ AÇIK
 **140.** `loadProfile` iptal edilemiyor; çıkış sırasında dönen eski yanıt durumu geri yazabilir. ⚠️ AÇIK
-**141.** Ham Supabase hata mesajları Türk kullanıcıya İngilizce gösteriliyor ("For security purposes, you can only request this after 54 seconds"). ⚠️ AÇIK
-**142.** Kod doğrulama, altı kutu doluyken her tuş vuruşunda yeniden tetikleniyor — art arda istek, kilitlenme riski. ⚠️ AÇIK
-**143.** `useRef` döngü içinde çağrılıyor (`Array.from({length: 6}, () => useRef(…))`) — sabit uzunlukta çalışıyor ama hook kuralı ihlali. ⚠️ AÇIK
+**141.** Ham Supabase hataları Türk kullanıcıya İngilizce gösteriliyordu (*"For security purposes, you can only request this after 54 seconds"*). ✅ *`authErrorTR()` — koda/kalıba bakıp Türkçe metin, bekleme süresi dahil.*
+**142.** Kod doğrulama, altı kutu doluyken her tuş vuruşunda yeniden tetikleniyordu — art arda istek, kilitlenme riski. ✅
+**143.** `useRef` döngü içinde çağrılıyordu — hook kuralı ihlali. ✅ *Tek ref dizisi.*
 **144.** `normalizePhone` boş girdide `+90` üretiyor; doğrulama yok. ⚠️ AÇIK
 **145.** Telefon uzunluğu yalnızca `>= 10` kontrol ediliyor; 15 hane de geçiyor. ⚠️ AÇIK
 
@@ -302,9 +304,9 @@ Kayıt ekranında iki onay kutusu var, ikisi de zorunlu — ve **işaretlendikle
 **146.** Telefon düzenlenemiyordu — rehberde herkese görünen alan ve KVKK düzeltme hakkının en çok işe yaradığı yer. ✅ Eklendi.
 **147.** E-posta doğrulaması burada `includes('@')` ile yapılıyordu, kayıt ekranındakinden zayıf. ✅ Aynı regex.
 **148.** Profil e-postası ile giriş e-postası sessizce ayrışıyor. ✅ Kısmen — alan "REHBERDE GÖRÜNEN" olarak etiketlendi; gerçek çözüm e-posta değişikliği akışı (v1.1).
-**149.** `mentor_bio` düzenlenemiyor — mentor kendi tanıtımını yazamıyor. ⚠️ AÇIK
+**149.** `mentor_bio` düzenlenemiyordu — mentor kendi tanıtımını yazamıyordu, kart sektöre düşüyordu. ✅
 **150.** Kaydedilmemiş değişiklik uyarısı yok. ⚠️ AÇIK
-**151.** Onay ekranından kayıt bilgisi düzeltilemiyor. ⚠️ AÇIK
+**151.** Onay ekranından kayıt bilgisi düzeltilemiyordu. ✅ *48 ile birlikte.*
 **152.** "3–5 iş günü" sözü iki ekranda veriliyor; dernek bunu taahhüt etmeli. ⚠️ AÇIK
 **153.** Sentry yorumu "ABD sunucuları" diyordu; DSN `ingest.de` — Almanya. ✅ Düzeltildi.
 
@@ -312,7 +314,7 @@ Kayıt ekranında iki onay kutusu var, ikisi de zorunlu — ve **işaretlendikle
 
 # ⚪ DÜŞÜK (154–200)
 
-**154.** ESLint yapılandırması **hiç yok** — 15 dosyadaki `eslint-disable` yorumları çalışmayan bir aracı susturuyor. ⚠️
+**154.** ESLint yapılandırması **hiç yoktu** — 15 dosyadaki `eslint-disable` yorumları çalışmayan bir aracı susturuyordu. ✅ *`eslint.config.js` + `npm run lint`. İlk çalıştırmada 39 hata çıktı; hepsi giderildi (0 hata, 32 uyarı) ve **madde 201'i ortaya çıkardı.***
 **155.** Hiç test yok. İki mağazaya çıkacak uygulamada sıfır otomatik test. ⚠️
 **156.** `npm run typecheck` betiği eklendi. ✅
 **157.** `@sentry/react-native` caret aralığındaydı (`^8.20.0`) — Hermes'i kıran sınıf. ✅ Sabitlendi.
@@ -333,14 +335,14 @@ Kayıt ekranında iki onay kutusu var, ikisi de zorunlu — ve **işaretlendikle
 **172.** Aynı sayfa React'in **development** derlemesini yüklüyor. ⚠️
 **173.** `project/` ve `native/` aynı içeriğin iki ayrı kaynağı. ⚠️
 **174.** `chats/chat1.md` depoda duruyor (sır taraması temiz, yine de gereksiz). ⚠️
-**175.** Bildirim yönlendirmesi başlık metnine bakıyor (`title.includes('Etkinlik')`) — başlık değişince sessizce bozulur; `data` yükü kullanılmalı. ⚠️
-**176.** `broadcast-push` `data` yükü göndermiyor (175'in kökü). ⚠️
-**177.** `sendPushBatch` Expo yanıtını okumuyor — `DeviceNotRegistered` biletleri "gönderildi" sayılıyor. ⚠️
-**178.** Ölü token'lar hiç temizlenmiyor; zamanla listenin büyük kısmı çöp olur. ⚠️
+**175.** Bildirim yönlendirmesi başlık metnine bakıyordu — yönetici başlığı değiştirince sessizce bozulurdu. ✅ *`data.screen` yükü; başlık yalnızca geri düşüş.*
+**176.** `broadcast-push` `data` yükü göndermiyordu (175'in kökü). ✅ *Beyaz listeli `screen` alanı eklendi.*
+**177.** `sendPushBatch` Expo yanıtını okumuyordu — her HTTP 200 "teslim edildi" sayılıyordu. ✅ *Biletler okunuyor, gerçek gönderim sayısı dönüyor.*
+**178.** Ölü token'lar hiç temizlenmiyordu. ✅ *`DeviceNotRegistered` dönen kayıtlar hem istemcide hem Edge Function'da siliniyor.*
 **179.** `broadcast-push` gönderim sınırı uygulamıyor. ⚠️
 **180.** `broadcast-push` `Access-Control-Allow-Origin: '*'` — mobil için gereksiz. ⚠️
 **181.** `EXPO_PROJECT_ID` sabit yazılı; `Constants.expoConfig.extra` yerine. ⚠️
-**182.** Uygulama soğuk başlarken bildirime dokunulursa yönlendirme kaybolabilir (`getLastNotificationResponseAsync` yok). ⚠️
+**182.** Uygulama kapalıyken bildirime dokunulursa yönlendirme tamamen kayboluyordu. ✅ *`getLastNotificationResponseAsync`.*
 **183.** `expo-updates` bağımlı ama güncelleme kontrolü/geri bildirimi arayüzde yok. ⚠️
 **184.** `useMembers` `select('*')` ile gereksiz kişisel veri çekiyor. ⚠️
 **185.** `useEvents`/`useCourses` de sütun daraltması yapmıyor. ⚠️
@@ -348,9 +350,9 @@ Kayıt ekranında iki onay kutusu var, ikisi de zorunlu — ve **işaretlendikle
 **187.** `AuthContext` tipleri `Promise<any>` — tip güvenliği kayıp. ⚠️
 **188.** `Database` tipindeki `Insert: Partial<Profile>` `role` yazmaya izin veriyor (RLS engelliyor ama tip yakalamıyor). ⚠️
 **189.** Takvim `FlatList` yerine `ScrollView` kullanıyor — yılda ~20 etkinlik için kabul edilebilir, bilinçli bırakıldı. ⚠️
-**190.** Login ekranındaki `phoneRow`/`countryCode*` stilleri SMS döneminden kalma ölü kod. ⚠️
+**190.** Login ekranındaki SMS döneminden kalma ölü stiller. ✅ *Kullanılmayan kod temizlendi (`SCREEN_WIDTH`, `initials`, `Dimensions`, `View`).*
 **191.** Kayıt ekranındaki `phoneRow`/`cc` stilleri aynı şekilde ölü. ⚠️
-**192.** `Toast.tsx` `useState`/`useCallback` importları dosyanın ortasında. ⚠️
+**192.** `Toast.tsx` importları dosyanın ortasındaydı. ✅
 **193.** `Toast` `duration` prop değişimini yok sayıyor. ⚠️
 **194.** Duyuru bandındaki 📢 emoji, tipografik tasarım diliyle çelişiyor ve Android sürümlerine göre farklı çiziliyor. ⚠️
 **195.** `ROLE_LABELS[…] ?? …` — kayıt tam olduğu için `??` dalı ölü. ⚠️
@@ -358,7 +360,13 @@ Kayıt ekranında iki onay kutusu var, ikisi de zorunlu — ve **işaretlendikle
 **197.** Yasal metinler `elektron666.github.io` üzerinde — derneğin resmî belgesi kişisel GitHub hesabında görünüyor. `genctetsiad.org` alınınca taşınmalı. ⚠️
 **198.** Bu bağlantılar **şu an ölü** — GitHub Pages henüz açılmadı. Mağaza incelemecisi bunlara tıklar. ⚠️ **Yayın engeli.**
 **199.** Yasal bağlantı açılamazsa sessiz kalıyordu. ✅ `openExternal()` ile adres gösteriliyor + URL'ler tek kaynağa taşındı.
-**200.** Yönetim panelinde denetim kaydını (audit_log) görüntüleyecek ekran yok — kayıt tutuluyor ama yalnızca SQL Editor'den okunabiliyor. ⚠️
+**200.** Yönetim panelinde denetim kaydını görüntüleyecek ekran yoktu — kayıt tutuluyor ama yalnızca SQL Editor'den okunabiliyordu. ✅ *Yeni **KAYIT** sekmesi: son 100 işlem, Türkçe eylem adlarıyla.*
+
+---
+
+**201. `updateAnnouncement` / `updateEvent` / `updateCourse` hiçbir yerden çağrılmıyordu.** 🟠 ✅
+ESLint kurulur kurulmaz çıktı: bu üç fonksiyon `useAdmin`'de yazılmış, `admin.tsx`'te destructure edilmiş ve **hiç kullanılmamış**. Yani "yayınlanan içeriği düzenleme" özelliği tamamen ölüydü — yönetim yayınlanmış bir duyurudaki yazım hatasını ancak **silip yeniden yazarak** düzeltebiliyordu, bu da üyelere **ikinci kez bildirim** gitmesi demekti. Fonksiyonun başındaki yorum tam da bunu önlemek için yazılmıştı.
+→ *Yayındakiler listesine DÜZENLE düğmesi ve düzenleme sayfası eklendi; düzenleme bildirim göndermiyor.*
 
 ---
 

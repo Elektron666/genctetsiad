@@ -19,7 +19,7 @@ export function useMembers(roles?: MemberRole[]) {
       .order('full_name', { ascending: true });
 
     if (roles && roles.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       query = (query as any).in('role', roles);
     }
 

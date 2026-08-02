@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Text, StyleSheet, View } from 'react-native';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { Animated, Text, StyleSheet } from 'react-native';
 import { Colors, Fonts, FontSize } from '@/theme';
 
 type ToastVariant = 'success' | 'error' | 'info';
@@ -37,15 +37,19 @@ export function Toast({ message, variant = 'success', onHide, duration = 2800 }:
                             Colors.textMuted;
 
   return (
-    <Animated.View style={[styles.wrap, { opacity, transform: [{ translateY }], borderLeftColor: borderColor }]}>
+    <Animated.View
+      style={[styles.wrap, { opacity, transform: [{ translateY }], borderLeftColor: borderColor }]}
+      accessibilityLiveRegion="polite"
+      accessible
+      accessibilityRole="alert"
+      accessibilityLabel={message}
+    >
       <Text style={styles.text}>{message}</Text>
     </Animated.View>
   );
 }
 
 // Hook for easier usage
-import { useState, useCallback } from 'react';
-
 type ToastState = { id: number; message: string; variant: ToastVariant } | null;
 
 export function useToast() {
@@ -84,6 +88,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     zIndex: 999,
+    // Android'de zIndex tek başına yetmez; elevation olmadan
+    // bildirim bazı düzenlerde diğer kartların altında kalıyordu.
+    elevation: 12,
   },
   text: {
     fontFamily: Fonts.jakarta,

@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
@@ -8,6 +8,19 @@ import { useAuthContext } from '@/context/AuthContext';
 
 export default function PendingScreen() {
   const { profile, signOut, status, refreshProfile, deleteAccount } = useAuthContext();
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Onay geldiğinde kullanıcı bunu ancak uygulamayı KAPATIP AÇARAK
+  // görebiliyordu; ekranda yalnızca ilk açılışta çalışan bir efekt vardı.
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshProfile();
+    setRefreshing(false);
+  };
+
+  // Kayıt 1. adımdan sonra yarıda bırakıldıysa profil boş kalır ve
+  // kullanıcı burada "—" dolu bir ekrana kilitlenirdi.
+  const incomplete = !profile?.full_name?.trim() || !profile?.company?.trim();
 
   const confirmDelete = () => {
     Alert.alert(
@@ -39,7 +52,13 @@ export default function PendingScreen() {
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar style="light" />
-      <View style={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} colors={[Colors.gold]} progressBackgroundColor={Colors.navyDeep} />
+        }
+      >
         {/* Animated dot */}
         <View style={styles.dotWrap}>
           <View style={styles.dotOuter}><View style={styles.dotInner} /></View>
@@ -80,6 +99,23 @@ export default function PendingScreen() {
           ))}
         </View>
 
+        {incomplete && (
+          <TouchableOpacity
+            style={styles.completeBtn}
+            onPress={() => router.push('/(auth)/register')}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Başvuru bilgilerini tamamla"
+          >
+            <Text style={styles.completeText}>BAŞVURUNUZU TAMAMLAYIN →</Text>
+            <Text style={styles.completeSub}>
+              Başvuru bilgileriniz eksik. Tamamlanmayan başvurular değerlendirmeye alınamaz.
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        <Text style={styles.pullHint}>Onay durumunu yenilemek için aşağı çekin</Text>
+
         {/* Onay beklerken boş ekranda kalmasın: duyuru, etkinlik ve
             sürdürülebilirlik içeriği üye verisi içermiyor, güvenle
             gösterilebilir. Rehber ve bülten onaya bağlı kalır (RLS). */}
@@ -101,14 +137,18 @@ export default function PendingScreen() {
         <TouchableOpacity style={styles.deleteBtn} onPress={confirmDelete} activeOpacity={0.7}>
           <Text style={styles.deleteText}>Başvurumu geri çek ve hesabımı sil</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   root:       { flex: 1, backgroundColor: Colors.navy },
-  content:    { flex: 1, paddingHorizontal: 32, paddingTop: 64, alignItems: 'center' },
+  content:      { flexGrow: 1, paddingHorizontal: 32, paddingTop: 64, paddingBottom: 40, alignItems: 'center' },
+  completeBtn:  { borderWidth: 0.5, borderColor: Colors.gold, backgroundColor: 'rgba(217,200,150,0.07)', padding: 16, width: '100%', marginBottom: 20 },
+  completeText: { fontFamily: Fonts.jakarta, fontSize: FontSize.xs, fontWeight: '700', color: Colors.gold, letterSpacing: 1.5, marginBottom: 6 },
+  completeSub:  { fontFamily: Fonts.jakarta, fontSize: 9.5, color: Colors.textMuted, lineHeight: 15 },
+  pullHint:     { fontFamily: Fonts.jakarta, fontSize: 9, color: Colors.textMuted, marginBottom: 18 },
   dotWrap:    { marginBottom: 32 },
   dotOuter:   { width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: Colors.goldLine, alignItems: 'center', justifyContent: 'center' },
   dotInner:   { width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.gold },

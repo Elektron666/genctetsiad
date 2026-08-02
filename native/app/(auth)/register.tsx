@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, KeyboardAvoidingView, Platform, Animated, Share, Alert,
+  ScrollView, KeyboardAvoidingView, Platform, Animated, Share, Alert, BackHandler,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Fonts, FontSize } from '@/theme';
 import { useAuthContext } from '@/context/AuthContext';
 import { openExternal, PRIVACY_URL } from '@/lib/links';
+import { authErrorTR } from '@/lib/errors';
 
 const TOTAL_STEPS = 5;
 
@@ -44,27 +45,36 @@ const pb = StyleSheet.create({
 });
 
 export default function RegisterScreen() {
-  const { sendEmailOtp, verifyEmailOtp, updateProfile, session } = useAuthContext();
+  const { sendEmailOtp, verifyEmailOtp, updateProfile, session, profile } = useAuthContext();
 
-  const [step, setStep] = useState(1);
-  const [phone, setPhone] = useState('');
+  // Zaten oturum açmışsa doğrulama adımı atlanır. Bu, yarım kalan
+  // kaydı KURTARIR: 1. adımda kod doğrulanınca kullanıcı giriş yapmış
+  // olur; 2. adımda vazgeçerse boş bir profille onay ekranına düşüyor ve
+  // kaydı tamamlamanın hiçbir yolu kalmıyordu.
+  const [step, setStep] = useState(session?.user ? 2 : 1);
+  const [phone, setPhone] = useState((profile?.phone ?? '').replace(/^\+90/, ''));
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [firm, setFirm] = useState('');
-  const [city, setCity] = useState('');
-  const [sector, setSector] = useState('');
-  const [position, setPosition] = useState('');
+  const verifyingRef = useRef(false);
+  const nameParts = (profile?.full_name ?? '').trim().split(' ');
+  const [firstName, setFirstName] = useState(nameParts.slice(0, -1).join(' ') || nameParts[0] || '');
+  const [lastName, setLastName] = useState(nameParts.length > 1 ? nameParts[nameParts.length - 1] : '');
+  const [email, setEmail] = useState(profile?.email ?? session?.user?.email ?? '');
+  const [firm, setFirm] = useState(profile?.company ?? '');
+  const [city, setCity] = useState(profile?.city ?? '');
+  const [sector, setSector] = useState(profile?.sector ?? '');
+  const [position, setPosition] = useState(profile?.position ?? '');
   const [memberType, setMemberType] = useState<'student' | 'company'>('company');
   const [kvkkChecked, setKvkkChecked] = useState(false);
   const [transferConsent, setTransferConsent] = useState(false);
   const [memberCode, setMemberCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [codeAnim] = useState(new Animated.Value(0));
-  const otpRefs = Array.from({ length: 6 }, () => useRef<TextInput>(null));
+  // useRef bir döngü/geri çağırma içinde çağrılıyordu — uzunluk sabit
+  // olduğu için çalışıyordu ama hook kuralı ihlali; tek bir ref dizisi
+  // hem doğru hem daha ucuz.
+  const otpRefs = useRef<(TextInput | null)[]>([]);
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
@@ -74,11 +84,11 @@ export default function RegisterScreen() {
     const error = await sendEmailOtp(email);
     setOtpLoading(false);
     if (error) {
-      Alert.alert('Hata', error.message ?? 'Doğrulama e-postası gönderilemedi.');
+      Alert.alert('Kod gönderilemedi', authErrorTR(error));
       return;
     }
     setOtpSent(true);
-    setTimeout(() => otpRefs[0].current?.focus(), 100);
+    setTimeout(() => otpRefs.current[0]?.focus(), 100);
   };
 
   const handleOtp = async (val: string, i: number) => {
@@ -89,21 +99,23 @@ export default function RegisterScreen() {
     if (digits.length > 1) {
       for (let k = 0; k < 6 - i; k++) next[i + k] = digits[k] ?? '';
       setOtp(next);
-      otpRefs[Math.min(i + digits.length, 5)].current?.focus();
+      otpRefs.current[Math.min(i + digits.length, 5)]?.focus();
     } else {
       next[i] = digits.slice(-1);
       setOtp(next);
-      if (digits && i < 5) otpRefs[i + 1].current?.focus();
+      if (digits && i < 5) otpRefs.current[i + 1]?.focus();
     }
 
-    if (next.every(d => d)) {
+    if (next.every(d => d) && !verifyingRef.current) {
+      verifyingRef.current = true;
       setOtpLoading(true);
       const error = await verifyEmailOtp(email, next.join(''));
       setOtpLoading(false);
+      verifyingRef.current = false;
       if (error) {
-        Alert.alert('Hata', 'Kod hatalı. Tekrar deneyin.');
+        Alert.alert('Doğrulanamadı', authErrorTR(error));
         setOtp(['', '', '', '', '', '']);
-        otpRefs[0].current?.focus();
+        otpRefs.current[0]?.focus();
         return;
       }
       setTimeout(() => setStep(2), 300);
@@ -131,7 +143,7 @@ export default function RegisterScreen() {
         kvkk_accepted_at: kvkkChecked ? now : null,
         transfer_consent_at: transferConsent ? now : null,
         role: 'pending',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
       } as any);
       setSubmitting(false);
       if (error) {
@@ -151,6 +163,28 @@ export default function RegisterScreen() {
     }
   };
 
+  // Donanım geri tuşu tüm akışı terk ediyordu: 5 adım doldurup geri
+  // tuşuna basan kullanıcı her şeyi kaybediyordu.
+  const goBack = React.useCallback(() => {
+    const first = session?.user ? 2 : 1;
+    if (step > first && step < 6) { setStep(p => p - 1); return true; }
+    if (step >= 6) { router.replace('/(auth)/login'); return true; }
+    if (firstName || lastName || firm) {
+      Alert.alert('Başvurudan çıkılsın mı?', 'Girdiğiniz bilgiler kaydedilmeyecek.', [
+        { text: 'Devam et', style: 'cancel' },
+        { text: 'Çık', style: 'destructive', onPress: () => router.back() },
+      ]);
+      return true;
+    }
+    router.back();
+    return true;
+  }, [step, session, firstName, lastName, firm]);
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', goBack);
+    return () => sub.remove();
+  }, [goBack]);
+
   const canNext = () => {
     if (step === 2) return firstName.trim().length > 1 && lastName.trim().length > 1 && phone.replace(/\D/g, '').length >= 10;
     if (step === 3) return firm.trim().length > 1 && city.length > 0 && sector.length > 0;
@@ -164,7 +198,7 @@ export default function RegisterScreen() {
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => step > 1 && step < 6 ? setStep(p => p - 1) : router.back()} style={s.backBtn}>
+        <TouchableOpacity onPress={goBack} style={s.backBtn} accessibilityRole="button" accessibilityLabel="Geri">
           <Text style={s.backText}>←</Text>
         </TouchableOpacity>
         <Text style={s.headerTitle}>ÜYELİK BAŞVURUSU</Text>
@@ -217,7 +251,7 @@ export default function RegisterScreen() {
                 {otp.map((d, i) => (
                   <TextInput
                     key={i}
-                    ref={otpRefs[i]}
+                    ref={el => { otpRefs.current[i] = el; }}
                     style={[s.otpBox, d && s.otpFilled]}
                     value={d}
                     onChangeText={v => handleOtp(v, i)}

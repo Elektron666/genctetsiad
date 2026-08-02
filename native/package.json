@@ -7,7 +7,8 @@
     "iphone": "expo start --tunnel --clear",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@expo-google-fonts/cormorant-garamond": "^0.4.1",
@@ -40,6 +41,8 @@
   "devDependencies": {
     "@babel/core": "^7.25.0",
     "@types/react": "~19.2.0",
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "^57.0.1",
     "typescript": "~6.0.3"
   }
 }

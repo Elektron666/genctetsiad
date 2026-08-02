@@ -536,13 +536,13 @@ function MentorInbox({ onResponded }: { onResponded: (name: string, accepted: bo
         .select('id, mentee_id, message')
         .eq('mentor_id', session.user.id)
         .eq('status', 'pending');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const rows = (data ?? []) as any[];
       if (cancelled || rows.length === 0) return;
 
       const menteeIds = rows.map(r => r.mentee_id);
       const { data: profiles } = await supabase.from('profiles').select('id, full_name, company').in('id', menteeIds);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const pMap = new Map(((profiles ?? []) as any[]).map(p => [p.id, p]));
 
       if (!cancelled) {
@@ -559,7 +559,7 @@ function MentorInbox({ onResponded }: { onResponded: (name: string, accepted: bo
   }, [session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const respond = async (req: InboxRequest, accepted: boolean) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { error } = await (supabase as any)
       .from('mentorship_requests')
       .update({ status: accepted ? 'accepted' : 'rejected' })
@@ -636,7 +636,7 @@ function MentorsTab() {
     if (!modalMentor) return false;
 
     if (modalMentor.uuid && session?.user) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { error } = await (supabase as any).from('mentorship_requests').insert({
         mentee_id: session.user.id,
         mentor_id: modalMentor.uuid,
