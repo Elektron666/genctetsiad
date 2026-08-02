@@ -8,10 +8,11 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Fonts, FontSize } from '@/theme';
 import { useAuthContext } from '@/context/AuthContext';
+import { openExternal, PRIVACY_URL } from '@/lib/links';
 
 const TOTAL_STEPS = 5;
 
-const CITIES = ['İstanbul', 'Bursa', 'Denizli', 'Ankara', 'İzmir', 'Gaziantep', 'Kahramanmaraş', 'Uşak', 'Tekirdağ', 'Konya', 'Adana', 'Kayseri', 'Mersin'];
+const CITIES = ['İstanbul', 'Bursa', 'Denizli', 'Ankara', 'İzmir', 'Gaziantep', 'Kahramanmaraş', 'Uşak', 'Tekirdağ', 'Konya', 'Adana', 'Kayseri', 'Mersin', 'Diğer'];
 const SECTORS = ['Havlu & Bornoz', 'Yatak & Nevresim', 'Perde & Döşeme', 'Halı & Kilim', 'İplik & Örme', 'Teknik Tekstil', 'Diğer'];
 
 function ProgressBar({ step }: { step: number }) {
@@ -61,6 +62,7 @@ export default function RegisterScreen() {
   const [kvkkChecked, setKvkkChecked] = useState(false);
   const [transferConsent, setTransferConsent] = useState(false);
   const [memberCode, setMemberCode] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [codeAnim] = useState(new Animated.Value(0));
   const otpRefs = Array.from({ length: 6 }, () => useRef<TextInput>(null));
 
@@ -80,10 +82,20 @@ export default function RegisterScreen() {
   };
 
   const handleOtp = async (val: string, i: number) => {
+    const digits = val.replace(/\D/g, '');
     const next = [...otp];
-    next[i] = val.slice(-1);
-    setOtp(next);
-    if (val && i < 5) otpRefs[i + 1].current?.focus();
+
+    // Yapıştırma desteği — bkz. login.tsx
+    if (digits.length > 1) {
+      for (let k = 0; k < 6 - i; k++) next[i + k] = digits[k] ?? '';
+      setOtp(next);
+      otpRefs[Math.min(i + digits.length, 5)].current?.focus();
+    } else {
+      next[i] = digits.slice(-1);
+      setOtp(next);
+      if (digits && i < 5) otpRefs[i + 1].current?.focus();
+    }
+
     if (next.every(d => d)) {
       setOtpLoading(true);
       const error = await verifyEmailOtp(email, next.join(''));
@@ -100,6 +112,13 @@ export default function RegisterScreen() {
 
   const next = async () => {
     if (step === TOTAL_STEPS) {
+      if (submitting) return;
+      setSubmitting(true);
+      // Üyelik tipi ve KVKK onayları artık KAYDEDİLİYOR.
+      // Daha önce 4. adımdaki seçim ve iki açık rıza kutusu hiçbir yere
+      // yazılmıyordu: KVKK denetiminde rızayı KANITLAMAK gerekir ve
+      // kullanıcının seçtiği üyelik tipi tamamen çöpe gidiyordu.
+      const now = new Date().toISOString();
       const { error } = await updateProfile({
         full_name: `${firstName} ${lastName}`.trim(),
         email: email.trim().toLowerCase(),
@@ -108,8 +127,13 @@ export default function RegisterScreen() {
         city,
         sector,
         position,
+        member_type: memberType,
+        kvkk_accepted_at: kvkkChecked ? now : null,
+        transfer_consent_at: transferConsent ? now : null,
         role: 'pending',
-      });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+      setSubmitting(false);
       if (error) {
         Alert.alert('Hata', 'Başvuru kaydedilemedi. Tekrar deneyin.');
         return;
@@ -169,6 +193,8 @@ export default function RegisterScreen() {
                 placeholder="ornek@firma.com"
                 placeholderTextColor={Colors.textMuted}
                 keyboardType="email-address"
+                autoComplete="email"
+                textContentType="emailAddress"
                 autoCapitalize="none"
                 autoCorrect={false}
               />
@@ -196,7 +222,9 @@ export default function RegisterScreen() {
                     value={d}
                     onChangeText={v => handleOtp(v, i)}
                     keyboardType="number-pad"
-                    maxLength={1}
+                    autoComplete="sms-otp"
+                    textContentType="oneTimeCode"
+                    maxLength={6}
                     textAlign="center"
                     editable={otpSent && !otpLoading}
                   />
@@ -340,7 +368,7 @@ export default function RegisterScreen() {
                   Verileriniz pazarlama amacıyla kimseyle paylaşılmaz ve satılmaz. Hizmetin çalışması için şu tedarikçilere sınırlı teknik aktarım yapılır:{'\n'}
                   • Supabase — veritabanı barındırma (Almanya / Frankfurt){'\n'}
                   • Google Firebase & Expo — bildirim iletimi (ABD){'\n'}
-                  • SMS sağlayıcısı — doğrulama kodu iletimi{'\n'}
+                  • E-posta sağlayıcısı (Resend / Supabase) — doğrulama kodu iletimi (AB){'\n'}
                   • Sentry — teknik hata kayıtları (Almanya / AB). Yalnızca hata mesajı,
                   kod konumu, cihaz modeli ve uygulama sürümü gönderilir;
                   kimlik bilgisi, telefon numarası veya yazdığınız metinler
@@ -353,8 +381,12 @@ export default function RegisterScreen() {
                   <Text style={s.kvkkHead}>HAKLARINIZ (KVKK m.11){'\n'}</Text>
                   Verilerinizin işlenip işlenmediğini öğrenme, bilgi talep etme, işleme amacını öğrenme, aktarıldığı üçüncü kişileri bilme, düzeltilmesini veya silinmesini isteme, işlemeye itiraz etme ve zarara uğramanız hâlinde tazminat talep etme haklarına sahipsiniz. Başvurularınızı info@tetsiad.org adresine iletebilirsiniz.{'\n\n'}
 
-                  Tam metin: elektron666.github.io/genctetsiad/gizlilik-politikasi.html
                 </Text>
+                <TouchableOpacity onPress={() => openExternal(PRIVACY_URL)} activeOpacity={0.7}>
+                  <Text style={[s.kvkkText, { color: Colors.gold, marginTop: 10 }]}>
+                    Aydınlatma metninin tam hâlini okuyun →
+                  </Text>
+                </TouchableOpacity>
               </ScrollView>
 
               <TouchableOpacity style={s.checkRow} onPress={() => setKvkkChecked(v => !v)} activeOpacity={0.7}>
@@ -397,7 +429,7 @@ export default function RegisterScreen() {
               </View>
 
               <Text style={s.successNote}>
-                Bu kodu kaydedin. Başvuru durumunuzu sorgulamak için kullanabilirsiniz.
+                Bu kodu kaydedin. Yönetimle iletişimde başvurunuzu bu kodla belirtebilirsiniz.
               </Text>
 
               <TouchableOpacity
@@ -405,7 +437,7 @@ export default function RegisterScreen() {
                 onPress={() => Share.share({ message: memberCode })}
                 activeOpacity={0.8}
               >
-                <Text style={[s.ctaText, { color: Colors.gold }]}>KODU PAYLAŞ / KOPYALA</Text>
+                <Text style={[s.ctaText, { color: Colors.gold }]}>REFERANS KODUNU PAYLAŞ</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -429,10 +461,12 @@ export default function RegisterScreen() {
             style={[s.ctaButton, !canNext() && s.ctaDisabled]}
             onPress={next}
             activeOpacity={0.8}
-            disabled={!canNext()}
+            disabled={!canNext() || submitting}
           >
             <Text style={s.ctaText}>
-              {step === TOTAL_STEPS ? 'BAŞVURUYU TAMAMLA' : 'DEVAM ET'}
+              {step === TOTAL_STEPS
+                ? (submitting ? 'GÖNDERİLİYOR...' : 'BAŞVURUYU TAMAMLA')
+                : 'DEVAM ET'}
             </Text>
           </TouchableOpacity>
         </View>

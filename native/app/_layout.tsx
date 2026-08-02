@@ -33,7 +33,7 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
-  const [loaded] = useFonts({
+  const [loaded, fontError] = useFonts({
     CormorantGaramond: require('../assets/fonts/CormorantGaramond-Regular.ttf'),
     'CormorantGaramond-Italic': require('../assets/fonts/CormorantGaramond-Italic.ttf'),
     'CormorantGaramond-Medium': require('../assets/fonts/CormorantGaramond-Medium.ttf'),
@@ -45,11 +45,17 @@ export default function RootLayout() {
     JetBrainsMono: require('../assets/fonts/JetBrainsMono-Regular.ttf'),
   });
 
-  useEffect(() => {
-    if (loaded) SplashScreen.hideAsync();
-  }, [loaded]);
+  // Font yüklemesi başarısız olursa (bozuk indirme, dolu disk) `loaded`
+  // sonsuza kadar false kalır: açılış ekranı hiç kapanmaz ve uygulama
+  // KİLİTLENİR. Hata durumunda da devam ediyoruz — yazı tipleri sistem
+  // varsayılanına düşer ama uygulama açılır.
+  const ready = loaded || !!fontError;
 
-  if (!loaded) return null;
+  useEffect(() => {
+    if (ready) SplashScreen.hideAsync().catch(() => {});
+  }, [ready]);
+
+  if (!ready) return null;
 
   return (
     <ErrorBoundary>

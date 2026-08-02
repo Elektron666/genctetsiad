@@ -32,8 +32,10 @@ export function useAuth() {
       setProfile(row as Profile);
       setStatus(row.role === 'pending' ? 'pending' : 'authenticated');
     } else if (error && error.code !== 'PGRST116') {
-      // Geçici hata (ağ vb.) — oturumu düşürme, pending say ki kullanıcı atılmasın
-      setStatus('pending');
+      // Geçici hata (ağ vb.). Elimizde daha önce yüklenmiş bir profil
+      // varsa ONU KORU — eskiden onaylı bir üye, tek bir ağ kesintisinde
+      // "onay bekleniyor" ekranına düşüyor ve uygulamadan atılıyordu.
+      setStatus(prev => (prev === 'authenticated' ? 'authenticated' : 'pending'));
     } else {
       // Profil satırı gerçekten yok (trigger gecikmesi olabilir) — pending kabul et
       setStatus('pending');
@@ -110,8 +112,17 @@ export function useAuth() {
   }, []);
 
   const signOut = useCallback(async () => {
+    // Cihaz kaydını çıkarmadan çıkılırsa, telefon dernek duyurularını
+    // almaya DEVAM ediyordu — ortak kullanılan bir cihazda başkasının
+    // bildirimlerini görmek demek.
+    if (session?.user) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      try {
+        await (supabase as any).from('push_tokens').delete().eq('user_id', session.user.id);
+      } catch { /* token silinemezse çıkış yine de yapılmalı */ }
+    }
     await supabase.auth.signOut();
-  }, []);
+  }, [session]);
 
   // Mağaza zorunluluğu: kullanıcı kendi hesabını kalıcı olarak silebilmeli.
   // RPC auth.users kaydını siler; tüm veriler CASCADE ile temizlenir.

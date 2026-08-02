@@ -9,6 +9,7 @@ import {
   Dimensions,
   Platform,
   Modal,
+  Linking,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -470,7 +471,8 @@ export default function HomeScreen() {
           {[
             { icon: '◈', label: 'Üyelere\nUlaş', sub: 'REHBER', target: 'directory' },
             { icon: '◆', label: 'Sektörel\nGelişim', sub: 'AKADEMİ', target: 'academy' },
-            { icon: '◉', label: 'Trendleri\nKeşfet', sub: 'GÜNDEM', target: 'news' },
+            // Kart 'GÜNDEM' diyor ama sürdürülebilirlik sekmesini açıyordu.
+            { icon: '◉', label: 'Yeşil\nDönüşüm', sub: 'SÜRDÜRÜLEBİLİRLİK', target: 'news' },
           ].map((card) => (
             <TouchableOpacity
               key={card.target}
@@ -642,9 +644,25 @@ export default function HomeScreen() {
           <View style={styles.footerRule} />
 
           {/* Contact */}
-          <Text style={styles.footerContact}>
-            info@tetsiad.org  ·  +90 212 292 04 04
-          </Text>
+          {/* Künyedeki iletişim bilgileri düz metindi; dokunmak hiçbir
+              şey yapmıyordu. */}
+          <View style={styles.footerContactRow}>
+            <TouchableOpacity
+              onPress={() => Linking.openURL('mailto:info@tetsiad.org')}
+              accessibilityRole="button"
+              accessibilityLabel="TETSİAD'a e-posta gönder"
+            >
+              <Text style={styles.footerContact}>info@tetsiad.org</Text>
+            </TouchableOpacity>
+            <Text style={styles.footerContact}>  ·  </Text>
+            <TouchableOpacity
+              onPress={() => Linking.openURL('tel:+902122920404')}
+              accessibilityRole="button"
+              accessibilityLabel="TETSİAD'ı ara"
+            >
+              <Text style={styles.footerContact}>+90 212 292 04 04</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
       </ScrollView>
@@ -1224,6 +1242,12 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     letterSpacing: 1,
     fontWeight: '600',
+  },
+  footerContactRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexWrap: 'wrap',
   },
   footerContact: {
     fontFamily: Fonts.mono,

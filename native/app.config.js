@@ -34,6 +34,12 @@ module.exports = () => {
         supportsTablet: false,
         bundleIdentifier: 'org.tetsiad.genc',
         buildNumber: '1',
+        infoPlist: {
+          // Bu olmadan HER TestFlight/App Store yüklemesi "ihracat
+          // uyumluluğu" sorusunda takılır ve elle cevaplanana kadar
+          // dağıtım başlamaz. Uygulama yalnızca standart HTTPS kullanıyor.
+          ITSAppUsesNonExemptEncryption: false,
+        },
       },
       android: {
         adaptiveIcon: {

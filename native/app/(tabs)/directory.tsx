@@ -45,7 +45,9 @@ function profileToMember(p: Profile): Member {
   };
 }
 
-const FALLBACK_MEMBERS: Member[] = [
+// Sunum verisi. 19 uydurma üye + telefon numaraları; bunlar arasında
+// gerçek kişilerin adları da var. Yayın paketine hiç girmemeli.
+const DEMO_MEMBERS: Member[] = [
   { id:'1',  name:'Resul Öden',       role:'Başkan',          firm:'ROSSA HOME',             city:'İstanbul', memberNo:'GT-2026-00001', phone:'+90 532 101 00 01', sector:'Ev Tekstili' },
   { id:'2',  name:'Fatih Özdemir',    role:'Yönetim Kurulu',  firm:'ORMEN TEKSTİL',          city:'Ankara',   memberNo:'GT-2026-00002', phone:'+90 542 312 04 60', sector:'Dokuma' },
   { id:'3',  name:'Elif Yıldız',      role:'Üye',             firm:'YILDIZ HOME',            city:'Bursa',    memberNo:'GT-2026-00003', phone:'+90 505 234 56 78', sector:'Tasarım' },
@@ -66,6 +68,8 @@ const FALLBACK_MEMBERS: Member[] = [
   { id:'18', name:'Ege Demir',        role:'Öğrenci Üye',     firm:'Pamukkale Üniversitesi', city:'Denizli',  memberNo:'GT-2026-00018', phone:'+90 507 890 12 34', sector:'Öğrenci' },
   { id:'19', name:'Görkem Yıldırım',  role:'Üye',             firm:'YILDIRIM EV TEKSTİLİ',  city:'İstanbul', memberNo:'GT-2026-00019', phone:'+90 534 901 23 45', sector:'Ev Tekstili' },
 ];
+
+const FALLBACK_MEMBERS: Member[] = __DEV__ ? DEMO_MEMBERS : [];
 
 function initials(name: string) {
   return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
@@ -105,7 +109,7 @@ export default function DirectoryScreen() {
     }
     return list;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, search, allMembers.length]);
+  }, [filter, search, supabaseMembers]);
 
   const FILTERS: FilterKey[] = ['TÜMÜ', 'YÖNETİM', 'ÜYE', 'ÖĞRENCİ'];
 
@@ -194,7 +198,7 @@ export default function DirectoryScreen() {
         )}
       />
 
-      <Modal visible={!!selected} animationType="slide" transparent>
+      <Modal visible={!!selected} animationType="slide" transparent onRequestClose={() => setSelected(null)}>
         <View style={styles.overlay}>
           <View style={styles.card}>
             {selected && <>
@@ -216,9 +220,16 @@ export default function DirectoryScreen() {
                   <Text style={styles.modalValue}>{value}</Text>
                 </View>
               ))}
-              <TouchableOpacity style={styles.phoneBtn} onPress={() => Linking.openURL(`tel:${selected.phone}`)}>
-                <Text style={styles.phoneBtnText}>☎  {selected.phone}</Text>
-              </TouchableOpacity>
+              {selected.phone !== '—' && (
+                <TouchableOpacity
+                  style={styles.phoneBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${selected.name} adlı üyeyi ara`}
+                  onPress={() => Linking.openURL(`tel:${selected.phone.replace(/\s/g, '')}`)}
+                >
+                  <Text style={styles.phoneBtnText}>☎  {selected.phone}</Text>
+                </TouchableOpacity>
+              )}
               {!!selected.email && (
                 <TouchableOpacity
                   style={styles.mailBtn}

@@ -42,6 +42,10 @@ export function useAdmin() {
   const [members, setMembers] = useState<Profile[]>([]);
   const [stats, setStats] = useState<AdminStats>({ pending: 0, members: 0, events: 0, announcements: 0 });
   const [loading, setLoading] = useState(true);
+  // Sorgu hataları tamamen yutuluyordu: ağ kesintisinde veya RLS reddinde
+  // panel "Bekleyen başvuru yok" gösteriyordu ve yönetici kuyruğun boş
+  // olduğunu sanıyordu.
+  const [error, setError] = useState<string | null>(null);
 
   const refetch = useCallback(async () => {
     setLoading(true);
@@ -52,6 +56,13 @@ export function useAdmin() {
       supabase.from('events').select('id', { count: 'exact', head: true }),
       supabase.from('announcements').select('id', { count: 'exact', head: true }),
     ]);
+
+    if (pendingRes.error || membersRes.error) {
+      setError('Bağlantı kurulamadı');
+      setLoading(false);
+      return;
+    }
+    setError(null);
 
     const pendingRows = (pendingRes.data ?? []) as Profile[];
     const memberRows = (membersRes.data ?? []) as Profile[];
@@ -78,7 +89,10 @@ export function useAdmin() {
   // Başvuruyu onayla — rol değişince DB trigger'ı GT-YYYY-XXXXX üye kodunu atar,
   // kullanıcının telefonuna hoş geldin bildirimi gider
   const approve = useCallback(async (userId: string, role: Extract<MemberRole, 'member' | 'student'>) => {
-    const { error } = await sb.from('profiles').update({ role }).eq('id', userId);
+    // .select() olmadan RLS'in engellediği güncelleme "hatasız" döner ve
+    // panel onaylandı gösterirdi; dönen satır sayısını kontrol ediyoruz.
+    const { data, error: err } = await sb.from('profiles').update({ role }).eq('id', userId).select('id');
+    const error = err ?? ((data as unknown[] | null)?.length ? null : new Error('Güncelleme yetkisi yok'));
     if (!error) {
       setPending(prev => {
         const approved = prev.find(p => p.id === userId);
@@ -86,18 +100,21 @@ export function useAdmin() {
         return prev.filter(p => p.id !== userId);
       });
       setStats(prev => ({ ...prev, pending: prev.pending - 1, members: prev.members + 1 }));
+      // Bildirim "elinden geldiğince" gönderilir; reddedilirse onay akışı
+      // etkilenmemeli (eskiden yakalanmayan promise reddi oluşuyordu).
       pushToUser(
         userId,
         'Üyeliğiniz Onaylandı 🎉',
         'Genç TETSİAD üyeliğiniz aktif edildi. Üye kodunuz profilinizde hazır — hoş geldiniz!'
-      );
+      ).catch(() => {});
     }
     return error;
   }, [pushToUser]);
 
   // Rol değiştir (yönetim kurulu atama, üyeliğe geri çekme, onaya geri alma vb.)
   const setRole = useCallback(async (userId: string, role: MemberRole) => {
-    const { error } = await sb.from('profiles').update({ role }).eq('id', userId);
+    const { data, error: err } = await sb.from('profiles').update({ role }).eq('id', userId).select('id');
+    const error = err ?? ((data as unknown[] | null)?.length ? null : new Error('Rol değiştirme yetkiniz yok'));
     if (!error) {
       if (role === 'pending') {
         setMembers(prev => {
@@ -130,10 +147,17 @@ export function useAdmin() {
       // fonksiyon dağıtılmamış veya ulaşılamıyor → geri düşüş
     }
 
-    const { data: rows } = await supabase.from('push_tokens').select('token');
-    const tokens = ((rows ?? []) as { token: string }[]).map(t => t.token);
-    if (tokens.length === 0) return 0;
-    return sendPushBatch(tokens, title, body);
+    // Edge Function henüz dağıtılmadıysa istemci-taraflı yola düşülür.
+    // Bu yol da başarısız olabilir (migration 008 token okumayı kapatır);
+    // duyurunun kendisi zaten kaydedildiği için hatayı yutuyoruz.
+    try {
+      const { data: rows } = await supabase.from('push_tokens').select('token');
+      const tokens = ((rows ?? []) as { token: string }[]).map(t => t.token);
+      if (tokens.length === 0) return 0;
+      return await sendPushBatch(tokens, title, body);
+    } catch {
+      return 0;
+    }
   }, []);
 
   const publishAnnouncement = useCallback(async (input: { title: string; body: string; type: 'general' | 'event' | 'system' }) => {
@@ -306,6 +330,17 @@ export function useAdmin() {
     return { error: null, sent: 0 };
   }, [pushToAll]);
 
+  // Başvuru reddi (migration 011): kayıt audit_log'a yazılır,
+  // kişisel veri silinir. Yönetimin elinde eskiden yalnızca ONAYLA vardı.
+  const rejectApplication = useCallback(async (userId: string, reason?: string) => {
+    const { error } = await sb.rpc('reject_application', { target: userId, reason: reason ?? null });
+    if (!error) {
+      setPending(prev => prev.filter(p => p.id !== userId));
+      setStats(prev => ({ ...prev, pending: Math.max(0, prev.pending - 1) }));
+    }
+    return error;
+  }, []);
+
   const listAttendees = useCallback(async (eventId: string): Promise<Attendee[]> => {
     const { data: rows } = await supabase
       .from('event_attendees')
@@ -333,7 +368,7 @@ export function useAdmin() {
   }, []);
 
   return {
-    pending, members, stats, loading, refetch, approve, setRole,
+    pending, members, stats, loading, error, refetch, approve, rejectApplication, setRole,
     publishAnnouncement, createEvent,
     listAnnouncements, deleteAnnouncement, updateAnnouncement,
     listEvents, deleteEvent, updateEvent,

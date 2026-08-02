@@ -36,7 +36,11 @@ type EventItem = {
   desc: string;
 };
 
-const EVENTS: EventItem[] = [
+// Sunum verisi. YAYINDA KULLANILMAZ — daha önce Supabase boş dönerse
+// (derneğin henüz etkinlik girmediği ilk gün) bu 5 uydurma etkinlik
+// gerçekmiş gibi listeleniyordu: sahte katılımcı sayıları, var olmayan
+// konuşmacılar ve hiçbir şey kaydetmeyen bir KATIL düğmesiyle.
+const DEMO_EVENTS: EventItem[] = [
   {
     id: 1,
     day: 24,
@@ -107,6 +111,8 @@ const EVENTS: EventItem[] = [
     desc: 'Genç TETSİAD yönetim kurulu aylık toplantısı.',
   },
 ];
+
+const EVENTS: EventItem[] = __DEV__ ? DEMO_EVENTS : [];
 
 const MONTHS_TR = ['OCAK', 'ŞUBAT', 'MART', 'NİSAN', 'MAYIS', 'HAZİRAN', 'TEMMUZ', 'AĞUSTOS', 'EYLÜL', 'EKİM', 'KASIM', 'ARALIK'];
 
@@ -417,7 +423,7 @@ function EventDetail({
 export default function CalendarScreen() {
   const { registeredEvents, toggleEvent } = useAppContext();
   const { session } = useAuthContext();
-  const { events: supabaseEvents, toggleAttendance, refetch } = useEvents(session?.user.id);
+  const { events: supabaseEvents, loading, error, toggleAttendance, refetch } = useEvents(session?.user.id);
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -427,8 +433,13 @@ export default function CalendarScreen() {
     setRefreshing(false);
   };
 
-  const displayEvents: EventItem[] = supabaseEvents.length > 0
-    ? supabaseEvents.map(supabaseToEventItem)
+  // Biten etkinlikler "yaklaşan" listesinde kalmamalı; gün sonuna kadar
+  // gösterip sonra düşürüyoruz (aynı gün sabahı etkinlik kaybolmasın).
+  const cutoff = Date.now() - 12 * 60 * 60 * 1000;
+  const upcoming = supabaseEvents.filter((e) => new Date(e.starts_at).getTime() > cutoff);
+
+  const displayEvents: EventItem[] = upcoming.length > 0
+    ? upcoming.map(supabaseToEventItem)
     : EVENTS;
 
   const isRegistered = (event: EventItem): boolean => {
@@ -442,10 +453,11 @@ export default function CalendarScreen() {
     if (event.uuid) {
       const res = await toggleAttendance(event.uuid);
       if (res.full) {
-        Alert.alert(
-          'Kontenjan Doldu',
-          'Bu etkinliğin kontenjanı bu sırada doldu. Katılım kaydı oluşturulamadı.'
-        );
+        Alert.alert('Kontenjan Doldu', 'Bu etkinliğin kontenjanı bu sırada doldu. Katılım kaydı oluşturulamadı.');
+      } else if (res.denied) {
+        Alert.alert('Üyelik Onayı Gerekli', 'Etkinliklere kayıt olabilmek için üyeliğinizin onaylanması gerekiyor.');
+      } else if (res.failed) {
+        Alert.alert('İşlem Tamamlanamadı', 'Bağlantı kurulamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.');
       }
     } else {
       toggleEvent(event.id);
@@ -455,6 +467,8 @@ export default function CalendarScreen() {
   const attendanceCount = supabaseEvents.length > 0
     ? supabaseEvents.filter((e) => e.is_attending).length
     : registeredEvents.size;
+
+  const thisYear = new Date().getFullYear();
 
   if (selectedEvent) {
     // Snapshot yerine güncel listeden oku ki katılım sonrası sayaç canlı kalsın
@@ -485,7 +499,7 @@ export default function CalendarScreen() {
       >
         {/* Year + stats row */}
         <View style={styles.statsRow}>
-          <Text style={styles.statsYear}>2026</Text>
+          <Text style={styles.statsYear}>{thisYear}</Text>
           <Text style={styles.statsInfo}>
             <Text style={styles.goldNum}>{displayEvents.length}</Text>
             {' ETKİNLİK · '}
@@ -496,6 +510,22 @@ export default function CalendarScreen() {
 
         {/* Divider */}
         <View style={styles.goldDivider} />
+
+        {/* Boş ve hata durumları — daha önce ikisi de sessizce
+            demo etkinliklere düşüyordu. */}
+        {displayEvents.length === 0 && (
+          <View style={styles.emptyWrap}>
+            <View style={styles.emptyDot} />
+            <Text style={styles.emptyTitle}>
+              {loading ? 'Yükleniyor...' : error ? 'Bağlantı kurulamadı.' : 'Yaklaşan etkinlik yok.'}
+            </Text>
+            <Text style={styles.emptySub}>
+              {error
+                ? 'İnternet bağlantınızı kontrol edip aşağı çekerek yeniden deneyin.'
+                : 'Yeni etkinlikler duyurulduğunda burada görünecek ve telefonunuza bildirim gelecek.'}
+            </Text>
+          </View>
+        )}
 
         {/* Event cards */}
         {displayEvents.map((event) => (
@@ -524,6 +554,10 @@ export default function CalendarScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  emptyWrap:  { alignItems: 'center', paddingVertical: 56, paddingHorizontal: 32 },
+  emptyDot:   { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.gold, marginBottom: 18 },
+  emptyTitle: { fontFamily: Fonts.cormorant, fontStyle: 'italic', fontSize: 22, color: Colors.ivory, marginBottom: 8, textAlign: 'center' },
+  emptySub:   { fontFamily: Fonts.jakarta, fontSize: 10, color: Colors.textMuted, textAlign: 'center', lineHeight: 16 },
   container: {
     flex: 1,
     backgroundColor: Colors.navy,

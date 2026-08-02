@@ -54,12 +54,22 @@ export default function LoginScreen() {
 
   const handleOtpChange = async (val: string, idx: number) => {
     setOtpError(false);
+    const digits = val.replace(/\D/g, '');
     const next = [...otp];
-    next[idx] = val.slice(-1);
-    setOtp(next);
-    if (val && idx < 5) {
-      otpRefs[idx + 1].current?.focus();
+
+    // Yapıştırma: kullanıcılar kodu e-postadan kopyalayıp ilk kutuya
+    // yapıştırıyor. Eskiden yalnızca son hane yazılıyordu ve kod hiç
+    // tamamlanmıyordu.
+    if (digits.length > 1) {
+      for (let i = 0; i < 6 - idx; i++) next[idx + i] = digits[i] ?? '';
+      setOtp(next);
+      otpRefs[Math.min(idx + digits.length, 5)].current?.focus();
+    } else {
+      next[idx] = digits.slice(-1);
+      setOtp(next);
+      if (digits && idx < 5) otpRefs[idx + 1].current?.focus();
     }
+
     if (next.every(d => d !== '')) {
       setLoading(true);
       const error = await verifyEmailOtp(email, next.join(''));
@@ -82,8 +92,14 @@ export default function LoginScreen() {
   const handleResend = async () => {
     setOtp(['', '', '', '', '', '']);
     setLoading(true);
-    await sendEmailOtp(email);
+    const error = await sendEmailOtp(email);
     setLoading(false);
+    // Hata yutuluyordu: Supabase saatlik gönderim sınırına takıldığında
+    // hiçbir şey olmuyor ama geri sayım "gönderildi" gibi yeniden başlıyordu.
+    if (error) {
+      Alert.alert('Kod gönderilemedi', 'Kısa süre içinde çok fazla deneme yapıldı. Lütfen birkaç dakika bekleyin.');
+      return;
+    }
     setCountdown(60);
     otpRefs[0].current?.focus();
   };
@@ -132,6 +148,8 @@ export default function LoginScreen() {
                 placeholder="ornek@firma.com"
                 placeholderTextColor={Colors.textMuted}
                 keyboardType="email-address"
+                autoComplete="email"
+                textContentType="emailAddress"
                 autoCapitalize="none"
                 autoCorrect={false}
                 editable={!loading}
@@ -180,7 +198,9 @@ export default function LoginScreen() {
                     onChangeText={v => handleOtpChange(v, i)}
                     onKeyPress={e => handleOtpKeyPress(e, i)}
                     keyboardType="number-pad"
-                    maxLength={1}
+                    autoComplete="sms-otp"
+                    textContentType="oneTimeCode"
+                    maxLength={6}
                     textAlign="center"
                     selectTextOnFocus
                     editable={!loading}

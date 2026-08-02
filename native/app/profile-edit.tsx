@@ -16,7 +16,7 @@ import { useAuthContext } from '@/context/AuthContext';
 // Rol, üye kodu ve mentor işareti burada YOK — onlar RLS tarafından
 // korunuyor (migration 006) ve yalnızca yönetim değiştirebilir.
 
-const CITIES = ['İstanbul', 'Bursa', 'Denizli', 'Ankara', 'İzmir', 'Gaziantep', 'Kahramanmaraş', 'Uşak', 'Tekirdağ', 'Konya', 'Adana', 'Kayseri', 'Mersin'];
+const CITIES = ['İstanbul', 'Bursa', 'Denizli', 'Ankara', 'İzmir', 'Gaziantep', 'Kahramanmaraş', 'Uşak', 'Tekirdağ', 'Konya', 'Adana', 'Kayseri', 'Mersin', 'Diğer'];
 const SECTORS = ['Havlu & Bornoz', 'Yatak & Nevresim', 'Perde & Döşeme', 'Halı & Kilim', 'İplik & Örme', 'Teknik Tekstil', 'Diğer'];
 
 export default function ProfileEditScreen() {
@@ -26,11 +26,13 @@ export default function ProfileEditScreen() {
   const [email, setEmail] = useState(profile?.email ?? '');
   const [company, setCompany] = useState(profile?.company ?? '');
   const [position, setPosition] = useState(profile?.position ?? '');
+  const [phone, setPhone] = useState(profile?.phone ?? '');
   const [city, setCity] = useState(profile?.city ?? '');
   const [sector, setSector] = useState(profile?.sector ?? '');
   const [busy, setBusy] = useState(false);
 
-  const valid = fullName.trim().length > 2 && (email.trim() === '' || email.includes('@'));
+  const emailOk = email.trim() === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const valid = fullName.trim().length > 2 && emailOk;
 
   const save = async () => {
     if (!valid || busy) return;
@@ -38,6 +40,7 @@ export default function ProfileEditScreen() {
     const { error } = await updateProfile({
       full_name: fullName.trim(),
       email: email.trim() || null,
+      phone: phone.trim() || null,
       company: company.trim() || null,
       position: position.trim() || null,
       city: city || null,
@@ -74,8 +77,14 @@ export default function ProfileEditScreen() {
           <TextInput style={s.input} value={fullName} onChangeText={setFullName} placeholder="Adınız Soyadınız" placeholderTextColor={Colors.textMuted} autoCapitalize="words" />
           <View style={s.underline} />
 
-          <Text style={[s.fieldLabel, { marginTop: 24 }]}>E-POSTA</Text>
+          <Text style={[s.fieldLabel, { marginTop: 24 }]}>E-POSTA (REHBERDE GÖRÜNEN)</Text>
           <TextInput style={s.input} value={email} onChangeText={setEmail} placeholder="ornek@firma.com" placeholderTextColor={Colors.textMuted} keyboardType="email-address" autoCapitalize="none" />
+          <View style={s.underline} />
+
+          {/* Telefon, rehberde her üyeye görünen alan. KVKK m.11 düzeltme
+              hakkının en çok işe yaradığı yer burasıydı ama düzenlenemiyordu. */}
+          <Text style={[s.fieldLabel, { marginTop: 24 }]}>TELEFON</Text>
+          <TextInput style={s.input} value={phone} onChangeText={setPhone} placeholder="+90 5__ ___ __ __" placeholderTextColor={Colors.textMuted} keyboardType="phone-pad" />
           <View style={s.underline} />
 
           <Text style={[s.fieldLabel, { marginTop: 24 }]}>FİRMA</Text>

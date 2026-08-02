@@ -38,8 +38,26 @@ function fmtDate(iso: string) {
 
 // ─── Bekleyen başvuru kartı ───────────────────────────────────────────────────
 
-function PendingCard({ p, onApprove }: { p: Profile; onApprove: (role: 'member' | 'student') => void }) {
+function PendingCard({ p, onApprove, onReject }: {
+  p: Profile;
+  onApprove: (role: 'member' | 'student') => void;
+  onReject: () => void;
+}) {
   const [busy, setBusy] = useState(false);
+
+  // Sahte/spam başvurular eskiden sonsuza kadar kuyrukta kalıyordu:
+  // yönetimin elinde yalnızca ONAYLA vardı. Reddetme kaydı audit_log'a
+  // yazılır, kişisel veri ise silinir (KVKK: gereksiz veriyi tutma).
+  const confirmReject = () => {
+    Alert.alert(
+      'Başvuruyu Reddet',
+      `${p.full_name || 'Bu başvuru'} reddedilecek ve kişisel verileri silinecek. İşlem denetim kaydına yazılır ve geri alınamaz.`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        { text: 'REDDET', style: 'destructive', onPress: onReject },
+      ]
+    );
+  };
 
   const confirm = (role: 'member' | 'student') => {
     Alert.alert(
@@ -82,6 +100,9 @@ function PendingCard({ p, onApprove }: { p: Profile; onApprove: (role: 'member' 
           <Text style={s.pBtnOutlineText}>ÖĞRENCİ</Text>
         </TouchableOpacity>
       </View>
+      <TouchableOpacity onPress={confirmReject} disabled={busy} activeOpacity={0.7} style={s.pRejectBtn}>
+        <Text style={s.pRejectText}>Başvuruyu reddet ve sil</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -193,7 +214,10 @@ function MembersTab({
               {selected.member_code ? `  ·  ${selected.member_code}` : ''}
             </Text>
             <View style={s.roleSheetDivider} />
-            {ASSIGNABLE_ROLES.filter(r => r.key !== selected.role).map(r => (
+            {/* Kendi rolünü değiştirmek RLS tarafından da engellenir
+                (migration 011) — düğmeyi hiç göstermiyoruz ki yönetici
+                başarısız olacak bir işlemi denemesin. */}
+            {ASSIGNABLE_ROLES.filter(r => r.key !== selected.role && selected.id !== currentUserId).map(r => (
               <TouchableOpacity key={r.key} style={s.roleOption} onPress={() => pickRole(r.key)} activeOpacity={0.7}>
                 <Text style={[s.roleOptionLabel, r.key === 'pending' && { color: 'rgba(224,96,96,0.85)' }]}>{r.label}</Text>
                 <Text style={s.roleOptionDesc}>{r.desc}</Text>
@@ -535,12 +559,27 @@ function AnnouncementForm({ onPublish }: { onPublish: (input: { title: string; b
 
   const valid = title.trim().length > 3 && body.trim().length > 10;
 
-  const submit = async () => {
+  // Duyuru yayınlamak GERİ ALINAMAZ bir işlemdir: metin uygulamadan
+  // silinse bile bildirim 1.500 telefona düşmüş olur. Onay adımı,
+  // gidecek metni son kez gösteriyor.
+  const submit = () => {
     if (!valid || busy) return;
-    setBusy(true);
-    const ok = await onPublish({ title: title.trim(), body: body.trim(), type });
-    setBusy(false);
-    if (ok) { setTitle(''); setBody(''); setType('general'); }
+    Alert.alert(
+      'Duyuru yayınlansın mı?',
+      `Bu metin TÜM ÜYELERİN telefonuna bildirim olarak gidecek ve geri alınamaz.\n\n"${title.trim()}"\n\n${body.trim()}`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'YAYINLA',
+          onPress: async () => {
+            setBusy(true);
+            const ok = await onPublish({ title: title.trim(), body: body.trim(), type });
+            setBusy(false);
+            if (ok) { setTitle(''); setBody(''); setType('general'); }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -610,21 +649,36 @@ function EventForm({ onCreate }: { onCreate: (input: { title: string; descriptio
   const [quota, setQuota] = useState('');
   const [busy, setBusy] = useState(false);
 
+  // JavaScript'te new Date(2026, 12, 31) HATA VERMEZ — sessizce 2027
+  // Ocak'a taşar. Yönetici "24.13.2026" yazdığında etkinlik bir yıl
+  // sonraya kayıyor ve kimse fark etmiyordu. Gün/ay/saat aralıkları
+  // artık açıkça denetleniyor ve sonuç geri okunarak taşma yakalanıyor.
   const parseDateTime = (): Date | null => {
     const m = date.trim().match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/);
     if (!m) return null;
-    const t = time.trim().match(/^(\d{1,2})[:.](\d{2})$/) ?? ['', '10', '00'];
-    const d = new Date(
-      parseInt(m[3], 10), parseInt(m[2], 10) - 1, parseInt(m[1], 10),
-      parseInt(t[1] as string, 10), parseInt(t[2] as string, 10)
-    );
-    return isNaN(d.getTime()) ? null : d;
+    const dd = parseInt(m[1], 10), mm = parseInt(m[2], 10), yy = parseInt(m[3], 10);
+    if (mm < 1 || mm > 12 || dd < 1 || dd > 31 || yy < 2026 || yy > 2100) return null;
+
+    const tm = time.trim() === '' ? null : time.trim().match(/^(\d{1,2})[:.](\d{2})$/);
+    if (time.trim() !== '' && !tm) return null;
+    const hh = tm ? parseInt(tm[1], 10) : 10;
+    const mi = tm ? parseInt(tm[2], 10) : 0;
+    if (hh > 23 || mi > 59) return null;
+
+    const d = new Date(yy, mm - 1, dd, hh, mi);
+    if (isNaN(d.getTime())) return null;
+    // 31.02 → 3 Mart'a taşar; geri okuyup yakalıyoruz
+    if (d.getDate() !== dd || d.getMonth() !== mm - 1 || d.getFullYear() !== yy) return null;
+    return d;
   };
 
-  const valid = title.trim().length > 3 && parseDateTime() !== null;
+  const dt = parseDateTime();
+  const inPast = dt !== null && dt.getTime() < Date.now();
+  const quotaNum = quota.trim() === '' ? null : parseInt(quota.trim(), 10);
+  const quotaOk = quotaNum === null || (Number.isFinite(quotaNum) && quotaNum > 0);
+  const valid = title.trim().length > 3 && dt !== null && !inPast && quotaOk;
 
   const submit = async () => {
-    const dt = parseDateTime();
     if (!dt || !valid || busy) return;
     setBusy(true);
     const ok = await onCreate({
@@ -633,7 +687,7 @@ function EventForm({ onCreate }: { onCreate: (input: { title: string; descriptio
       location: location.trim() || undefined,
       city: city.trim() || undefined,
       starts_at: dt.toISOString(),
-      max_attendees: quota.trim() ? parseInt(quota.trim(), 10) || null : null,
+      max_attendees: quotaNum,
     });
     setBusy(false);
     if (ok) { setTitle(''); setDesc(''); setLocation(''); setCity(''); setDate(''); setTime(''); setQuota(''); }
@@ -683,7 +737,15 @@ function EventForm({ onCreate }: { onCreate: (input: { title: string; descriptio
       <TouchableOpacity style={[s.cta, (!valid || busy) && s.disabled]} onPress={submit} disabled={!valid || busy} activeOpacity={0.8}>
         <Text style={s.ctaText}>{busy ? 'EKLENİYOR...' : 'ETKİNLİĞİ YAYINLA'}</Text>
       </TouchableOpacity>
-      <Text style={s.helper}>Etkinlik, takvim sekmesinde tüm üyelere anında açılır.</Text>
+      <Text style={s.helper}>
+        {date.trim() !== '' && dt === null
+          ? '⚠ Tarih geçersiz. Biçim: GG.AA.YYYY (örn. 24.07.2026)'
+          : inPast
+          ? '⚠ Bu tarih geçmişte. Etkinlik takvimde görünmez.'
+          : !quotaOk
+          ? '⚠ Kontenjan 1 veya daha büyük olmalı (boş bırakırsanız sınırsız).'
+          : 'Etkinlik takvim sekmesinde tüm üyelere anında açılır ve herkese bildirim gider.'}
+      </Text>
     </View>
   );
 }
@@ -693,7 +755,7 @@ function EventForm({ onCreate }: { onCreate: (input: { title: string; descriptio
 export default function AdminScreen() {
   const { profile, status } = useAuthContext();
   const {
-    pending, members, stats, loading, refetch, approve, setRole,
+    pending, members, stats, loading, refetch, approve, rejectApplication, setRole,
     publishAnnouncement, createEvent,
     listAnnouncements, deleteAnnouncement, updateAnnouncement,
     listEvents, deleteEvent, updateEvent,
@@ -728,6 +790,11 @@ export default function AdminScreen() {
     } else {
       showToast(`${p.full_name || 'Üye'} onaylandı — üye kodu atandı.`, 'success');
     }
+  };
+
+  const handleReject = async (p: Profile) => {
+    const error = await rejectApplication(p.id);
+    showToast(error ? 'Reddedilemedi — yetkinizi kontrol edin.' : 'Başvuru reddedildi.', error ? 'error' : 'success');
   };
 
   const handlePublish = async (input: { title: string; body: string; type: 'general' | 'event' | 'system' }) => {
@@ -819,7 +886,7 @@ export default function AdminScreen() {
                 </View>
               ) : (
                 pending.map(p => (
-                  <PendingCard key={p.id} p={p} onApprove={(role) => handleApprove(p, role)} />
+                  <PendingCard key={p.id} p={p} onApprove={(role) => handleApprove(p, role)} onReject={() => handleReject(p)} />
                 ))
               )}
             </View>
@@ -934,6 +1001,8 @@ export default function AdminScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
+  pRejectBtn:  { marginTop: 12, alignItems: 'center', paddingVertical: 6 },
+  pRejectText: { fontFamily: Fonts.jakarta, fontSize: 9, color: 'rgba(224,96,96,0.75)', letterSpacing: 0.5 },
   root:           { flex: 1, backgroundColor: Colors.navy },
 
   header:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16, backgroundColor: Colors.navyDeep, borderBottomWidth: 0.5, borderBottomColor: Colors.goldLine },

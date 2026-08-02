@@ -88,7 +88,9 @@ const PROGRAMS: Program[] = [
   },
 ];
 
-const COURSES: Course[] = [
+// Sunum verisi — yayında gösterilmez. Daha önce Supabase boş dönerse
+// üye, hiç kaydolmadığı 6 kursu "%72 tamamlandı" gibi görüyordu.
+const DEMO_COURSES: Course[] = [
   { id: 1, title: 'İhracat Temelleri', tag: 'İHRACAT', level: 'BAŞLANGIÇ', duration: '8 SAAT', progress: 72 },
   { id: 2, title: 'Sürdürülebilir Tedarik Zinciri', tag: 'SÜRDÜRÜLEBİLİRLİK', level: 'ORTA', duration: '12 SAAT', progress: 45 },
   { id: 3, title: 'Marka İnşası & Konumlandırma', tag: 'MARKA', level: 'ORTA', duration: '10 SAAT', progress: 0 },
@@ -97,12 +99,19 @@ const COURSES: Course[] = [
   { id: 6, title: 'AB Direktifleri & Uyum', tag: 'YEŞİL', level: 'ORTA', duration: '8 SAAT', progress: 20 },
 ];
 
-const MENTORS: Mentor[] = [
+const COURSES: Course[] = __DEV__ ? DEMO_COURSES : [];
+
+// Sunum verisi — yayında gösterilmez. Daha önce bu 4 uydurma mentora
+// "BAŞVUR" denebiliyor ve var olmayan kişi için başarı bildirimi
+// gösteriliyordu; hiçbir kayıt oluşmuyordu.
+const DEMO_MENTORS: Mentor[] = [
   { id: 1, name: 'Ahmet Yılmaz', title: 'CEO', firm: 'ATLAS TEKSTİL', expertise: 'İhracat & AB Pazarları', initials: 'AY' },
   { id: 2, name: 'Selin Çelik', title: 'Genel Müdür', firm: 'ÖZGÜR HOME', expertise: 'Sürdürülebilir Üretim', initials: 'SÇ' },
   { id: 3, name: 'Murat Demir', title: 'Kurucu', firm: 'DEMIR DESIGN', expertise: 'Marka ve Tasarım', initials: 'MD' },
   { id: 4, name: 'Fatma Kara', title: 'İhracat Direktörü', firm: 'KARA TEKSTİL', expertise: 'Uluslararası Ticaret', initials: 'FK' },
 ];
+
+const MENTORS: Mentor[] = __DEV__ ? DEMO_MENTORS : [];
 
 const LEVEL_LABELS: Record<CourseLevel, string> = {
   beginner:     'BAŞLANGIÇ',
@@ -451,7 +460,7 @@ function ProgramsTab() {
 
 function CoursesTab() {
   const { session } = useAuthContext();
-  const { courses: supabaseCourses, enroll } = useCourses(session?.user.id);
+  const { courses: supabaseCourses, loading, error, enroll } = useCourses(session?.user.id);
   const { show: showToast, ToastComponent } = useToast();
 
   const displayCourses = supabaseCourses.length > 0
@@ -460,7 +469,13 @@ function CoursesTab() {
 
   const handleEnroll = async (course: Course) => {
     if (!course.uuid) return;
-    await enroll(course.uuid);
+    // Daha önce hata yutuluyordu ve başarı bildirimi KOŞULSUZ
+    // gösteriliyordu: kayıt oluşmasa da üye kaydolduğunu sanıyordu.
+    const { error } = await enroll(course.uuid);
+    if (error) {
+      showToast('Kayıt oluşturulamadı. Üyeliğiniz onaylı mı?', 'error');
+      return;
+    }
     showToast(`"${course.title}" kursuna kaydoldunuz`, 'success');
   };
 
@@ -470,6 +485,13 @@ function CoursesTab() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.tabContent}
       >
+        {displayCourses.length === 0 && (
+          <Text style={styles.tabIntro}>
+            {loading ? 'Yükleniyor...' : error
+              ? 'Bağlantı kurulamadı. İnternet bağlantınızı kontrol edin.'
+              : 'Eğitim kataloğu hazırlanıyor. Yeni kurslar eklendiğinde bildirim alacaksınız.'}
+          </Text>
+        )}
         <View style={styles.coursesGrid}>
           {displayCourses.map((c) => (
             <CourseCard
@@ -654,6 +676,13 @@ function MentorsTab() {
               showToast(accepted ? `${name} başvurusu kabul edildi` : `${name} başvurusu reddedildi`, accepted ? 'success' : 'info')
             }
           />
+        )}
+
+        {displayMentors.length === 0 && (
+          <Text style={styles.tabIntro}>
+            Mentor listesi henüz oluşturulmadı. Yönetim mentor atadığında
+            burada görünecekler.
+          </Text>
         )}
 
         {displayMentors.map((m) => (

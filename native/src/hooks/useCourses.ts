@@ -45,7 +45,7 @@ export function useCourses(userId?: string) {
   useEffect(() => { fetchCourses(); }, [fetchCourses]);
 
   const enroll = useCallback(async (courseId: string) => {
-    if (!userId) return;
+    if (!userId) return { error: new Error('No session') };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase as any)
       .from('course_enrollments')
@@ -60,6 +60,7 @@ export function useCourses(userId?: string) {
         )
       );
     }
+    return { error };
   }, [userId]);
 
   const updateProgress = useCallback(async (courseId: string, progress: number) => {

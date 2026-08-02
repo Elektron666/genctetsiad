@@ -38,7 +38,11 @@ type AppState = {
   announcementBanner: Banner | null;
 };
 
-const DEFAULT_NOTIFICATIONS: Notification[] = [
+// Demo bildirimleri YAYINDA GÖSTERİLMEZ. Daha önce Supabase'den kayıt
+// gelmediğinde (derneğin henüz duyuru yayınlamadığı ilk gün) her üye
+// bu uydurma listeyi görüyordu — "Üyeliğiniz onaylandı", "Fatih Özdemir
+// bağlantı isteği gönderdi" gibi hiç yaşanmamış olaylar dahil.
+const DEMO_NOTIFICATIONS: Notification[] = [
   { id: 1, category: 'ETKİNLİK', title: 'Fabrika ziyareti kayıtları açıldı',      body: '24 Temmuz İstanbul Fabrika Ziyareti için kontenjan sınırlı, takvimden yerinizi ayırtın.', date: '15 HAZİRAN', read: false },
   { id: 2, category: 'DUYURU',   title: '3T Programı başvuruları açıldı',         body: "Türkiye Tekstil Temsilcileri programına başvurular 15 Eylül'e kadar.", date: '12 HAZİRAN', read: false },
   { id: 3, category: 'DUYURU',   title: 'Yeni kurs eklendi',                      body: 'AB Direktifleri & Uyum kursu eğitim kataloğuna eklendi.',     date: '10 HAZİRAN', read: true },
@@ -46,6 +50,8 @@ const DEFAULT_NOTIFICATIONS: Notification[] = [
   { id: 5, category: 'ETKİNLİK', title: 'HOMETEX 2026 fotoğrafları yayında',      body: 'Mayıs ayındaki fuar çalışmasının kareleri paylaşıldı.',       date: '2 HAZİRAN', read: true },
   { id: 6, category: 'SİSTEM',   title: 'Üyeliğiniz onaylandı',                   body: 'Genç TETSİAD üyeliğiniz aktif edildi. Hoş geldiniz!',         date: '18 MAYIS', read: true },
 ];
+
+const DEFAULT_NOTIFICATIONS: Notification[] = __DEV__ ? DEMO_NOTIFICATIONS : [];
 
 const MONTHS_TR = ['OCAK', 'ŞUBAT', 'MART', 'NİSAN', 'MAYIS', 'HAZİRAN', 'TEMMUZ', 'AĞUSTOS', 'EYLÜL', 'EKİM', 'KASIM', 'ARALIK'];
 
@@ -90,14 +96,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (status !== 'authenticated' && status !== 'pending') return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('announcements')
         .select('*')
         .order('published_at', { ascending: false })
         .limit(20);
+      if (cancelled) return;
+      // Ağ hatasında elimizdeki listeyi koru; başarılı ama boş yanıtta
+      // listeyi GERÇEKTEN boşalt (yayında demo verisi asılı kalmasın).
+      if (error) return;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const rows = (data ?? []) as any[];
-      if (cancelled || rows.length === 0) return;
+      if (rows.length === 0) {
+        setNotifications(DEFAULT_NOTIFICATIONS);
+        setAnnouncementBanner(null);
+        return;
+      }
 
       const catOf = (t: string): Notification['category'] =>
         t === 'event' ? 'ETKİNLİK' : t === 'system' ? 'SİSTEM' : 'DUYURU';
