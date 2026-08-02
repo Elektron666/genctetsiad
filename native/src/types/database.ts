@@ -2,6 +2,7 @@ export type MemberRole = 'pending' | 'member' | 'student' | 'board' | 'president
 export type RequestStatus = 'pending' | 'accepted' | 'rejected';
 export type NotifType = 'announcement' | 'event' | 'system' | 'mentorship';
 export type CourseLevel = 'beginner' | 'intermediate' | 'advanced';
+export type ArticleStatus = 'pending' | 'published' | 'rejected';
 
 export interface Profile {
   id: string;
@@ -105,10 +106,29 @@ export interface PushToken {
   updated_at: string;
 }
 
+export interface Article {
+  id: string;
+  author_id: string;
+  title: string;
+  summary: string | null;
+  body: string;
+  status: ArticleStatus;
+  review_note: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+  // joined
+  author_name?: string;
+  author_company?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
       profiles: { Row: Profile; Insert: Partial<Profile>; Update: Partial<Profile> };
+      articles: { Row: Article; Insert: Partial<Article>; Update: Partial<Article> };
       push_tokens: { Row: PushToken; Insert: Partial<PushToken>; Update: Partial<PushToken> };
       events: { Row: Event; Insert: Partial<Event>; Update: Partial<Event> };
       event_attendees: { Row: EventAttendee; Insert: Omit<EventAttendee, 'registered_at'>; Update: never };
