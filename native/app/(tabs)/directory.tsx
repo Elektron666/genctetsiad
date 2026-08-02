@@ -17,6 +17,7 @@ type Member = {
   memberNo: string;
   phone: string;
   sector: string;
+  email?: string;
 };
 
 type FilterKey = 'TÜMÜ' | 'YÖNETİM' | 'ÜYE' | 'ÖĞRENCİ';
@@ -40,6 +41,7 @@ function profileToMember(p: Profile): Member {
     memberNo: p.member_code ?? '—',
     phone:    p.phone ?? '—',
     sector:   p.sector ?? '—',
+    email:    p.email ?? undefined,
   };
 }
 
@@ -198,6 +200,7 @@ export default function DirectoryScreen() {
                 ['ŞEHİR', selected.city],
                 ['SEKTÖR', selected.sector],
                 ['ÜYE NO', selected.memberNo],
+                ...(selected.email ? [['E-POSTA', selected.email] as [string, string]] : []),
               ] as [string, string][]).map(([label, value]) => (
                 <View key={label} style={styles.modalRow}>
                   <Text style={styles.modalLabel}>{label}</Text>
@@ -207,6 +210,14 @@ export default function DirectoryScreen() {
               <TouchableOpacity style={styles.phoneBtn} onPress={() => Linking.openURL(`tel:${selected.phone}`)}>
                 <Text style={styles.phoneBtnText}>☎  {selected.phone}</Text>
               </TouchableOpacity>
+              {!!selected.email && (
+                <TouchableOpacity
+                  style={styles.mailBtn}
+                  onPress={() => Linking.openURL(`mailto:${selected.email}`)}
+                >
+                  <Text style={styles.mailBtnText}>✉  E-POSTA GÖNDER</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity style={styles.closeBtn} onPress={() => setSelected(null)}>
                 <Text style={styles.closeBtnText}>KAPAT</Text>
               </TouchableOpacity>
@@ -262,6 +273,8 @@ const styles = StyleSheet.create({
   modalValue:     { fontFamily: Fonts.jakarta, fontSize: FontSize.sm, color: Colors.ivory },
   phoneBtn:       { marginTop: 20, backgroundColor: Colors.gold, paddingVertical: 12, width: '100%', alignItems: 'center' },
   phoneBtnText:   { fontFamily: Fonts.jakarta, fontSize: FontSize.sm, fontWeight: '700', color: Colors.navy },
+  mailBtn:        { marginTop: 10, borderWidth: 0.5, borderColor: Colors.gold, paddingVertical: 12, width: '100%', alignItems: 'center' },
+  mailBtnText:    { fontFamily: Fonts.jakarta, fontSize: FontSize.sm, fontWeight: '600', color: Colors.gold },
   closeBtn:       { marginTop: 12, paddingVertical: 12, width: '100%', alignItems: 'center', borderWidth: 0.5, borderColor: Colors.goldLine },
   closeBtnText:   { fontFamily: Fonts.jakarta, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 2 },
 });

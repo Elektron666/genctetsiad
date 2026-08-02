@@ -68,7 +68,7 @@ const EVENTS = [
     month: 'EKİM',
     tag: 'SAHA GEZİSİ',
     title: 'Bursa Fabrika Ziyareti',
-    src: 'https://picsum.photos/seed/gt-ev4/400/300',
+    src: IMG_KOMITE,
   },
 ];
 

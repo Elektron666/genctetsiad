@@ -45,7 +45,7 @@ const EVENTS: EventItem[] = [
     title: 'İstanbul Fabrika Ziyareti',
     place: 'İstanbul · Beylikdüzü OSB',
     count: 38,
-    src: 'https://picsum.photos/seed/gt-ev1/800/400',
+    src: '',
     speakers: [
       { initials: 'AK', name: 'Ahmet Kurt' },
       { initials: 'SY', name: 'Selin Yıldız' },
@@ -60,7 +60,7 @@ const EVENTS: EventItem[] = [
     title: 'HOMETEX 2027 Fuar Hazırlığı',
     place: 'CNR Expo · İstanbul',
     count: 120,
-    src: 'https://picsum.photos/seed/gt-ev2/800/400',
+    src: '',
     speakers: [
       { initials: 'RÖ', name: 'Resul Öden' },
       { initials: 'AY', name: 'Aylin Yıldız' },
@@ -75,7 +75,7 @@ const EVENTS: EventItem[] = [
     title: 'İTÜ Tasarım Günleri',
     place: 'İTÜ Maçka Kampüsü',
     count: 64,
-    src: 'https://picsum.photos/seed/gt-ev3/800/400',
+    src: '',
     speakers: [
       { initials: 'LK', name: 'Prof. Dr. Leyla Karaca' },
       { initials: 'FÖ', name: 'Fatih Özdemir' },
@@ -90,7 +90,7 @@ const EVENTS: EventItem[] = [
     title: 'Bursa Fabrika Ziyareti',
     place: 'Bursa · DEMİRTAŞ OSB',
     count: 42,
-    src: 'https://picsum.photos/seed/gt-ev4/800/400',
+    src: '',
     speakers: [{ initials: 'KB', name: 'Kerem Bayraktar' }],
     desc: "Bursa'nın köklü dokuma ve baskı fabrikalarında bir tam gün.",
   },
@@ -102,7 +102,7 @@ const EVENTS: EventItem[] = [
     title: 'Yönetim Kurulu Toplantısı',
     place: 'TETSİAD Merkezi · İstanbul',
     count: 22,
-    src: 'https://picsum.photos/seed/gt-ev5/800/400',
+    src: '',
     speakers: [{ initials: 'RÖ', name: 'Resul Öden' }],
     desc: 'Genç TETSİAD yönetim kurulu aylık toplantısı.',
   },
@@ -122,7 +122,7 @@ function supabaseToEventItem(e: SupabaseEvent, index: number): EventItem {
     place:    [e.location, e.city].filter(Boolean).join(' · ') || '—',
     count:    e.attendee_count ?? 0,
     max:      e.max_attendees,
-    src:      e.image_url ?? `https://picsum.photos/seed/${e.id}/800/400`,
+    src:      e.image_url ?? '',   // görsel yoksa markalı zemin çizilir
     speakers: [],
     desc:     e.description ?? '',
   };
@@ -234,8 +234,8 @@ function EventCard({
     >
       {/* Photo */}
       <ImageBackground
-        source={{ uri: event.src }}
-        style={styles.cardImage}
+        source={event.src ? { uri: event.src } : undefined}
+        style={[styles.cardImage, !event.src && styles.cardImagePlaceholder]}
         imageStyle={styles.cardImageStyle}
       >
         <View style={styles.cardImageOverlay}>
@@ -314,8 +314,8 @@ function EventDetail({
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         {/* Cover */}
         <ImageBackground
-          source={{ uri: event.src }}
-          style={styles.detailImage}
+          source={event.src ? { uri: event.src } : undefined}
+          style={[styles.detailImage, !event.src && styles.cardImagePlaceholder]}
           imageStyle={{ resizeMode: 'cover' }}
         >
           <View style={styles.detailImageOverlay} />
@@ -599,6 +599,13 @@ const styles = StyleSheet.create({
   },
   cardImageStyle: {
     resizeMode: 'cover',
+  },
+  // Görseli olmayan etkinlikler için markalı zemin — daha önce
+  // picsum.photos'tan rastgele yabancı fotoğraflar çekiliyordu.
+  cardImagePlaceholder: {
+    backgroundColor: Colors.navyMid,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.goldLine,
   },
   cardImageOverlay: {
     flex: 1,
