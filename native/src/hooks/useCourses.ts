@@ -5,6 +5,7 @@ import type { Course } from '@/types/database';
 export function useCourses(userId?: string) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchCourses = useCallback(async () => {
     setLoading(true);
@@ -15,9 +16,11 @@ export function useCourses(userId?: string) {
       .order('created_at', { ascending: true });
 
     if (error || !data) {
+      setError('Bağlantı kurulamadı');
       setLoading(false);
       return;
     }
+    setError(null);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rows = data as any[];
@@ -78,5 +81,5 @@ export function useCourses(userId?: string) {
     return { error: null };
   }, [userId]);
 
-  return { courses, loading, refetch: fetchCourses, enroll, updateProgress };
+  return { courses, loading, error, refetch: fetchCourses, enroll, updateProgress };
 }

@@ -14,7 +14,7 @@ import type { Profile } from '@/types/database';
 
 const ADMIN_ROLES = ['board', 'president', 'admin'];
 
-type AdminTab = 'ONAYLAR' | 'ÜYELER' | 'DUYURU' | 'ETKİNLİK' | 'KURS';
+type AdminTab = 'ONAYLAR' | 'ÜYELER' | 'BÜLTEN' | 'DUYURU' | 'ETKİNLİK' | 'KURS';
 
 const ROLE_LABELS: Record<string, string> = {
   pending:   'Onay Bekliyor',
@@ -188,6 +188,110 @@ function MembersTab({
             </TouchableOpacity>
           </View>
         </View>
+        </Modal>
+      )}
+    </View>
+  );
+}
+
+// ─── Bülten inceleme kuyruğu ─────────────────────────────────────────────────
+
+function ArticleReview({
+  load,
+  onReview,
+  reloadKey,
+}: {
+  load: () => Promise<{ id: string; title: string; summary: string | null; body: string; author_name: string; created_at: string }[]>;
+  onReview: (id: string, decision: 'published' | 'rejected', note: string | undefined, title: string) => Promise<boolean>;
+  reloadKey: number;
+}) {
+  const [items, setItems] = useState<Awaited<ReturnType<typeof load>>>([]);
+  const [open, setOpen] = useState<(typeof items)[0] | null>(null);
+  const [note, setNote] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    load().then(r => { if (!cancelled) setItems(r); });
+    return () => { cancelled = true; };
+  }, [reloadKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const decide = async (decision: 'published' | 'rejected') => {
+    if (!open) return;
+    if (decision === 'rejected' && note.trim().length < 5) {
+      Alert.alert('Gerekçe gerekli', 'Yazarın neyi düzelteceğini bilmesi için kısa bir not yazın.');
+      return;
+    }
+    const ok = await onReview(open.id, decision, decision === 'rejected' ? note.trim() : undefined, open.title);
+    if (ok) {
+      setItems(prev => prev.filter(i => i.id !== open.id));
+      setOpen(null);
+      setNote('');
+    }
+  };
+
+  return (
+    <View style={{ paddingTop: 12 }}>
+      {items.length === 0 ? (
+        <View style={s.empty}>
+          <View style={s.emptyDot} />
+          <Text style={s.emptyTitle}>İncelenecek yazı yok.</Text>
+          <Text style={s.emptySub}>
+            Üyelerin gönderdiği yazılar burada listelenir. Onayladığınız yazı
+            bültende yayımlanır ve tüm üyelere bildirim gider.
+          </Text>
+        </View>
+      ) : items.map(a => (
+        <TouchableOpacity key={a.id} style={s.pCard} onPress={() => { setOpen(a); setNote(''); }} activeOpacity={0.8}>
+          <Text style={s.pName}>{a.title}</Text>
+          <Text style={s.pFirm}>{a.author_name} · {fmtDate(a.created_at)}</Text>
+          {!!a.summary && <Text style={s.artSummary} numberOfLines={2}>{a.summary}</Text>}
+          <Text style={s.artOpen}>OKU VE KARAR VER →</Text>
+        </TouchableOpacity>
+      ))}
+
+      {open && (
+        <Modal visible animationType="slide" onRequestClose={() => setOpen(null)}>
+          <View style={s.artRoot}>
+            <View style={s.artBar}>
+              <TouchableOpacity onPress={() => setOpen(null)} activeOpacity={0.7}>
+                <Text style={s.artBack}>← KUYRUĞA DÖN</Text>
+              </TouchableOpacity>
+              <Text style={s.artMeta}>{open.author_name}</Text>
+            </View>
+
+            <ScrollView contentContainerStyle={s.artBody} keyboardShouldPersistTaps="handled">
+              <Text style={s.artTitle}>{open.title}</Text>
+              {!!open.summary && <Text style={s.artLead}>{open.summary}</Text>}
+              <View style={s.artRule} />
+              <Text style={s.artText}>{open.body}</Text>
+
+              <View style={s.artRule} />
+              <Text style={s.fieldLabel}>REVİZYON NOTU <Text style={{ fontWeight: '400' }}>(reddederken zorunlu)</Text></Text>
+              <TextInput
+                style={[s.input, { minHeight: 70, fontFamily: Fonts.jakarta, fontSize: 13 }]}
+                value={note}
+                onChangeText={setNote}
+                placeholder="Yazarın neyi düzeltmesi gerektiğini yazın..."
+                placeholderTextColor={Colors.textMuted}
+                multiline
+                textAlignVertical="top"
+                maxLength={400}
+              />
+              <View style={s.underline} />
+
+              <TouchableOpacity style={s.cta} onPress={() => decide('published')} activeOpacity={0.8}>
+                <Text style={s.ctaText}>✓ YAYINLA</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.artReject} onPress={() => decide('rejected')} activeOpacity={0.8}>
+                <Text style={s.artRejectText}>REVİZYON İSTE</Text>
+              </TouchableOpacity>
+              <Text style={s.helper}>
+                Yayınlarsanız tüm üyelere bildirim gider. Revizyon isterseniz
+                yazar notunuzu görüp düzeltip yeniden gönderebilir.
+              </Text>
+              <View style={{ height: 40 }} />
+            </ScrollView>
+          </View>
         </Modal>
       )}
     </View>
@@ -578,7 +682,7 @@ export default function AdminScreen() {
     listAnnouncements, deleteAnnouncement, updateAnnouncement,
     listEvents, deleteEvent, updateEvent,
     listCourses, createCourse, updateCourse, deleteCourse,
-    listAttendees,
+    listAttendees, listPendingArticles, reviewArticle,
   } = useAdmin();
   const [tab, setTab] = useState<AdminTab>('ONAYLAR');
   const [reloadKey, setReloadKey] = useState(0);
@@ -639,7 +743,7 @@ export default function AdminScreen() {
     { value: stats.announcements, label: 'DUYURU' },
   ];
 
-  const TABS: AdminTab[] = ['ONAYLAR', 'ÜYELER', 'DUYURU', 'ETKİNLİK', 'KURS'];
+  const TABS: AdminTab[] = ['ONAYLAR', 'ÜYELER', 'BÜLTEN', 'DUYURU', 'ETKİNLİK', 'KURS'];
 
   return (
     <SafeAreaView style={s.root}>
@@ -707,6 +811,24 @@ export default function AdminScreen() {
 
           {tab === 'ÜYELER' && (
             <MembersTab members={members} currentUserId={profile?.id} onSetRole={handleSetRole} />
+          )}
+
+          {tab === 'BÜLTEN' && (
+            <ArticleReview
+              reloadKey={reloadKey}
+              load={listPendingArticles}
+              onReview={async (id, decision, noteText, title) => {
+                const { error, sent } = await reviewArticle(id, decision, noteText, title);
+                if (error) { showToast('İşlem başarısız.', 'error'); return false; }
+                showToast(
+                  decision === 'published'
+                    ? (sent > 0 ? `Yayınlandı — ${sent} cihaza bildirim gönderildi.` : 'Yazı yayınlandı.')
+                    : 'Revizyon istendi, yazara iletildi.',
+                  'success',
+                );
+                return true;
+              }}
+            />
           )}
 
           {tab === 'DUYURU' && (
@@ -811,9 +933,9 @@ const s = StyleSheet.create({
   statLabel:      { fontFamily: Fonts.mono, fontSize: 6.5, letterSpacing: 1.5, color: Colors.textMuted, marginTop: 4 },
 
   tabRow:         { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: Colors.goldLine },
-  tabItem:        { flex: 1, paddingVertical: 14, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabItem:        { flex: 1, paddingVertical: 14, paddingHorizontal: 2, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabItemActive:  { borderBottomColor: Colors.gold },
-  tabLabel:       { fontFamily: Fonts.jakarta, fontSize: 8.5, letterSpacing: 1.2, color: Colors.textMuted, fontWeight: '600' },
+  tabLabel:       { fontFamily: Fonts.jakarta, fontSize: 7.5, letterSpacing: 0.6, color: Colors.textMuted, fontWeight: '600' },
   tabLabelActive: { color: Colors.gold },
 
   // Pending cards
@@ -883,6 +1005,19 @@ const s = StyleSheet.create({
   attNo:          { fontFamily: Fonts.mono, fontSize: 9, color: Colors.gold, width: 22 },
   attName:        { fontFamily: Fonts.jakarta, fontSize: 12, color: Colors.ivory, fontWeight: '600' },
   attMeta:        { fontFamily: Fonts.mono, fontSize: 8, color: Colors.textMuted, marginTop: 2 },
+  artSummary:     { fontFamily: Fonts.jakarta, fontSize: 10, color: Colors.textMuted, lineHeight: 15, marginTop: 8 },
+  artOpen:        { fontFamily: Fonts.jakarta, fontSize: 8, letterSpacing: 1.5, color: Colors.gold, fontWeight: '700', marginTop: 12 },
+  artRoot:        { flex: 1, backgroundColor: Colors.navy, paddingTop: 44 },
+  artBar:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingBottom: 14, borderBottomWidth: 0.5, borderBottomColor: Colors.goldLine },
+  artBack:        { fontFamily: Fonts.jakarta, fontSize: 8, letterSpacing: 2, color: Colors.gold, fontWeight: '700' },
+  artMeta:        { fontFamily: Fonts.mono, fontSize: 7.5, letterSpacing: 1, color: Colors.textMuted },
+  artBody:        { paddingHorizontal: 24, paddingTop: 24 },
+  artTitle:       { fontFamily: Fonts.cormorant, fontSize: 27, color: Colors.ivory, fontWeight: '500', lineHeight: 34 },
+  artLead:        { fontFamily: Fonts.cormorant, fontSize: 16, fontStyle: 'italic', color: Colors.ivory, opacity: 0.85, lineHeight: 24, marginTop: 12 },
+  artRule:        { height: 0.5, backgroundColor: Colors.goldLine, marginVertical: 20 },
+  artText:        { fontFamily: Fonts.jakarta, fontSize: 13, color: Colors.textMuted, lineHeight: 22 },
+  artReject:      { marginTop: 10, borderWidth: 0.5, borderColor: 'rgba(224,96,96,0.45)', paddingVertical: 14, alignItems: 'center' },
+  artRejectText:  { fontFamily: Fonts.jakarta, fontSize: 9, letterSpacing: 2, color: 'rgba(224,96,96,0.9)', fontWeight: '700' },
 
   // Empty state
   empty:          { alignItems: 'center', paddingTop: 64, paddingHorizontal: 40 },

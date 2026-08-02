@@ -27,6 +27,11 @@ export type AdminCourse = {
   instructor: string | null; duration_hours: number | null;
   level: 'beginner' | 'intermediate' | 'advanced' | null;
 };
+export type PendingArticle = {
+  id: string; title: string; summary: string | null; body: string;
+  author_id: string; author_name: string; created_at: string;
+};
+
 export type Attendee = {
   user_id: string; full_name: string; company: string | null;
   phone: string | null; registered_at: string;
@@ -258,6 +263,49 @@ export function useAdmin() {
   // etmek için kimlerin geldiğini bilmek şart (yaka kartı, yoklama,
   // ulaşım, ikram planlaması).
 
+  // ── Bülten inceleme kuyruğu ─────────────────────────────────
+  const listPendingArticles = useCallback(async (): Promise<PendingArticle[]> => {
+    const { data } = await supabase
+      .from('articles')
+      .select('id, title, summary, body, author_id, created_at')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = (data ?? []) as any[];
+    if (rows.length === 0) return [];
+
+    const { data: profs } = await supabase
+      .from('profiles').select('id, full_name')
+      .in('id', [...new Set(rows.map(r => r.author_id))]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const map = new Map(((profs ?? []) as any[]).map(p => [p.id, p.full_name]));
+
+    return rows.map(r => ({ ...r, author_name: map.get(r.author_id) ?? 'Üye' }));
+  }, []);
+
+  // Yayınlarken tüm üyelere bildirim gider; reddederken gitmez.
+  const reviewArticle = useCallback(async (
+    id: string,
+    decision: 'published' | 'rejected',
+    note?: string,
+    title?: string,
+  ) => {
+    const { error } = await sb.from('articles')
+      .update({ status: decision, review_note: note ?? null })
+      .eq('id', id);
+    if (error) return { error, sent: 0 };
+
+    if (decision === 'published') {
+      const sent = await pushToAll(
+        'Bültende yeni yazı 📄',
+        title ? `${title} — Akademi > Bülten'den okuyabilirsiniz.` : 'Yeni bir üye yazısı yayımlandı.',
+      );
+      return { error: null, sent };
+    }
+    return { error: null, sent: 0 };
+  }, [pushToAll]);
+
   const listAttendees = useCallback(async (eventId: string): Promise<Attendee[]> => {
     const { data: rows } = await supabase
       .from('event_attendees')
@@ -291,5 +339,6 @@ export function useAdmin() {
     listEvents, deleteEvent, updateEvent,
     listCourses, createCourse, updateCourse, deleteCourse,
     listAttendees,
+    listPendingArticles, reviewArticle,
   };
 }

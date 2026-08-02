@@ -18,6 +18,7 @@ import { useAuthContext } from '@/context/AuthContext';
 import { useCourses } from '@/hooks/useCourses';
 import { useMembers } from '@/hooks/useMembers';
 import { supabase } from '@/lib/supabase';
+import { BulletinTab } from '@/components/BulletinTab';
 import type { Course as SupabaseCourse, CourseLevel } from '@/types/database';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
@@ -140,10 +141,10 @@ function AppHeader({ section, title }: { section: string; title: string }) {
 
 // ─── PillSelector tabs ─────────────────────────────────────────────────────────
 
-type Tab = 'PROGRAMLAR' | 'KURSLAR' | 'MENTÖRLER';
+type Tab = 'PROGRAMLAR' | 'KURSLAR' | 'MENTÖRLER' | 'BÜLTEN';
 
 function TabSelector({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
-  const tabs: Tab[] = ['PROGRAMLAR', 'KURSLAR', 'MENTÖRLER'];
+  const tabs: Tab[] = ['PROGRAMLAR', 'KURSLAR', 'MENTÖRLER', 'BÜLTEN'];
   return (
     <View style={styles.tabRow}>
       {tabs.map((t) => (
@@ -700,6 +701,7 @@ export default function AcademyScreen() {
         {activeTab === 'PROGRAMLAR' && <ProgramsTab />}
         {activeTab === 'KURSLAR' && <CoursesTab />}
         {activeTab === 'MENTÖRLER' && <MentorsTab />}
+        {activeTab === 'BÜLTEN' && <BulletinTab />}
       </View>
     </SafeAreaView>
   );
