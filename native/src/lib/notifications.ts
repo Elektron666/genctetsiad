@@ -61,6 +61,27 @@ export async function registerPushToken(): Promise<string | null> {
 }
 
 /**
+ * Bildirime dokunulduğunda ilgili ekrana götürür. Daha önce bildirime
+ * dokunmak hiçbir şey yapmıyordu — kullanıcı ana ekranda kalıyor ve
+ * bildirimin konusunu kendisi aramak zorunda kalıyordu.
+ */
+export function attachNotificationTapHandler(navigate: (path: string) => void) {
+  if (IS_EXPO_GO) return () => {};
+  try {
+    const sub = Notifications.addNotificationResponseReceivedListener(res => {
+      const title = String(res.notification.request.content.title ?? '');
+      if (title.includes('Etkinlik')) navigate('/(tabs)/calendar');
+      else if (title.includes('Bülten')) navigate('/(tabs)/academy');
+      else if (title.includes('Onayland')) navigate('/(tabs)/profile');
+      else navigate('/(tabs)');
+    });
+    return () => sub.remove();
+  } catch {
+    return () => {};
+  }
+}
+
+/**
  * Expo Push API üzerinden toplu bildirim gönderir (100'lük parçalar halinde).
  * Gönderilen mesaj sayısını döner.
  */

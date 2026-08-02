@@ -97,8 +97,11 @@ export default function DirectoryScreen() {
     else if (filter === 'ÜYE')      list = list.filter(m => m.role === 'Üye');
     else if (filter === 'ÖĞRENCİ') list = list.filter(m => m.role === 'Öğrenci Üye');
     if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(m => m.name.toLowerCase().includes(q) || m.firm.toLowerCase().includes(q));
+      // Türkçe'de 'I'.toLowerCase() → 'i' olmaz; 'İSTANBUL' araması
+      // locale-aware küçültme olmadan 'İstanbul'u bulamaz.
+      const lower = (t: string) => t.toLocaleLowerCase('tr-TR');
+      const q = lower(search.trim());
+      list = list.filter(m => lower(m.name).includes(q) || lower(m.firm).includes(q));
     }
     return list;
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -166,7 +169,13 @@ export default function DirectoryScreen() {
           )
         }
         renderItem={({ item: m }) => (
-          <TouchableOpacity style={styles.row} onPress={() => setSelected(m)} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => setSelected(m)}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`${m.name}, ${m.firm}, ${m.city}. Detay için dokunun.`}
+          >
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{initials(m.name)}</Text>
             </View>

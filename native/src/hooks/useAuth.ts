@@ -50,7 +50,15 @@ export function useAuth() {
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Oturum süresi dolduğunda veya yenileme başarısız olduğunda kullanıcı
+      // hata ekranlarıyla karşılaşmasın; temiz şekilde çıkışa düşsün.
+      if (event === 'SIGNED_OUT' || (event === 'TOKEN_REFRESHED' && !session)) {
+        setSession(null);
+        setProfile(null);
+        setStatus('unauthenticated');
+        return;
+      }
       setSession(session);
       if (session?.user) {
         loadProfile(session.user.id);

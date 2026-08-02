@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider } from '@/context/AppContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { initSentry } from '@/lib/sentry';
+import { attachNotificationTapHandler } from '@/lib/notifications';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 SplashScreen.preventAutoHideAsync();
@@ -17,6 +18,9 @@ initSentry();
 // Auth yönlendirmesi app/index.tsx'te (status'a göre) ve ekranların kendi
 // useEffect'lerinde yapılır; "DEMO MOD İLE GİR" akışı bilinçli olarak serbest.
 function RootNavigator() {
+  // Bildirime dokunulduğunda ilgili sekmeye götür
+  useEffect(() => attachNotificationTapHandler(path => router.push(path as never)), []);
+
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />

@@ -58,8 +58,10 @@ const AppCtx = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const { status, session } = useAuthContext();
-  const [registeredEvents, setRegisteredEvents] = useState<Set<number>>(() => new Set([2, 5]));
-  const [enrolledCourses, setEnrolledCourses] = useState<Set<number>>(() => new Set([1, 2, 4, 6]));
+  // Demo kayıtları yalnızca geliştirme/sunumda; yayında kullanıcı
+  // hiç yapmadığı kayıtları kendi geçmişi gibi görmemeli.
+  const [registeredEvents, setRegisteredEvents] = useState<Set<number>>(() => __DEV__ ? new Set([2, 5]) : new Set());
+  const [enrolledCourses, setEnrolledCourses] = useState<Set<number>>(() => __DEV__ ? new Set([1, 2, 4, 6]) : new Set());
   const [mentorRequests, setMentorRequests] = useState<Set<number>>(new Set());
   const [notifications, setNotifications] = useState<Notification[]>(DEFAULT_NOTIFICATIONS);
   const [announcementBanner, setAnnouncementBanner] = useState<Banner | null>(null);
