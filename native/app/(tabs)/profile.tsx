@@ -15,6 +15,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import QRCode from 'react-native-qrcode-svg';
+import Constants from 'expo-constants';
 import { Colors, Fonts, FontSize } from '@/theme';
 import { useAppContext } from '@/context/AppContext';
 import { useAuthContext } from '@/context/AuthContext';
@@ -53,11 +54,9 @@ const ROLE_LABELS: Record<MemberRole, string> = {
   admin:     'Admin',
 };
 
-const ACTIVITY = [
-  { id: 1, label: 'ETKİNLİK KATILIMI', desc: 'HOMETEX 2026 Fuar Çalışması', date: '14 MAYIS' },
-  { id: 2, label: 'KURS TAMAMLAMA',   desc: 'AB Sürdürülebilirlik Direktifleri', date: '02 NİSAN' },
-  { id: 3, label: 'MENTORLUK BAŞVURUSU', desc: 'Sektörel Mentorluk Programı', date: '18 MART' },
-];
+// Sabit sahte aktivite listesi kaldırıldı — kullanıcıya hiç yapmadığı
+// işleri kendi geçmişi gibi gösteriyordu. Yerine gerçek sayaçlardan
+// türetilen özet kullanılıyor (aşağıda ACTIVITY_SUMMARY).
 
 function getInitials(name: string): string {
   const parts = name.trim().split(' ');
@@ -669,6 +668,13 @@ export default function ProfileScreen() {
   };
 
   const fmt = (n: number) => String(n).padStart(2, '0');
+
+  // Gerçek katılım verisinden türetilen özet — sabit sahte liste yerine
+  const ACTIVITY_SUMMARY = [
+    { id: 1, label: 'ETKİNLİK KATILIMI',    desc: `${registeredEvents.size} etkinliğe kayıtlısınız`, date: registeredEvents.size ? 'AKTİF' : '—' },
+    { id: 2, label: 'KURS KAYDI',           desc: `${enrolledCourses.size} kursa kayıtlısınız`,      date: enrolledCourses.size ? 'AKTİF' : '—' },
+    { id: 3, label: 'MENTORLUK BAŞVURUSU',  desc: `${mentorRequests.size} başvuru gönderildi`,       date: mentorRequests.size ? 'AKTİF' : '—' },
+  ];
   // Dördüncü hücre üyelik yılını gösterir — daha önce sabit '24 BAĞLANTI'
   // yazıyordu; uygulamada bağlantı özelliği yok, uydurma sayıydı.
   const memberSince = profile?.created_at
@@ -748,7 +754,7 @@ export default function ProfileScreen() {
         {/* ── Recent activity ──────────────────────────────── */}
         <View style={styles.activitySection}>
           <Text style={styles.activityHeader}>SON AKTİVİTE</Text>
-          {ACTIVITY.map((item, i) => (
+          {ACTIVITY_SUMMARY.map((item, i) => (
             <View
               key={item.id}
               style={[
@@ -784,6 +790,19 @@ export default function ProfileScreen() {
             <Text style={[styles.infoVal, { color: Colors.gold }]}>AKTİF ÜYE · 2026</Text>
           </View>
         </View>
+
+        {/* Onay bekleyen üyeye durum hatırlatması */}
+        {profile?.role === 'pending' && (
+          <TouchableOpacity
+            style={styles.pendingBanner}
+            onPress={() => router.replace('/(auth)/pending')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.pendingBannerText}>
+              ÜYELİĞİNİZ ONAY BEKLİYOR — rehber ve bülten onaydan sonra açılır
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* ── Profili düzenle — KVKK m.11 düzeltme hakkı ── */}
         {profile && (
@@ -833,7 +852,7 @@ export default function ProfileScreen() {
         {/* ── Footer note ──────────────────────────────────── */}
         <View style={styles.footerNote}>
           <Text style={styles.footerNoteText}>
-            GENÇ TETSİAD · v1.0 BETA · YALNIZCA{' '}
+            GENÇ TETSİAD · v{Constants.expoConfig?.version ?? '1.0.0'} · YALNIZCA{' '}
             <Text style={{ color: Colors.gold }}>DAVETLİ</Text> ÜYELER
           </Text>
         </View>
@@ -899,6 +918,8 @@ const styles = StyleSheet.create({
     color: Colors.gold,
     letterSpacing: 2.5,
   },
+  pendingBanner: { marginHorizontal: 24, marginTop: 20, borderWidth: 0.5, borderColor: Colors.gold, backgroundColor: 'rgba(217,200,150,0.08)', paddingVertical: 12, paddingHorizontal: 14 },
+  pendingBannerText: { fontFamily: Fonts.jakarta, fontSize: 9, color: Colors.gold, letterSpacing: 0.5, textAlign: 'center', lineHeight: 14 },
   legalWrap: {
     paddingHorizontal: 24,
     marginTop: 24,

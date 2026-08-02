@@ -128,7 +128,10 @@ function supabaseToEventItem(e: SupabaseEvent, index: number): EventItem {
   };
 }
 
-const PRESET_REGISTERED = new Set([2, 5]);
+// Sunum için önceden 'katılmış' görünen demo etkinlikler.
+// Yayın sürümünde boş — gerçek kullanıcı hiç katılmadığı etkinlikte
+// 'KATILDIM' görmemeli.
+const PRESET_REGISTERED = __DEV__ ? new Set([2, 5]) : new Set<number>();
 
 // ─── AppHeader ────────────────────────────────────────────────────────────────
 

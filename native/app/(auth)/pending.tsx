@@ -80,6 +80,20 @@ export default function PendingScreen() {
           ))}
         </View>
 
+        {/* Onay beklerken boş ekranda kalmasın: duyuru, etkinlik ve
+            sürdürülebilirlik içeriği üye verisi içermiyor, güvenle
+            gösterilebilir. Rehber ve bülten onaya bağlı kalır (RLS). */}
+        <TouchableOpacity
+          style={styles.browseBtn}
+          onPress={() => router.replace('/(tabs)')}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.browseText}>DUYURU VE ETKİNLİKLERE GÖZ AT</Text>
+        </TouchableOpacity>
+        <Text style={styles.browseNote}>
+          Üye rehberi ve bülten, üyeliğiniz onaylandığında açılacaktır.
+        </Text>
+
         <TouchableOpacity style={styles.signOutBtn} onPress={signOut} activeOpacity={0.7}>
           <Text style={styles.signOutText}>ÇIKIŞ YAP</Text>
         </TouchableOpacity>
@@ -110,6 +124,9 @@ const styles = StyleSheet.create({
   infoRow:    { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: Colors.goldLine },
   infoKey:    { fontFamily: Fonts.mono, fontSize: 8, letterSpacing: 1.5, color: Colors.textMuted },
   infoVal:    { fontFamily: Fonts.jakarta, fontSize: 11, color: Colors.ivory },
+  browseBtn:  { backgroundColor: Colors.gold, paddingVertical: 14, paddingHorizontal: 28, marginBottom: 12 },
+  browseText: { fontFamily: Fonts.jakarta, fontSize: FontSize.xs, fontWeight: '700', color: Colors.navyDeep, letterSpacing: 2 },
+  browseNote: { fontFamily: Fonts.jakarta, fontSize: 9, color: Colors.textMuted, textAlign: 'center', marginBottom: 24, lineHeight: 14 },
   signOutBtn: { borderWidth: 0.5, borderColor: Colors.goldLine, paddingVertical: 14, paddingHorizontal: 40 },
   signOutText:{ fontFamily: Fonts.jakarta, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 2 },
   deleteBtn:  { marginTop: 14, paddingVertical: 8 },

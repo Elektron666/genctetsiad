@@ -450,13 +450,19 @@ export default function HomeScreen() {
 
         {/* ── B. ANNOUNCEMENT BANNER ─────────────────────────── */}
         {banner && (
-          <View style={styles.bannerWrap}>
+          <TouchableOpacity
+            style={styles.bannerWrap}
+            onPress={() => setNotifOpen(true)}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Duyuruları aç"
+          >
             <View style={styles.bannerStrip} />
             <View style={styles.bannerContent}>
               <Text style={styles.bannerLabel}>📢 DUYURU</Text>
               <Text style={styles.bannerText}>{banner.text}</Text>
             </View>
-          </View>
+          </TouchableOpacity>
         )}
 
         {/* ── C. QUICK ACCESS CARDS ──────────────────────────── */}

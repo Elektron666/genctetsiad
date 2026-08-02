@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  StyleSheet, RefreshControl, Alert, KeyboardAvoidingView, Platform, Modal,
+  StyleSheet, RefreshControl, Alert, KeyboardAvoidingView, Platform, Modal, FlatList,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -110,11 +110,14 @@ function MembersTab({
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Profile | null>(null);
 
-  const q = search.trim().toLowerCase();
+  // Türkçe'de 'I'.toLowerCase() → 'i' olmaz; locale-aware küçültme şart.
+  // Aksi hâlde 'İSTANBUL' araması 'İstanbul'u bulamaz.
+  const lower = (t: string) => t.toLocaleLowerCase('tr-TR');
+  const q = lower(search.trim());
   const filtered = q
     ? members.filter(m =>
-        m.full_name.toLowerCase().includes(q) ||
-        (m.company ?? '').toLowerCase().includes(q))
+        lower(m.full_name).includes(q) ||
+        lower(m.company ?? '').includes(q))
     : members;
 
   const pickRole = (role: MemberRoleKey) => {
@@ -142,28 +145,41 @@ function MembersTab({
         />
       </View>
 
-      {filtered.map(m => (
-        <TouchableOpacity key={m.id} style={s.mRow} onPress={() => setSelected(m)} activeOpacity={0.7}>
-          <View style={s.pAvatar}>
-            <Text style={s.pAvatarText}>{initials(m.full_name)}</Text>
+      {/* Üye sayısı binlere çıkabilir — sanallaştırılmış liste şart */}
+      <FlatList
+        data={filtered}
+        keyExtractor={m => m.id}
+        scrollEnabled={false}
+        initialNumToRender={12}
+        removeClippedSubviews
+        ListEmptyComponent={
+          <View style={s.empty}>
+            <Text style={s.emptySub}>{q ? 'Aramayla eşleşen üye yok.' : 'Henüz onaylı üye yok.'}</Text>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.pName}>{m.full_name || '—'}{m.id === currentUserId ? '  (SİZ)' : ''}</Text>
-            <Text style={s.pFirm}>{[m.company, m.city].filter(Boolean).join(' · ') || '—'}</Text>
-          </View>
-          <View style={[s.roleTag, ADMIN_ROLES.includes(m.role) && s.roleTagGold]}>
-            <Text style={[s.roleTagText, ADMIN_ROLES.includes(m.role) && s.roleTagTextGold]}>
-              {(ROLE_LABELS[m.role] ?? m.role).toUpperCase()}
-            </Text>
-          </View>
-        </TouchableOpacity>
-      ))}
-
-      {filtered.length === 0 && (
-        <View style={s.empty}>
-          <Text style={s.emptySub}>{q ? 'Aramayla eşleşen üye yok.' : 'Henüz onaylı üye yok.'}</Text>
-        </View>
-      )}
+        }
+        renderItem={({ item: m }) => (
+          <TouchableOpacity
+            style={s.mRow}
+            onPress={() => setSelected(m)}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`${m.full_name}, ${ROLE_LABELS[m.role] ?? m.role}. Rol değiştirmek için dokunun.`}
+          >
+            <View style={s.pAvatar}>
+              <Text style={s.pAvatarText}>{initials(m.full_name)}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.pName}>{m.full_name || '—'}{m.id === currentUserId ? '  (SİZ)' : ''}</Text>
+              <Text style={s.pFirm}>{[m.company, m.city].filter(Boolean).join(' · ') || '—'}</Text>
+            </View>
+            <View style={[s.roleTag, ADMIN_ROLES.includes(m.role) && s.roleTagGold]}>
+              <Text style={[s.roleTagText, ADMIN_ROLES.includes(m.role) && s.roleTagTextGold]}>
+                {(ROLE_LABELS[m.role] ?? m.role).toUpperCase()}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
+      />
 
       {/* Rol seçme alt menüsü */}
       {selected && (
