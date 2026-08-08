@@ -49,6 +49,20 @@ export default function LoginScreen() {
     const error = await sendEmailOtp(email);
     setLoading(false);
     if (error) {
+      // shouldCreateUser artık false: bu adresle hesap yoksa Supabase
+      // hata döner. Kullanıcıyı kayıt akışına yönlendiriyoruz.
+      const msg = String(error.message ?? '').toLowerCase();
+      if (msg.includes('signups not allowed') || msg.includes('user not found') || error.status === 400) {
+        Alert.alert(
+          'Bu adresle kayıt bulunamadı',
+          'Önce üyelik başvurusu yapmanız gerekiyor.',
+          [
+            { text: 'Vazgeç', style: 'cancel' },
+            { text: 'BAŞVURU YAP', onPress: () => router.push('/(auth)/register') },
+          ]
+        );
+        return;
+      }
       Alert.alert('Kod gönderilemedi', authErrorTR(error));
       return;
     }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   ActionSheetIOS,
   Platform,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,6 +21,7 @@ import { Colors, Fonts, FontSize } from '@/theme';
 import { openExternal, PRIVACY_URL, TERMS_URL } from '@/lib/links';
 import { useAppContext } from '@/context/AppContext';
 import { useAuthContext } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 import type { MemberRole } from '@/types/database';
 
 const ADMIN_ROLES: MemberRole[] = ['board', 'president', 'admin'];
@@ -613,8 +615,27 @@ export default function ProfileScreen() {
   const [showPicker, setShowPicker] = useState(false);
 
   const { registeredEvents, enrolledCourses, mentorRequests } = useAppContext();
-  const { profile, signOut, deleteAccount } = useAuthContext();
+  const { profile, signOut, deleteAccount, refreshProfile } = useAuthContext();
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Yönetim üyeliği onayladıktan sonra kart eski durumu göstermeye
+  // devam ediyordu; kullanıcının uygulamayı kapatıp açması gerekiyordu.
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshProfile();
+    setRefreshing(false);
+  };
   const isAdmin = !!profile && ADMIN_ROLES.includes(profile.role);
+  // Yeni başvuru geldiğinde yönetime hiçbir işaret gitmiyordu; panel
+  // açılmadan kuyruğun dolduğu anlaşılmıyordu.
+  const [pendingCount, setPendingCount] = useState(0);
+  useEffect(() => {
+    if (!isAdmin) return;
+    let cancelled = false;
+    supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'pending')
+      .then(({ count }) => { if (!cancelled) setPendingCount(count ?? 0); });
+    return () => { cancelled = true; };
+  }, [isAdmin]);
 
   const confirmDeleteAccount = () => {
     Alert.alert(
@@ -727,6 +748,9 @@ export default function ProfileScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} colors={[Colors.gold]} progressBackgroundColor={Colors.navyDeep} />
+        }
       >
         {/* ── Membership card ─────────────────────────────── */}
         <View style={styles.cardSection}>
@@ -750,7 +774,12 @@ export default function ProfileScreen() {
               onPress={() => router.push('/admin')}
               activeOpacity={0.8}
             >
-              <Text style={styles.adminBtnText}>◆  YÖNETİM PANELİ</Text>
+              <Text style={styles.adminBtnText}>
+                ◆  YÖNETİM PANELİ
+                {pendingCount > 0 && (
+                  <Text style={{ color: Colors.gold }}>{`   ·   ${pendingCount} BEKLEYEN BAŞVURU`}</Text>
+                )}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -800,6 +829,15 @@ export default function ProfileScreen() {
           <View style={[styles.infoRow, styles.infoRowBorder]}>
             <Text style={styles.infoKey}>SEKTÖR</Text>
             <Text style={styles.infoVal}>{member.sector}</Text>
+          </View>
+          <View style={[styles.infoRow, styles.infoRowBorder]}>
+            <Text style={styles.infoKey}>TELEFON</Text>
+            <Text style={styles.infoVal}>
+              {member.phone}
+              {profile?.phone_visible === false && (
+                <Text style={{ color: Colors.textMuted }}>  · rehberde gizli</Text>
+              )}
+            </Text>
           </View>
           <View style={[styles.infoRow, styles.infoRowBorder]}>
             <Text style={styles.infoKey}>E-POSTA</Text>

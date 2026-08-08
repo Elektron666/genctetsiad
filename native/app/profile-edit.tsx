@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
-  StyleSheet, KeyboardAvoidingView, Platform, Alert,
+  StyleSheet, KeyboardAvoidingView, Platform, Alert, BackHandler,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -30,10 +30,40 @@ export default function ProfileEditScreen() {
   const [city, setCity] = useState(profile?.city ?? '');
   const [sector, setSector] = useState(profile?.sector ?? '');
   const [mentorBio, setMentorBio] = useState(profile?.mentor_bio ?? '');
+  // KVKK m.11: üye kendi iletişim bilgisinin görünürlüğünü seçebilmeli.
+  // "İsteyen üye adresini görünür kılar" tasarımı vardı ama böyle bir
+  // anahtar yoktu; herkesin numarası tüm onaylı üyelere açıktı.
+  const [phoneVisible, setPhoneVisible] = useState(profile?.phone_visible !== false);
   const [busy, setBusy] = useState(false);
 
   const emailOk = email.trim() === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const valid = fullName.trim().length > 2 && emailOk;
+
+  const dirty =
+    fullName !== (profile?.full_name ?? '') ||
+    email !== (profile?.email ?? '') ||
+    phone !== (profile?.phone ?? '') ||
+    company !== (profile?.company ?? '') ||
+    position !== (profile?.position ?? '') ||
+    city !== (profile?.city ?? '') ||
+    sector !== (profile?.sector ?? '') ||
+    mentorBio !== (profile?.mentor_bio ?? '') ||
+    phoneVisible !== (profile?.phone_visible !== false);
+
+  // Geri tuşu kaydedilmemiş değişiklikleri sessizce siliyordu.
+  const goBack = React.useCallback(() => {
+    if (!dirty) { router.back(); return true; }
+    Alert.alert('Değişiklikler kaydedilmedi', 'Çıkarsanız yaptığınız düzenlemeler kaybolur.', [
+      { text: 'Düzenlemeye devam et', style: 'cancel' },
+      { text: 'Çık', style: 'destructive', onPress: () => router.back() },
+    ]);
+    return true;
+  }, [dirty]);
+
+  React.useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', goBack);
+    return () => sub.remove();
+  }, [goBack]);
 
   const save = async () => {
     if (!valid || busy) return;
@@ -42,6 +72,7 @@ export default function ProfileEditScreen() {
       full_name: fullName.trim(),
       email: email.trim() || null,
       phone: phone.trim() || null,
+      phone_visible: phoneVisible,
       company: company.trim() || null,
       position: position.trim() || null,
       city: city || null,
@@ -65,7 +96,7 @@ export default function ProfileEditScreen() {
       <StatusBar style="light" />
 
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={goBack} style={s.backBtn} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="Geri">
           <Text style={s.backText}>←</Text>
         </TouchableOpacity>
         <Text style={s.headerTitle}>PROFİLİ DÜZENLE</Text>
@@ -88,6 +119,25 @@ export default function ProfileEditScreen() {
           <Text style={[s.fieldLabel, { marginTop: 24 }]}>TELEFON</Text>
           <TextInput style={s.input} value={phone} onChangeText={setPhone} placeholder="+90 5__ ___ __ __" placeholderTextColor={Colors.textMuted} keyboardType="phone-pad" />
           <View style={s.underline} />
+
+          <TouchableOpacity
+            style={s.toggleRow}
+            onPress={() => setPhoneVisible(v => !v)}
+            activeOpacity={0.7}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: phoneVisible }}
+            accessibilityLabel="Telefon numaram rehberde görünsün"
+          >
+            <View style={[s.checkbox, phoneVisible && s.checkboxOn]}>
+              {phoneVisible && <Text style={s.checkmark}>✓</Text>}
+            </View>
+            <Text style={s.toggleLabel}>
+              Telefon numaram üye rehberinde görünsün.{'\n'}
+              <Text style={{ color: Colors.textMuted }}>
+                Kapatırsanız diğer üyeler size yalnızca e-posta ile ulaşabilir.
+              </Text>
+            </Text>
+          </TouchableOpacity>
 
           <Text style={[s.fieldLabel, { marginTop: 24 }]}>FİRMA</Text>
           <TextInput style={s.input} value={company} onChangeText={setCompany} placeholder="Firma adı" placeholderTextColor={Colors.textMuted} />
@@ -177,6 +227,11 @@ const s = StyleSheet.create({
 
   fieldLabel:  { fontFamily: Fonts.jakarta, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 2, fontWeight: '600', marginBottom: 10 },
   input:       { fontFamily: Fonts.cormorant, fontSize: 20, color: Colors.ivory, paddingBottom: 8, paddingTop: 0 },
+  toggleRow:   { flexDirection: 'row', gap: 14, alignItems: 'flex-start', marginTop: 20 },
+  checkbox:    { width: 20, height: 20, borderWidth: 0.5, borderColor: Colors.goldLine, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  checkboxOn:  { backgroundColor: Colors.gold, borderColor: Colors.gold },
+  checkmark:   { fontFamily: Fonts.jakarta, fontSize: 12, color: Colors.navyDeep, fontWeight: '700' },
+  toggleLabel: { flex: 1, fontFamily: Fonts.jakarta, fontSize: 10, color: Colors.ivory, lineHeight: 16 },
   helperNote: { fontFamily: Fonts.jakarta, fontSize: 9, color: Colors.textMuted, marginTop: 6 },
   underline:   { height: 0.5, backgroundColor: Colors.goldLine },
 

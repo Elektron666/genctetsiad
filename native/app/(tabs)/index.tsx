@@ -10,10 +10,11 @@ import {
   Modal,
   Linking,
   RefreshControl,
+  useWindowDimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Fonts, FontSize } from '@/theme';
 import { useAppContext } from '@/context/AppContext';
@@ -95,31 +96,27 @@ const ANNOUNCEMENTS = [
 
 // ── Animated counter hook ──────────────────────────────────────────────────
 
+// Dört sayaç, saniyede 60 kez ateşlenen DÖRT AYRI setTimeout zinciri
+// çalıştırıyordu. requestAnimationFrame hem tek kare bütçesine uyar hem
+// de ekran kapanınca kendiliğinden durur — düşük segment Android'de
+// açılıştaki takılmanın kaynağı buydu.
 function useCounter(target: number, duration = 1200, delay = 0) {
   const [val, setVal] = useState(0);
-  const frameRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const startAt = Date.now() + delay;
-    const tick = () => {
-      const now = Date.now();
+    let raf = 0;
+    let startAt = 0;
+    const tick = (now: number) => {
+      if (startAt === 0) startAt = now + delay;
       const elapsed = now - startAt;
-      if (elapsed < 0) {
-        frameRef.current = setTimeout(tick, 16);
-        return;
-      }
+      if (elapsed < 0) { raf = requestAnimationFrame(tick); return; }
       const progress = Math.min(elapsed / duration, 1);
-      // ease-out cubic
-      const eased = 1 - Math.pow(1 - progress, 3);
+      const eased = 1 - Math.pow(1 - progress, 3);   // ease-out cubic
       setVal(Math.round(eased * target));
-      if (progress < 1) {
-        frameRef.current = setTimeout(tick, 16);
-      }
+      if (progress < 1) raf = requestAnimationFrame(tick);
     };
-    frameRef.current = setTimeout(tick, 16);
-    return () => {
-      if (frameRef.current) clearTimeout(frameRef.current);
-    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, [target, duration, delay]);
 
   return val;
@@ -127,11 +124,14 @@ function useCounter(target: number, duration = 1200, delay = 0) {
 
 // ── Stats strip ────────────────────────────────────────────────────────────
 
-function StatsStrip() {
+// Not: ÜYE / İL / ÜLKE rakamları derneğin kurumsal rakamlarıdır
+// (uygulama verisi değil) ve yönetimin onayıyla güncellenir.
+// ETKİNLİK sayısı ise gerçek kayıtlardan gelir.
+function StatsStrip({ eventCount }: { eventCount: number }) {
   const c1 = useCounter(1500, 1400, 0);
   const c2 = useCounter(55, 1000, 200);
   const c3 = useCounter(40, 900, 400);
-  const c4 = useCounter(10, 700, 600);
+  const c4 = useCounter(eventCount, 700, 600);
 
   const stats = [
     { value: c1 >= 1500 ? '1.500' : c1.toLocaleString('tr-TR'), suffix: '+', label: 'ÜYE' },
@@ -398,8 +398,14 @@ const manifStyles = StyleSheet.create({
 });
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
+  const { height: winH } = useWindowDimensions();
+  // Kapak 580px sabitti: küçük ekranlarda alttaki düğme satırı başlığın
+  // üstüne biniyordu. Ekranın %68'i, 440–620 arasına sıkıştırılıyor.
+  const coverHeight = Math.max(440, Math.min(620, Math.round(winH * 0.68)));
   const { registeredEvents, unreadCount, announcementBanner } = useAppContext();
-  const { session } = useAuthContext();
+  const { session, profile } = useAuthContext();
+  const isMember = !!session?.user;
   const { events: sbEvents, loading: eventsLoading, error: eventsError } = useEvents(session?.user.id);
   const [notifOpen, setNotifOpen] = useState(false);
   const [manifestoOpen, setManifestoOpen] = useState(false);
@@ -457,7 +463,7 @@ export default function HomeScreen() {
       >
 
         {/* ── A. COVER IMAGE ──────────────────────────────────── */}
-        <View style={styles.cover}>
+        <View style={[styles.cover, { height: coverHeight }]}>
           <Image
             source={IMG_FABRIKA}
             style={styles.coverImage}
@@ -478,7 +484,7 @@ export default function HomeScreen() {
           />
 
           {/* Top bar */}
-          <View style={styles.coverTopBar}>
+          <View style={[styles.coverTopBar, { top: insets.top }]}>
             <Text style={styles.coverTopBarLabel}>GENÇ TETSİAD · 2026</Text>
             <TouchableOpacity style={styles.bellButton} activeOpacity={0.7} onPress={() => setNotifOpen(true)}>
               {/* Bell icon — drawn inline */}
@@ -510,9 +516,18 @@ export default function HomeScreen() {
           {/* CTA buttons */}
           <View style={styles.coverCTAWrap}>
             <View style={styles.coverCTARow}>
-              <TouchableOpacity style={styles.btnFill} activeOpacity={0.8} onPress={() => router.push('/(auth)/register')}>
-                <Text style={styles.btnFillText}>BAŞVUR</Text>
-              </TouchableOpacity>
+              {/* Giriş yapmış üyeye "BAŞVUR" gösteriliyordu; dokunan
+                  kişi kaydı baştan yapmaya başlıyordu. Üye için burada
+                  anlamlı olan kendi kartı. */}
+              {isMember ? (
+                <TouchableOpacity style={styles.btnFill} activeOpacity={0.8} onPress={() => router.push('/(tabs)/profile')}>
+                  <Text style={styles.btnFillText}>ÜYE KARTIM</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.btnFill} activeOpacity={0.8} onPress={() => router.push('/(auth)/register')}>
+                  <Text style={styles.btnFillText}>BAŞVUR</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity style={styles.btnOutline} activeOpacity={0.8} onPress={() => setManifestoOpen(true)}>
                 <Text style={styles.btnOutlineText}>MANİFESTO</Text>
               </TouchableOpacity>
@@ -567,7 +582,7 @@ export default function HomeScreen() {
 
         {/* ── D. STATS STRIP ─────────────────────────────────── */}
         <View style={styles.statsWrap}>
-          <StatsStrip />
+          <StatsStrip eventCount={sbEvents.length} />
         </View>
 
         {/* ── E. BAŞKAN'DAN ───────────────────────────────────── */}
@@ -777,7 +792,6 @@ const styles = StyleSheet.create({
 
   // ── Cover ────────────────────────────────────────────
   cover: {
-    height: 580,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -789,7 +803,6 @@ const styles = StyleSheet.create({
   },
   coverTopBar: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 0 : 12,
     left: 0,
     right: 0,
     paddingHorizontal: 24,

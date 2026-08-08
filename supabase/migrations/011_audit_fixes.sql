@@ -22,6 +22,7 @@
 -- rolünü değiştiremez.
 
 DROP POLICY IF EXISTS "profiles_update_admin" ON profiles;
+DROP POLICY IF EXISTS "profiles_update_board" ON profiles;
 
 CREATE OR REPLACE FUNCTION is_full_admin()
 RETURNS BOOLEAN
@@ -30,16 +31,26 @@ AS $$
   SELECT EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin');
 $$;
 
--- Yönetim: profil alanlarını düzeltebilir, onay verebilir.
--- Rol değişimi 'pending' → 'member'/'student' ile sınırlı.
+-- Yönetim kurulu: başvuru onaylayabilir, sıradan üyenin bilgisini
+-- düzeltebilir. Yönetim satırlarına HİÇ dokunamaz.
+--
+-- USING'deki role koşulu kritik: yalnızca WITH CHECK'e koymak yetmiyordu.
+-- Yerel Postgres'te sınandığında bir 'board' hesabının başkanı 'pending'e
+-- düşürebildiği görüldü — hedef satır USING'de sınırlanmadığı, yeni değer
+-- ise izin verilen kümede olduğu için politika işlemi kabul ediyordu.
+-- Artık hedef satırın kendisi de 'pending/member/student' olmak zorunda.
 CREATE POLICY "profiles_update_board"
   ON profiles FOR UPDATE
   TO authenticated
-  USING (is_admin_or_board() AND id <> auth.uid())
+  USING (
+    is_admin_or_board()
+    AND id <> auth.uid()                       -- kimse kendi satırına dokunamaz
+    AND role IN ('pending', 'member', 'student')  -- başkan/yk/admin satırı korumalı
+  )
   WITH CHECK (
     is_admin_or_board()
-    AND id <> auth.uid()                       -- kimse kendini yükseltemez
-    AND role IN ('pending', 'member', 'student')
+    AND id <> auth.uid()
+    AND role IN ('pending', 'member', 'student')  -- yönetime terfi ettiremez
   );
 
 -- Sistem yöneticisi: tam yetki, ama yine kendi rolüne dokunamaz.
@@ -58,6 +69,7 @@ CREATE POLICY "profiles_update_admin"
 -- kaldı; user_id'ler onay alındıktan sonra isimle eşleştirilebilir.
 
 DROP POLICY IF EXISTS "attendees_select_all" ON event_attendees;
+DROP POLICY IF EXISTS "attendees_select_approved" ON event_attendees;
 CREATE POLICY "attendees_select_approved"
   ON event_attendees FOR SELECT
   TO authenticated
@@ -189,11 +201,37 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS phone_visible BOOLEAN NOT NULL DEF
 
 -- Rıza zaman damgaları geriye dönük DEĞİŞTİRİLEMEZ olmalı — yoksa
 -- "sonradan yazıldı" itirazı karşısında kanıt değeri kalmaz.
+-- Kilit ÜYE için mutlak: rıza bir kez yazıldıktan sonra kullanıcı onu
+-- ileri/geri alamaz, silemez. Aksi hâlde "sonradan yazıldı" itirazı
+-- karşısında kaydın kanıt değeri kalmaz.
+--
+-- Ancak sistem yöneticisi (ve sunucu tarafı işler) düzeltebilmeli:
+-- yanlış yazılmış bir damga sonsuza kadar sabitlenirse KVKK m.11
+-- "düzeltilmesini isteme" hakkı işletilemez hâle gelir. Bu düzeltmeler
+-- audit_log'a yazılır.
+--
+-- Sessizce geri yazıyoruz, hata fırlatmıyoruz: kullanıcı profilini
+-- düzenlerken tüm kaydın reddedilmesi gereksiz bir engel olurdu.
 CREATE OR REPLACE FUNCTION lock_consent_timestamps()
 RETURNS TRIGGER
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
+DECLARE
+  privileged BOOLEAN := (auth.uid() IS NULL) OR is_full_admin();
 BEGIN
+  IF privileged THEN
+    IF NEW.kvkk_accepted_at    IS DISTINCT FROM OLD.kvkk_accepted_at
+    OR NEW.transfer_consent_at IS DISTINCT FROM OLD.transfer_consent_at THEN
+      INSERT INTO audit_log (actor_id, actor_name, action, target_type, target_id, target_name, details)
+      VALUES (auth.uid(), actor_display_name(), 'consent_corrected', 'profile',
+              NEW.id::text, NEW.full_name,
+              jsonb_build_object(
+                'eski_kvkk', OLD.kvkk_accepted_at, 'yeni_kvkk', NEW.kvkk_accepted_at,
+                'eski_aktarim', OLD.transfer_consent_at, 'yeni_aktarim', NEW.transfer_consent_at));
+    END IF;
+    RETURN NEW;
+  END IF;
+
   IF OLD.kvkk_accepted_at IS NOT NULL
      AND NEW.kvkk_accepted_at IS DISTINCT FROM OLD.kvkk_accepted_at THEN
     NEW.kvkk_accepted_at := OLD.kvkk_accepted_at;

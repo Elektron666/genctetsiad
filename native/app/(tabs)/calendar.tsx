@@ -15,6 +15,7 @@ import { Colors, Fonts } from '@/theme';
 import { useAppContext } from '@/context/AppContext';
 import { useAuthContext } from '@/context/AuthContext';
 import { useEvents } from '@/hooks/useEvents';
+import { useToast } from '@/components/Toast';
 import type { Event as SupabaseEvent } from '@/types/database';
 
 // ─── Data ────────────────────────────────────────────────────────────────────
@@ -123,7 +124,10 @@ function supabaseToEventItem(e: SupabaseEvent, index: number): EventItem {
     uuid:     e.id,
     day:      date.getDate(),
     month:    MONTHS_TR[date.getMonth()] ?? '',
-    tag:      e.city ?? 'ETKİNLİK',
+    // 'tag' kategori rozeti için tasarlanmıştı; şehir yazılıyordu ve
+    // hemen altındaki 'place' satırında şehir zaten görünüyordu.
+    // Veritabanında kategori sütunu yok — dürüst olan sabit etiket.
+    tag:      'ETKİNLİK',
     title:    e.title,
     place:    [e.location, e.city].filter(Boolean).join(' · ') || '—',
     count:    e.attendee_count ?? 0,
@@ -179,16 +183,21 @@ function RegisterButton({
   onToggle,
   liveCount,
   max,
+  busy,
 }: {
   registered: boolean;
   onToggle: () => void;
   liveCount: number;
   max?: number | null;
+  busy?: boolean;
 }) {
   const isFull = !registered && max != null && liveCount >= max;
   return (
     <TouchableOpacity
-      onPress={isFull ? undefined : onToggle}
+      onPress={isFull || busy ? undefined : onToggle}
+      disabled={isFull || busy}
+      accessibilityRole="button"
+      accessibilityLabel={registered ? 'Katılımı iptal et' : isFull ? 'Kontenjan dolu' : 'Etkinliğe katıl'}
       activeOpacity={isFull ? 1 : 0.8}
       style={[styles.regBtn, registered && styles.regBtnActive, isFull && styles.regBtnFull]}
     >
@@ -294,11 +303,13 @@ function EventDetail({
   registered,
   onToggle,
   onBack,
+  busy,
 }: {
   event: EventItem;
   registered: boolean;
   onToggle: () => void;
   onBack: () => void;
+  busy: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const wasReg = PRESET_REGISTERED.has(event.id);
@@ -344,11 +355,14 @@ function EventDetail({
           </View>
         </View>
 
-        {/* Description */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>ETKİNLİK DETAYI</Text>
-          <Text style={styles.descText}>{event.desc}</Text>
-        </View>
+        {/* Açıklama yoksa başlık da çizilmesin — eskiden boş bir
+            "ETKİNLİK DETAYI" bölümü asılı kalıyordu. */}
+        {!!event.desc.trim() && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>ETKİNLİK DETAYI</Text>
+            <Text style={styles.descText}>{event.desc}</Text>
+          </View>
+        )}
 
         {/* Speakers */}
         {event.speakers.length > 0 && (
@@ -390,11 +404,12 @@ function EventDetail({
                 <Text style={styles.confirmedText}>✓ KATILIM ONAYLANDI</Text>
               </View>
               <TouchableOpacity
-                style={styles.cancelBtn}
+                style={[styles.cancelBtn, busy && { opacity: 0.5 }]}
                 onPress={onToggle}
+                disabled={busy}
                 activeOpacity={0.8}
               >
-                <Text style={styles.cancelBtnText}>KATILIMI İPTAL ET</Text>
+                <Text style={styles.cancelBtnText}>{busy ? 'İPTAL EDİLİYOR...' : 'KATILIMI İPTAL ET'}</Text>
               </TouchableOpacity>
             </View>
           ) : event.max != null && liveCount >= event.max ? (
@@ -405,11 +420,12 @@ function EventDetail({
             </View>
           ) : (
             <TouchableOpacity
-              style={styles.joinBtn}
+              style={[styles.joinBtn, busy && { opacity: 0.5 }]}
               onPress={onToggle}
+              disabled={busy}
               activeOpacity={0.8}
             >
-              <Text style={styles.joinBtnText}>KATIL → ÜCRETSİZ</Text>
+              <Text style={styles.joinBtnText}>{busy ? 'KAYDEDİLİYOR...' : 'KATILIYORUM'}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -426,6 +442,10 @@ export default function CalendarScreen() {
   const { events: supabaseEvents, loading, error, toggleAttendance, refetch } = useEvents(session?.user.id);
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  // Katılım düğmesinde yükleme durumu yoktu: çift dokunuş iki istek
+  // gönderiyor, başarılı kayıtta da hiçbir onay geri bildirimi olmuyordu.
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const { show: showToast, ToastComponent } = useToast();
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -451,13 +471,22 @@ export default function CalendarScreen() {
 
   const handleToggle = async (event: EventItem) => {
     if (event.uuid) {
+      if (busyId) return;
+      const wasRegistered = isRegistered(event);
+      setBusyId(event.uuid);
       const res = await toggleAttendance(event.uuid);
+      setBusyId(null);
       if (res.full) {
         Alert.alert('Kontenjan Doldu', 'Bu etkinliğin kontenjanı bu sırada doldu. Katılım kaydı oluşturulamadı.');
       } else if (res.denied) {
         Alert.alert('Üyelik Onayı Gerekli', 'Etkinliklere kayıt olabilmek için üyeliğinizin onaylanması gerekiyor.');
       } else if (res.failed) {
         Alert.alert('İşlem Tamamlanamadı', 'Bağlantı kurulamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.');
+      } else {
+        showToast(
+          wasRegistered ? 'Katılımınız iptal edildi.' : `"${event.title}" için kaydınız alındı.`,
+          wasRegistered ? 'info' : 'success',
+        );
       }
     } else {
       toggleEvent(event.id);
@@ -482,7 +511,9 @@ export default function CalendarScreen() {
           registered={isRegistered(liveSelected)}
           onToggle={() => handleToggle(liveSelected)}
           onBack={() => setSelectedEvent(null)}
+          busy={busyId === liveSelected.uuid}
         />
+        {ToastComponent}
       </SafeAreaView>
     );
   }
@@ -530,7 +561,7 @@ export default function CalendarScreen() {
         {/* Event cards */}
         {displayEvents.map((event) => (
           <EventCard
-            key={event.id}
+            key={event.uuid ?? `demo-${event.id}`}
             event={event}
             registered={isRegistered(event)}
             onToggle={() => handleToggle(event)}
@@ -541,9 +572,8 @@ export default function CalendarScreen() {
         {/* Footer */}
         <View style={styles.listFooter}>
           <Text style={styles.footerText}>
-            {'12 AYDA '}
-            <Text style={{ color: Colors.gold }}>{displayEvents.length} ETKİNLİK</Text>
-            {' · GENÇ TETSİAD 2026'}
+            <Text style={{ color: Colors.gold }}>{displayEvents.length} YAKLAŞAN ETKİNLİK</Text>
+            {` · GENÇ TETSİAD ${thisYear}`}
           </Text>
         </View>
       </ScrollView>

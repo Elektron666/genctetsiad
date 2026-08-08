@@ -12,6 +12,7 @@ type Member = {
   id: string;
   name: string;
   role: string;
+  roleKey: MemberRole;
   firm: string;
   city: string;
   memberNo: string;
@@ -36,10 +37,14 @@ function profileToMember(p: Profile): Member {
     id:       p.id,
     name:     p.full_name,
     role:     ROLE_LABELS[p.role] ?? p.role,
+    // Filtreler metin etiketine göre çalışıyordu: ROLE_LABELS'ta tek
+    // harflik bir değişiklik filtreleri sessizce bozardı.
+    roleKey:  p.role,
     firm:     p.company ?? '—',
     city:     p.city ?? '—',
     memberNo: p.member_code ?? '—',
-    phone:    p.phone ?? '—',
+    // Üye telefonunu rehberde gizlemeyi seçebilir (migration 011).
+    phone:    p.phone_visible === false ? '—' : (p.phone ?? '—'),
     sector:   p.sector ?? '—',
     email:    p.email ?? undefined,
   };
@@ -48,25 +53,25 @@ function profileToMember(p: Profile): Member {
 // Sunum verisi. 19 uydurma üye + telefon numaraları; bunlar arasında
 // gerçek kişilerin adları da var. Yayın paketine hiç girmemeli.
 const DEMO_MEMBERS: Member[] = [
-  { id:'1',  name:'Resul Öden',       role:'Başkan',          firm:'ROSSA HOME',             city:'İstanbul', memberNo:'GT-2026-00001', phone:'+90 532 101 00 01', sector:'Ev Tekstili' },
-  { id:'2',  name:'Fatih Özdemir',    role:'Yönetim Kurulu',  firm:'ORMEN TEKSTİL',          city:'Ankara',   memberNo:'GT-2026-00002', phone:'+90 542 312 04 60', sector:'Dokuma' },
-  { id:'3',  name:'Elif Yıldız',      role:'Üye',             firm:'YILDIZ HOME',            city:'Bursa',    memberNo:'GT-2026-00003', phone:'+90 505 234 56 78', sector:'Tasarım' },
-  { id:'4',  name:'Kerem Bayraktar',  role:'Üye',             firm:'BAYRAKTAR TEKSTİL',      city:'İstanbul', memberNo:'GT-2026-00004', phone:'+90 533 456 78 90', sector:'İhracat' },
-  { id:'5',  name:'Ayşe Kaya',        role:'Öğrenci Üye',     firm:'İTÜ Tekstil Müh.',       city:'İstanbul', memberNo:'GT-2026-00005', phone:'+90 544 567 89 01', sector:'Öğrenci' },
-  { id:'6',  name:'Mert Arslan',      role:'Yönetim Kurulu',  firm:'ARSLAN TEKSTİL',         city:'Denizli',  memberNo:'GT-2026-00006', phone:'+90 532 678 90 12', sector:'Dokuma' },
-  { id:'7',  name:'Selin Çelik',      role:'Üye',             firm:'ÇELİK HOME',             city:'İstanbul', memberNo:'GT-2026-00007', phone:'+90 506 789 01 23', sector:'Ev Tekstili' },
-  { id:'8',  name:'Burak Öztürk',     role:'Üye',             firm:'ÖZTÜRK BOYA',            city:'Bursa',    memberNo:'GT-2026-00008', phone:'+90 535 890 12 34', sector:'Boya & Terbiye' },
-  { id:'9',  name:'Zeynep Şahin',     role:'Öğrenci Üye',     firm:'Uludağ Üniversitesi',    city:'Bursa',    memberNo:'GT-2026-00009', phone:'+90 545 901 23 45', sector:'Öğrenci' },
-  { id:'10', name:'Emre Yılmaz',      role:'Üye',             firm:'YILMAZ DOKUMA',          city:'K.Maraş',  memberNo:'GT-2026-00010', phone:'+90 532 012 34 56', sector:'Dokuma' },
-  { id:'11', name:'Hande Kılıç',      role:'Üye',             firm:'KILIÇ TEKSTİL',          city:'İstanbul', memberNo:'GT-2026-00011', phone:'+90 507 123 45 67', sector:'İhracat' },
-  { id:'12', name:'Oğuz Aydın',       role:'Yönetim Kurulu',  firm:'AYDIN GROUP',            city:'İzmir',    memberNo:'GT-2026-00012', phone:'+90 533 234 56 78', sector:'Ev Tekstili' },
-  { id:'13', name:'Ceren Doğan',      role:'Üye',             firm:'DOĞAN TEKSTİL',          city:'Gaziantep',memberNo:'GT-2026-00013', phone:'+90 543 345 67 89', sector:'Dokuma' },
-  { id:'14', name:'Alp Çakır',        role:'Öğrenci Üye',     firm:'İTÜ Tekstil Müh.',       city:'İstanbul', memberNo:'GT-2026-00014', phone:'+90 535 456 78 90', sector:'Öğrenci' },
-  { id:'15', name:'Nisan Güler',      role:'Üye',             firm:'GÜLER HOME DESIGN',      city:'İstanbul', memberNo:'GT-2026-00015', phone:'+90 506 567 89 01', sector:'Tasarım' },
-  { id:'16', name:'Tarık Erdoğan',    role:'Yönetim Kurulu',  firm:'ERDOĞAN TEKSTİL',        city:'Denizli',  memberNo:'GT-2026-00016', phone:'+90 542 678 90 12', sector:'İhracat' },
-  { id:'17', name:'Büşra Kara',       role:'Üye',             firm:'KARA BOYA',              city:'Bursa',    memberNo:'GT-2026-00017', phone:'+90 532 789 01 23', sector:'Boya & Terbiye' },
-  { id:'18', name:'Ege Demir',        role:'Öğrenci Üye',     firm:'Pamukkale Üniversitesi', city:'Denizli',  memberNo:'GT-2026-00018', phone:'+90 507 890 12 34', sector:'Öğrenci' },
-  { id:'19', name:'Görkem Yıldırım',  role:'Üye',             firm:'YILDIRIM EV TEKSTİLİ',  city:'İstanbul', memberNo:'GT-2026-00019', phone:'+90 534 901 23 45', sector:'Ev Tekstili' },
+  { id:'1',  name:'Resul Öden',       roleKey:'president' as MemberRole, role:'Başkan',          firm:'ROSSA HOME',             city:'İstanbul', memberNo:'GT-2026-00001', phone:'+90 532 101 00 01', sector:'Ev Tekstili' },
+  { id:'2',  name:'Fatih Özdemir',    roleKey:'board' as MemberRole, role:'Yönetim Kurulu',  firm:'ORMEN TEKSTİL',          city:'Ankara',   memberNo:'GT-2026-00002', phone:'+90 542 312 04 60', sector:'Dokuma' },
+  { id:'3',  name:'Elif Yıldız',      roleKey:'member' as MemberRole, role:'Üye',             firm:'YILDIZ HOME',            city:'Bursa',    memberNo:'GT-2026-00003', phone:'+90 505 234 56 78', sector:'Tasarım' },
+  { id:'4',  name:'Kerem Bayraktar',  roleKey:'member' as MemberRole, role:'Üye',             firm:'BAYRAKTAR TEKSTİL',      city:'İstanbul', memberNo:'GT-2026-00004', phone:'+90 533 456 78 90', sector:'İhracat' },
+  { id:'5',  name:'Ayşe Kaya',        roleKey:'student' as MemberRole, role:'Öğrenci Üye',     firm:'İTÜ Tekstil Müh.',       city:'İstanbul', memberNo:'GT-2026-00005', phone:'+90 544 567 89 01', sector:'Öğrenci' },
+  { id:'6',  name:'Mert Arslan',      roleKey:'board' as MemberRole, role:'Yönetim Kurulu',  firm:'ARSLAN TEKSTİL',         city:'Denizli',  memberNo:'GT-2026-00006', phone:'+90 532 678 90 12', sector:'Dokuma' },
+  { id:'7',  name:'Selin Çelik',      roleKey:'member' as MemberRole, role:'Üye',             firm:'ÇELİK HOME',             city:'İstanbul', memberNo:'GT-2026-00007', phone:'+90 506 789 01 23', sector:'Ev Tekstili' },
+  { id:'8',  name:'Burak Öztürk',     roleKey:'member' as MemberRole, role:'Üye',             firm:'ÖZTÜRK BOYA',            city:'Bursa',    memberNo:'GT-2026-00008', phone:'+90 535 890 12 34', sector:'Boya & Terbiye' },
+  { id:'9',  name:'Zeynep Şahin',     roleKey:'student' as MemberRole, role:'Öğrenci Üye',     firm:'Uludağ Üniversitesi',    city:'Bursa',    memberNo:'GT-2026-00009', phone:'+90 545 901 23 45', sector:'Öğrenci' },
+  { id:'10', name:'Emre Yılmaz',      roleKey:'member' as MemberRole, role:'Üye',             firm:'YILMAZ DOKUMA',          city:'K.Maraş',  memberNo:'GT-2026-00010', phone:'+90 532 012 34 56', sector:'Dokuma' },
+  { id:'11', name:'Hande Kılıç',      roleKey:'member' as MemberRole, role:'Üye',             firm:'KILIÇ TEKSTİL',          city:'İstanbul', memberNo:'GT-2026-00011', phone:'+90 507 123 45 67', sector:'İhracat' },
+  { id:'12', name:'Oğuz Aydın',       roleKey:'board' as MemberRole, role:'Yönetim Kurulu',  firm:'AYDIN GROUP',            city:'İzmir',    memberNo:'GT-2026-00012', phone:'+90 533 234 56 78', sector:'Ev Tekstili' },
+  { id:'13', name:'Ceren Doğan',      roleKey:'member' as MemberRole, role:'Üye',             firm:'DOĞAN TEKSTİL',          city:'Gaziantep',memberNo:'GT-2026-00013', phone:'+90 543 345 67 89', sector:'Dokuma' },
+  { id:'14', name:'Alp Çakır',        roleKey:'student' as MemberRole, role:'Öğrenci Üye',     firm:'İTÜ Tekstil Müh.',       city:'İstanbul', memberNo:'GT-2026-00014', phone:'+90 535 456 78 90', sector:'Öğrenci' },
+  { id:'15', name:'Nisan Güler',      roleKey:'member' as MemberRole, role:'Üye',             firm:'GÜLER HOME DESIGN',      city:'İstanbul', memberNo:'GT-2026-00015', phone:'+90 506 567 89 01', sector:'Tasarım' },
+  { id:'16', name:'Tarık Erdoğan',    roleKey:'board' as MemberRole, role:'Yönetim Kurulu',  firm:'ERDOĞAN TEKSTİL',        city:'Denizli',  memberNo:'GT-2026-00016', phone:'+90 542 678 90 12', sector:'İhracat' },
+  { id:'17', name:'Büşra Kara',       roleKey:'member' as MemberRole, role:'Üye',             firm:'KARA BOYA',              city:'Bursa',    memberNo:'GT-2026-00017', phone:'+90 532 789 01 23', sector:'Boya & Terbiye' },
+  { id:'18', name:'Ege Demir',        roleKey:'student' as MemberRole, role:'Öğrenci Üye',     firm:'Pamukkale Üniversitesi', city:'Denizli',  memberNo:'GT-2026-00018', phone:'+90 507 890 12 34', sector:'Öğrenci' },
+  { id:'19', name:'Görkem Yıldırım',  roleKey:'member' as MemberRole, role:'Üye',             firm:'YILDIRIM EV TEKSTİLİ',  city:'İstanbul', memberNo:'GT-2026-00019', phone:'+90 534 901 23 45', sector:'Ev Tekstili' },
 ];
 
 const FALLBACK_MEMBERS: Member[] = __DEV__ ? DEMO_MEMBERS : [];
@@ -97,9 +102,9 @@ export default function DirectoryScreen() {
 
   const filtered = useMemo(() => {
     let list = allMembers;
-    if (filter === 'YÖNETİM') list = list.filter(m => m.role === 'Başkan' || m.role === 'Yönetim Kurulu');
-    else if (filter === 'ÜYE')      list = list.filter(m => m.role === 'Üye');
-    else if (filter === 'ÖĞRENCİ') list = list.filter(m => m.role === 'Öğrenci Üye');
+    if (filter === 'YÖNETİM') list = list.filter(m => m.roleKey === 'president' || m.roleKey === 'board' || m.roleKey === 'admin');
+    else if (filter === 'ÜYE')      list = list.filter(m => m.roleKey === 'member');
+    else if (filter === 'ÖĞRENCİ') list = list.filter(m => m.roleKey === 'student');
     if (search.trim()) {
       // Türkçe'de 'I'.toLowerCase() → 'i' olmaz; 'İSTANBUL' araması
       // locale-aware küçültme olmadan 'İstanbul'u bulamaz.

@@ -1,11 +1,13 @@
-# MAĞAZA ÖNCESİ TAM DENETİM — 201 MADDE
+# MAĞAZA ÖNCESİ TAM DENETİM — 204 MADDE
 
 **Kapsam:** 11.702 satır — `native/` (29 dosya), `supabase/` (12 dosya), `.github/`, `docs/`, `project/`
 **Yöntem:** her dosya baştan sona okundu. Tahmin yok; her madde bir satıra dayanıyor.
-**Tarih:** 2 Ağustos 2026 · **Durum:** 201 bulgu — **99'u düzeltildi**, 102'si gerekçeli olarak açık.
+**Tarih:** 2 Ağustos 2026 · **Durum:** 204 bulgu — **136'sı düzeltildi**, 68'i gerekçeli olarak açık.
 
-> **2. tur (bu commit):** ilk turda açık bırakılan 25 madde daha kapatıldı ve
-> ESLint kurulunca **yeni bir ölü özellik** ortaya çıktı (madde 201).
+> **2. tur:** 25 madde daha kapatıldı; ESLint kurulunca bir ölü özellik çıktı (201).
+> **3. tur:** 37 madde daha kapatıldı. Migration'lar gerçek PostgreSQL'de
+> çalıştırılıp RLS'e 22 saldırı denendi — **3 yeni hata bulundu (202–204)**,
+> biri en kritik güvenlik düzeltmesinin sessizce uygulanmamasına yol açıyordu.
 
 > Bu belgenin amacı listelemek değil, **karar verilebilir hâle getirmek**.
 > Her madde: ne bozuk · kullanıcı ne yaşıyor · ne yapıldı.
@@ -16,10 +18,10 @@
 
 | Ağırlık | Adet | Düzeltildi | Açık |
 |---|---|---|---|
-| 🔴 Kritik — veri/güvenlik/yayın engeli | 24 | 22 | 2 |
-| 🟠 Yüksek — yanlış bilgi, bozuk akış | 52 | 41 | 11 |
-| 🟡 Orta — UX, performans, tutarlılık | 78 | 29 | 49 |
-| ⚪ Düşük — temizlik, ileri sürüm | 47 | 7 | 40 |
+| 🔴 Kritik — veri/güvenlik/yayın engeli | 26 | 24 | 2 |
+| 🟠 Yüksek — yanlış bilgi, bozuk akış | 53 | 50 | 3 |
+| 🟡 Orta — UX, performans, tutarlılık | 78 | 51 | 27 |
+| ⚪ Düşük — temizlik, ileri sürüm | 47 | 11 | 36 |
 
 ---
 
@@ -391,3 +393,69 @@ Bu uygulama **hiçbir gerçek cihazda uçtan uca çalıştırılmadı.** Buradak
 statik inceleme, tip denetimi, Hermes paketleme ve `expo prebuild` çıktısıyla
 doğrulandı. Kayıt → e-posta kodu → onay → duyuru → bildirim zincirinin
 gerçek bir telefonda denenmesi, listedeki hiçbir maddenin yerine geçmez.
+
+---
+
+# 3. TUR — GERÇEK POSTGRES ÜZERİNDE DOĞRULAMA
+
+Önceki turlarda migration'lar yalnızca **okunarak** doğrulanmıştı. Bu turda
+yerel bir PostgreSQL 16 örneği ayağa kaldırıldı, Supabase ortamı (auth şeması,
+`auth.uid()`, `anon`/`authenticated`/`service_role` rolleri) taklit edildi ve
+**11 migration sıfırdan sırayla çalıştırıldı.** Ardından RLS'e karşı 22 saldırı
+denendi.
+
+## Sonuçlar
+
+| Ölçüm | Sonuç |
+|---|---|
+| Sıfırdan uygulanan migration | **11 / 11** temiz |
+| 011 + 012 tekrar çalıştırma | **4 / 4** sorunsuz (idempotent) |
+| Engellenen saldırı | **22 / 22** |
+| İzin verilmesi gereken işlem | **3 / 3** çalışıyor |
+| `search_path` sabitlenmemiş SECURITY DEFINER fonksiyon | **0** |
+
+## Doğrulama sırasında bulunan 3 YENİ hata
+
+**202. `011` idempotent DEĞİLDİ.** 🔴 ✅
+`profiles_update_board` ve `attendees_select_approved` için `DROP POLICY IF
+EXISTS` yoktu. Dosya ikinci kez çalıştırıldığında *"policy already exists"*
+hatası verip **duruyordu** — yani en kritik güvenlik düzeltmesi uygulanmamış
+kalıyordu. Bu hatayı daha önce iki kez yaşamıştınız; üçüncüsü olacaktı.
+Dosyanın başındaki "idempotent" iddiası da yanlıştı.
+
+**203. Yönetim kurulu üyesi hâlâ başkanı `pending`e düşürebiliyordu.** 🔴 ✅
+011'in ilk hâli rol kısıtını yalnızca `WITH CHECK`e koymuştu. `USING` hedef
+satırı sınırlamadığı ve `pending` izin verilen kümede olduğu için politika
+işlemi **kabul ediyordu**. Yerel testte açıkça görüldü. Artık hedef satırın
+kendisi de `pending/member/student` olmak zorunda — başkan, yönetim kurulu ve
+admin satırlarına `board` rolü hiç dokunamıyor.
+
+**204. KVKK rıza kilidi geri dönülemezdi.** 🟠 ✅
+Bir kez yazılan rıza damgası **hiç kimse** tarafından düzeltilemiyordu — admin
+de, sunucu tarafı da. Yanlış yazılmış bir damga sonsuza kadar sabitlenirse
+KVKK m.11 "düzeltilmesini isteme" hakkı işletilemez hâle gelirdi. Artık kilit
+üye için mutlak, sistem yöneticisi için `audit_log`'a yazılarak açık.
+
+## Denenen saldırılar (hepsi engellendi)
+
+**Yönetim kurulu hesabı ele geçmiş varsayımıyla:** kendini admin yapma ·
+başkanı düşürme · başkanı admin yapma · başkanın adını değiştirme · üyeyi
+yönetime terfi ettirme · 1 numaralı üye kodunu alma · kendini mentor ilan
+etme · denetim kaydını silme · denetim kaydını değiştirme · sahte denetim
+kaydı ekleme · başkasının cihaz token'ını silme
+
+**Onay bekleyen hesapla:** etkinliğe kaydolma · kursa yazılma · mentor
+olmayan birine başvurma · bülten yazısı gönderme · başkasının profilini
+düzenleme
+
+**Normal üye hesabıyla:** kendi rolünü yükseltme · kendini mentor ilan etme ·
+üye kodunu değiştirme · başkasının profilini düzenleme · kendi yazısını
+yayınlama · başkasının yazısını yayınlama
+
+## Okuma izolasyonu (ölçülen değerler)
+
+| Rol | profiles | audit_log | push_tokens | articles | event_attendees |
+|---|---|---|---|---|---|
+| Onay bekleyen | 1 (yalnız kendisi) | 0 | 0 | 0 | 0 |
+| Onaylı üye | 4 (rehber) | 0 | 0 | yayınlananlar | katılımcılar |
+| Yönetim | tümü | tümü | 0 (008 sonrası) | tümü | tümü |

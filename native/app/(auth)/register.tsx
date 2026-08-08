@@ -10,6 +10,7 @@ import { Colors, Fonts, FontSize } from '@/theme';
 import { useAuthContext } from '@/context/AuthContext';
 import { openExternal, PRIVACY_URL } from '@/lib/links';
 import { authErrorTR } from '@/lib/errors';
+import { isValidTRMobile } from '@/hooks/useAuth';
 
 const TOTAL_STEPS = 5;
 
@@ -81,7 +82,7 @@ export default function RegisterScreen() {
   const handleOtpSend = async () => {
     if (!emailValid) return;
     setOtpLoading(true);
-    const error = await sendEmailOtp(email);
+    const error = await sendEmailOtp(email, true);
     setOtpLoading(false);
     if (error) {
       Alert.alert('Kod gönderilemedi', authErrorTR(error));
@@ -186,7 +187,7 @@ export default function RegisterScreen() {
   }, [goBack]);
 
   const canNext = () => {
-    if (step === 2) return firstName.trim().length > 1 && lastName.trim().length > 1 && phone.replace(/\D/g, '').length >= 10;
+    if (step === 2) return firstName.trim().length > 1 && lastName.trim().length > 1 && isValidTRMobile(phone);
     if (step === 3) return firm.trim().length > 1 && city.length > 0 && sector.length > 0;
     if (step === 5) return kvkkChecked && transferConsent;
     return true;

@@ -124,10 +124,14 @@ function MembersTab({
   members,
   currentUserId,
   onSetRole,
+  hasMore,
+  onLoadMore,
 }: {
   members: Profile[];
   currentUserId?: string;
   onSetRole: (p: Profile, role: MemberRoleKey) => void;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
 }) {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Profile | null>(null);
@@ -178,6 +182,14 @@ function MembersTab({
           <View style={s.empty}>
             <Text style={s.emptySub}>{q ? 'Aramayla eşleşen üye yok.' : 'Henüz onaylı üye yok.'}</Text>
           </View>
+        }
+        ListFooterComponent={
+          hasMore && !q ? (
+            <TouchableOpacity style={s.loadMore} onPress={onLoadMore} activeOpacity={0.8}
+              accessibilityRole="button" accessibilityLabel="Daha fazla üye yükle">
+              <Text style={s.loadMoreText}>DAHA FAZLA ÜYE YÜKLE</Text>
+            </TouchableOpacity>
+          ) : null
         }
         renderItem={({ item: m }) => (
           <TouchableOpacity
@@ -893,7 +905,7 @@ function AuditTab({ load }: { load: () => Promise<AuditRow[]> }) {
 export default function AdminScreen() {
   const { profile, status } = useAuthContext();
   const {
-    pending, members, stats, loading, refetch, approve, rejectApplication, setRole,
+    pending, members, stats, loading, hasMore, loadMoreMembers, refetch, approve, rejectApplication, setRole,
     publishAnnouncement, createEvent,
     listAnnouncements, deleteAnnouncement, updateAnnouncement,
     listEvents, deleteEvent, updateEvent,
@@ -997,7 +1009,10 @@ export default function AdminScreen() {
       {/* Tabs */}
       <View style={s.tabRow}>
         {TABS.map(t => (
-          <TouchableOpacity key={t} style={[s.tabItem, tab === t && s.tabItemActive]} onPress={() => setTab(t)} activeOpacity={0.8}>
+          <TouchableOpacity key={t} style={[s.tabItem, tab === t && s.tabItemActive]} onPress={() => setTab(t)} activeOpacity={0.8}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: tab === t }}
+            accessibilityLabel={t === 'ONAYLAR' && stats.pending > 0 ? `Onaylar, ${stats.pending} bekleyen başvuru` : t}>
             <Text style={[s.tabLabel, tab === t && s.tabLabelActive]}>
               {t}{t === 'ONAYLAR' && stats.pending > 0 ? ` (${stats.pending})` : ''}
             </Text>
@@ -1031,7 +1046,7 @@ export default function AdminScreen() {
           )}
 
           {tab === 'ÜYELER' && (
-            <MembersTab members={members} currentUserId={profile?.id} onSetRole={handleSetRole} />
+            <MembersTab members={members} currentUserId={profile?.id} onSetRole={handleSetRole} hasMore={hasMore} onLoadMore={loadMoreMembers} />
           )}
 
           {tab === 'BÜLTEN' && (
@@ -1202,6 +1217,8 @@ export default function AdminScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
+  loadMore:     { marginTop: 16, borderWidth: 0.5, borderColor: Colors.goldLine, paddingVertical: 13, alignItems: 'center' },
+  loadMoreText: { fontFamily: Fonts.jakarta, fontSize: 9, letterSpacing: 2, color: Colors.gold, fontWeight: '600' },
   auditRow:     { borderWidth: 0.5, borderColor: Colors.goldLine, padding: 14, marginBottom: 10 },
   auditTop:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 },
   auditAction:  { fontFamily: Fonts.jakarta, fontSize: 10, fontWeight: '700', color: Colors.gold, letterSpacing: 1 },

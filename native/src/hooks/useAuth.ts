@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import type { Profile } from '@/types/database';
@@ -16,17 +16,35 @@ export function normalizePhone(raw: string): string {
   return `+90${digits}`;
 }
 
+/**
+ * Türkiye cep telefonu doğrulaması. Eskiden hiç doğrulama yoktu:
+ * boş girdi "+90" üretiyor, 15 haneli bir sayı da kabul ediliyordu.
+ * Geçerli numara 5 ile başlayan tam 10 hanedir.
+ */
+export function isValidTRMobile(raw: string): boolean {
+  let d = raw.replace(/\D/g, '');
+  if (d.startsWith('90') && d.length > 10) d = d.slice(2);
+  d = d.replace(/^0+/, '');
+  return /^5\d{9}$/.test(d);
+}
+
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [status, setStatus] = useState<AuthStatus>('loading');
+  // getSession() ve onAuthStateChange aynı anda profil yükleyebiliyordu;
+  // geç dönen ESKİ yanıt yeni durumu geri yazabiliyordu. Her isteğe sıra
+  // numarası veriyoruz, yalnızca en sonuncusu duruma yazabilir.
+  const loadSeq = useRef(0);
 
   const loadProfile = useCallback(async (userId: string) => {
+    const seq = ++loadSeq.current;
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single();
+    if (seq !== loadSeq.current) return;          // daha yeni bir istek var
     const row = data as SupabaseRow;
     if (row) {
       setProfile(row as Profile);
@@ -56,6 +74,7 @@ export function useAuth() {
       // Oturum süresi dolduğunda veya yenileme başarısız olduğunda kullanıcı
       // hata ekranlarıyla karşılaşmasın; temiz şekilde çıkışa düşsün.
       if (event === 'SIGNED_OUT' || (event === 'TOKEN_REFRESHED' && !session)) {
+        loadSeq.current += 1;                     // uçuştaki yanıtları geçersiz kıl
         setSession(null);
         setProfile(null);
         setStatus('unauthenticated');
@@ -77,10 +96,14 @@ export function useAuth() {
   // SMS parayla, e-posta bedava. Kimlik doğrulamanın asıl kapısı zaten
   // yönetim onayı; e-posta yalnızca "bu adres gerçekten senin mi" sorusunu
   // cevaplıyor. Telefon numarası profil alanı olarak toplanmaya devam eder.
-  const sendEmailOtp = useCallback(async (email: string) => {
+  // createUser: GİRİŞ ekranında false olmalı. Aksi hâlde yazılan her
+  // adres için bir auth.users kaydı açılıyor; yanlış yazılan adresler
+  // birikiyor ve e-posta gönderim kotası boşa harcanıyor. Yeni hesap
+  // yalnızca KAYIT akışında (createUser: true) açılır.
+  const sendEmailOtp = useCallback(async (email: string, createUser = false) => {
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
-      options: { shouldCreateUser: true },
+      options: { shouldCreateUser: createUser },
     });
     return error;
   }, []);

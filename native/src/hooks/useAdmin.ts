@@ -53,12 +53,17 @@ export function useAdmin() {
   // olduğunu sanıyordu.
   const [error, setError] = useState<string | null>(null);
 
+  // Üye listesi tek seferde ÇEKİLİYORDU: 1.500 profilin tamamı, her
+  // biri telefon ve e-postasıyla. Sayfa sayfa yüklüyoruz.
+  const PAGE = 200;
+  const [hasMore, setHasMore] = useState(false);
+
   const refetch = useCallback(async () => {
     setLoading(true);
 
     const [pendingRes, membersRes, eventsRes, annRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('role', 'pending').order('created_at', { ascending: false }),
-      supabase.from('profiles').select('*').neq('role', 'pending').order('full_name', { ascending: true }),
+      supabase.from('profiles').select('*', { count: 'exact' }).neq('role', 'pending').order('full_name', { ascending: true }).range(0, PAGE - 1),
       supabase.from('events').select('id', { count: 'exact', head: true }),
       supabase.from('announcements').select('id', { count: 'exact', head: true }),
     ]);
@@ -74,9 +79,10 @@ export function useAdmin() {
     const memberRows = (membersRes.data ?? []) as Profile[];
     setPending(pendingRows);
     setMembers(memberRows);
+    setHasMore((membersRes.count ?? 0) > memberRows.length);
     setStats({
       pending: pendingRows.length,
-      members: memberRows.length,
+      members: membersRes.count ?? memberRows.length,
       events: eventsRes.count ?? 0,
       announcements: annRes.count ?? 0,
     });
@@ -84,6 +90,17 @@ export function useAdmin() {
   }, []);
 
   useEffect(() => { refetch(); }, [refetch]);
+
+  const loadMoreMembers = useCallback(async () => {
+    const from = members.length;
+    const { data, count } = await supabase
+      .from('profiles').select('*', { count: 'exact' })
+      .neq('role', 'pending').order('full_name', { ascending: true })
+      .range(from, from + PAGE - 1);
+    const rows = (data ?? []) as Profile[];
+    setMembers(prev => [...prev, ...rows]);
+    setHasMore(from + rows.length < (count ?? 0));
+  }, [members.length]);
 
   // Silinmiş uygulamaların token'ları kayıtta kalıyor ve her duyuruda
   // boşuna gönderiliyordu. Expo 'DeviceNotRegistered' biletini döndürünce
@@ -181,7 +198,10 @@ export function useAdmin() {
   }, [pruneDeadTokens]);
 
   const publishAnnouncement = useCallback(async (input: { title: string; body: string; type: 'general' | 'event' | 'system' }) => {
-    const { error } = await sb.from('announcements').insert(input);
+    // created_by hiç doldurulmuyordu: hangi yönetim üyesinin hangi
+    // duyuruyu yayınladığı tablodan okunamıyordu.
+    const { data: auth } = await supabase.auth.getUser();
+    const { error } = await sb.from('announcements').insert({ ...input, created_by: auth?.user?.id ?? null });
     if (error) return { error, sent: 0 };
     setStats(prev => ({ ...prev, announcements: prev.announcements + 1 }));
     const sent = await pushToAll(input.title, input.body);
@@ -196,7 +216,8 @@ export function useAdmin() {
     starts_at: string;
     max_attendees?: number | null;
   }) => {
-    const { error } = await sb.from('events').insert({ ...input, is_published: true });
+    const { data: auth } = await supabase.auth.getUser();
+    const { error } = await sb.from('events').insert({ ...input, is_published: true, created_by: auth?.user?.id ?? null });
     if (error) return { error, sent: 0 };
     setStats(prev => ({ ...prev, events: prev.events + 1 }));
     const when = new Date(input.starts_at);
@@ -403,7 +424,7 @@ export function useAdmin() {
   }, []);
 
   return {
-    pending, members, stats, loading, error, refetch, approve, rejectApplication, setRole,
+    pending, members, stats, loading, error, hasMore, loadMoreMembers, refetch, approve, rejectApplication, setRole,
     publishAnnouncement, createEvent,
     listAnnouncements, deleteAnnouncement, updateAnnouncement,
     listEvents, deleteEvent, updateEvent,
