@@ -18,7 +18,7 @@ import { router } from 'expo-router';
 import QRCode from 'react-native-qrcode-svg';
 import Constants from 'expo-constants';
 import { Colors, Fonts, FontSize } from '@/theme';
-import { openExternal, PRIVACY_URL, TERMS_URL } from '@/lib/links';
+import {openExternal, PRIVACY_URL, TERMS_URL, openTel, openMail} from '@/lib/links';
 import { useAppContext } from '@/context/AppContext';
 import { useAuthContext } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -227,7 +227,7 @@ function QRModal({ member, onClose }: { member: Member; onClose: () => void }) {
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel={`${member.phone} numarasını ara`}
-              onPress={() => Linking.openURL(`tel:${member.phone.replace(/\s/g, '')}`)}
+              onPress={() => openTel(member.phone)}
             >
               <Text style={qrStyles.phoneText}>{member.phone}</Text>
             </TouchableOpacity>
@@ -633,7 +633,7 @@ export default function ProfileScreen() {
     if (!isAdmin) return;
     let cancelled = false;
     supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'pending')
-      .then(({ count }) => { if (!cancelled) setPendingCount(count ?? 0); });
+      .then(({ count }) => { if (!cancelled) setPendingCount(count ?? 0); }, () => {});
     return () => { cancelled = true; };
   }, [isAdmin]);
 

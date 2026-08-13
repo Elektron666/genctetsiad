@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Fonts, FontSize } from '@/theme';
+import { openTel, openMail } from '@/lib/links';
 import { useMembers } from '@/hooks/useMembers';
 import type { Profile, MemberRole } from '@/types/database';
 
@@ -230,7 +231,7 @@ export default function DirectoryScreen() {
                   style={styles.phoneBtn}
                   accessibilityRole="button"
                   accessibilityLabel={`${selected.name} adlı üyeyi ara`}
-                  onPress={() => Linking.openURL(`tel:${selected.phone.replace(/\s/g, '')}`)}
+                  onPress={() => openTel(selected.phone)}
                 >
                   <Text style={styles.phoneBtnText}>☎  {selected.phone}</Text>
                 </TouchableOpacity>
@@ -238,7 +239,7 @@ export default function DirectoryScreen() {
               {!!selected.email && (
                 <TouchableOpacity
                   style={styles.mailBtn}
-                  onPress={() => Linking.openURL(`mailto:${selected.email}`)}
+                  onPress={() => openMail(selected.email!)}
                 >
                   <Text style={styles.mailBtnText}>✉  E-POSTA GÖNDER</Text>
                 </TouchableOpacity>

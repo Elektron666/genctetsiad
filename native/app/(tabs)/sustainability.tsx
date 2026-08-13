@@ -141,7 +141,7 @@ export default function SustainabilityScreen() {
         <Text style={styles.quote}>
           "Sürdürülebilirlik artık bir tercih değil, AB pazarına giriş şartı."
         </Text>
-        <Text style={styles.quoteAuthor}>GENÇ TETSİAD · 2026</Text>
+        <Text style={styles.quoteAuthor}>GENÇ TETSİAD · {new Date().getFullYear()}</Text>
       </View>
     </ScrollView>
   );

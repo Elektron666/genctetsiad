@@ -1,13 +1,16 @@
-# MAĞAZA ÖNCESİ TAM DENETİM — 204 MADDE
+# MAĞAZA ÖNCESİ TAM DENETİM — 209 MADDE
 
 **Kapsam:** 11.702 satır — `native/` (29 dosya), `supabase/` (12 dosya), `.github/`, `docs/`, `project/`
 **Yöntem:** her dosya baştan sona okundu. Tahmin yok; her madde bir satıra dayanıyor.
-**Tarih:** 2 Ağustos 2026 · **Durum:** 204 bulgu — **136'sı düzeltildi**, 68'i gerekçeli olarak açık.
+**Tarih:** 2 Ağustos 2026 · **Durum:** 209 bulgu — **141'i düzeltildi**, 68'i gerekçeli olarak açık.
 
 > **2. tur:** 25 madde daha kapatıldı; ESLint kurulunca bir ölü özellik çıktı (201).
 > **3. tur:** 37 madde daha kapatıldı. Migration'lar gerçek PostgreSQL'de
 > çalıştırılıp RLS'e 22 saldırı denendi — **3 yeni hata bulundu (202–204)**,
 > biri en kritik güvenlik düzeltmesinin sessizce uygulanmamasına yol açıyordu.
+> **4. tur:** migration'lar uygulandıktan sonra canlı veritabanında politika
+> sayımı yapıldı — depoda bulunmayan bir DELETE politikası çıktı (205).
+> **5. tur:** hızlı tarama — 4 bulgu daha (206–209).
 
 > Bu belgenin amacı listelemek değil, **karar verilebilir hâle getirmek**.
 > Her madde: ne bozuk · kullanıcı ne yaşıyor · ne yapıldı.
@@ -18,9 +21,9 @@
 
 | Ağırlık | Adet | Düzeltildi | Açık |
 |---|---|---|---|
-| 🔴 Kritik — veri/güvenlik/yayın engeli | 26 | 24 | 2 |
-| 🟠 Yüksek — yanlış bilgi, bozuk akış | 53 | 50 | 3 |
-| 🟡 Orta — UX, performans, tutarlılık | 78 | 51 | 27 |
+| 🔴 Kritik — veri/güvenlik/yayın engeli | 27 | 25 | 2 |
+| 🟠 Yüksek — yanlış bilgi, bozuk akış | 55 | 52 | 3 |
+| 🟡 Orta — UX, performans, tutarlılık | 80 | 53 | 27 |
 | ⚪ Düşük — temizlik, ileri sürüm | 47 | 11 | 36 |
 
 ---
@@ -459,3 +462,89 @@ yayınlama · başkasının yazısını yayınlama
 | Onay bekleyen | 1 (yalnız kendisi) | 0 | 0 | 0 | 0 |
 | Onaylı üye | 4 (rehber) | 0 | 0 | yayınlananlar | katılımcılar |
 | Yönetim | tümü | tümü | 0 (008 sonrası) | tümü | tümü |
+
+---
+
+# 4. TUR — CANLI VERİTABANINDA KAÇAK POLİTİKA
+
+Migration'lar uygulandıktan sonra canlı veritabanında politika sayımı
+yapıldı: `profiles` üzerinde **7** politika çıktı, oysa depodaki
+migration'ların ürettiği küme **6**.
+
+**205. `profiles_delete_admin` — depoda bulunmayan bir DELETE politikası.** 🔴 ✅
+
+`FOR DELETE USING (is_admin_or_board())`. Erken bir denemeden kalmış;
+hiçbir migration dosyasında geçmiyor. Ne yaptığı yerel PostgreSQL
+kopyasında ölçüldü — `board` rolündeki bir hesap **tek komutla başkan
+dahil bütün profilleri sildi**:
+
+| | önce | sonra |
+|---|---|---|
+| profil | 3 | **1** |
+| `auth.users` | 3 | **3** |
+| üye yazısı | 1 | **0** |
+| `audit_log` | 3 | 4 |
+
+İki ayrı sorun:
+
+1. **Yetki.** 011 rol hiyerarşisini kilitlemişti ama bu politika
+   yönetim kurulu üyesine üye veritabanını komple silme yetkisi
+   veriyordu — ve `audit_log`'a **hiçbir kayıt düşmüyordu** (tek artan
+   satır, CASCADE ile silinen yazının kendi tetikleyicisindendi).
+
+2. **Tutarsız durum.** `profiles` silinince `auth.users` satırı KALIR.
+   `handle_new_user` yalnızca `auth.users`'a INSERT'te tetiklendiği için
+   profil bir daha oluşmaz: o kişi giriş yapabilir ama uygulamada
+   kilitlenir ve aynı e-postayla yeniden kayıt da olamaz.
+
+**Çözüm (013):** politika kaldırıldı; `profiles` üzerinde artık hiçbir
+DELETE politikası yok (döngüyle temizleniyor, ileride bir tane daha
+sızarsa o da düşer). Kalıcı silme yalnızca üç denetlenen yoldan
+yapılabiliyor:
+
+| Yol | Kim | Ne yapar |
+|---|---|---|
+| `delete_own_account()` | kullanıcı | kendi hesabını siler (004) |
+| `reject_application()` | yönetim | bekleyen başvuruyu reddeder (011) |
+| `remove_member()` | yalnız admin | üyeliği sonlandırır, `auth.users`'ı da siler, `audit_log`'a yazar |
+
+Ayrıca `rls_policy_overview` görünümü eklendi; ileride beklenmedik bir
+politika sızarsa tek sorguyla görülebilsin diye.
+
+## 013 doğrulaması (yerel PostgreSQL)
+
+| Deneme | Sonuç |
+|---|---|
+| board → doğrudan `DELETE FROM profiles` | `DELETE 0` |
+| board → `remove_member()` | reddedildi (yalnız admin) |
+| admin → kendini silme | reddedildi |
+| admin → üyeyi silme | ✓ profil **ve** `auth.users` silindi, yetim hesap kalmadı |
+| silme `audit_log`'a yazıldı mı | ✓ gerekçesiyle birlikte |
+| 013 üç kez üst üste | ✓ idempotent |
+
+---
+
+# 5. TUR — HIZLI TARAMA
+
+**206. `Linking.openURL` hiçbir yerde yakalanmıyordu.** 🟠 ✅
+Rehber, ana sayfa künyesi ve QR kartvizitte beş çağrı. Çeviricisi ya da
+posta uygulaması olmayan bir cihazda (tablet, bazı Android sürümleri)
+**yakalanmamış promise reddi** oluşuyor, kullanıcı ise dokunduğunda
+hiçbir şey olmadığını görüyordu. → `openTel()` / `openMail()`: hata
+durumunda numarayı/adresi elle kullanabilmesi için gösteriyor.
+
+**207. `.then()` zincirlerinde `.catch` yoktu.** 🟡 ✅
+Yönetim panelinde beş, profil ekranında bir yerde. Ağ koptuğunda
+yakalanmamış reddi oluşuyordu.
+
+**208. Künye ve kapaktaki "2026" sabit yazılıydı.** 🟡 ✅
+Altı yerde. 1 Ocak 2027'de uygulama hâlâ "GENÇ TETSİAD · 2026" diyecekti.
+→ `new Date().getFullYear()`.
+
+**209. Demo verisi `migrations/` klasöründe duruyordu.** 🟠 ✅
+`002_seed_data.sql`. Migration'lar SQL Editor'e **sırayla yapıştırılarak**
+uygulandığı için, numarası gereği yanlışlıkla çalıştırılması işten
+değildi — çalıştırılsa üretime 3 uydurma etkinlik, 3 uydurma kurs ve
+3 uydurma duyuru girerdi; duyurular üyelere **gerçek bildirim** olarak
+giderdi. → `supabase/seed/demo_data.sql` olarak taşındı, numarası
+kaldırıldı, başına uyarı eklendi.
