@@ -1,8 +1,8 @@
-# MAĞAZA ÖNCESİ TAM DENETİM — 209 MADDE
+# MAĞAZA ÖNCESİ TAM DENETİM — 210 MADDE
 
 **Kapsam:** 11.702 satır — `native/` (29 dosya), `supabase/` (12 dosya), `.github/`, `docs/`, `project/`
 **Yöntem:** her dosya baştan sona okundu. Tahmin yok; her madde bir satıra dayanıyor.
-**Tarih:** 2 Ağustos 2026 · **Durum:** 209 bulgu — **141'i düzeltildi**, 68'i gerekçeli olarak açık.
+**Tarih:** 2 Ağustos 2026 · **Durum:** 210 bulgu — **143'ü düzeltildi**, 67'si gerekçeli olarak açık.
 
 > **2. tur:** 25 madde daha kapatıldı; ESLint kurulunca bir ölü özellik çıktı (201).
 > **3. tur:** 37 madde daha kapatıldı. Migration'lar gerçek PostgreSQL'de
@@ -11,6 +11,8 @@
 > **4. tur:** migration'lar uygulandıktan sonra canlı veritabanında politika
 > sayımı yapıldı — depoda bulunmayan bir DELETE politikası çıktı (205).
 > **5. tur:** hızlı tarama — 4 bulgu daha (206–209).
+> **6. tur:** 012'nin yazdığı bildirimleri kimse okumuyordu (210) + mağaza
+> için `runtimeVersion` çevrildi (161).
 
 > Bu belgenin amacı listelemek değil, **karar verilebilir hâle getirmek**.
 > Her madde: ne bozuk · kullanıcı ne yaşıyor · ne yapıldı.
@@ -22,9 +24,9 @@
 | Ağırlık | Adet | Düzeltildi | Açık |
 |---|---|---|---|
 | 🔴 Kritik — veri/güvenlik/yayın engeli | 27 | 25 | 2 |
-| 🟠 Yüksek — yanlış bilgi, bozuk akış | 55 | 52 | 3 |
+| 🟠 Yüksek — yanlış bilgi, bozuk akış | 56 | 53 | 3 |
 | 🟡 Orta — UX, performans, tutarlılık | 80 | 53 | 27 |
-| ⚪ Düşük — temizlik, ileri sürüm | 47 | 11 | 36 |
+| ⚪ Düşük — temizlik, ileri sürüm | 47 | 12 | 35 |
 
 ---
 
@@ -548,3 +550,26 @@ değildi — çalıştırılsa üretime 3 uydurma etkinlik, 3 uydurma kurs ve
 3 uydurma duyuru girerdi; duyurular üyelere **gerçek bildirim** olarak
 giderdi. → `supabase/seed/demo_data.sql` olarak taşındı, numarası
 kaldırıldı, başına uyarı eklendi.
+
+---
+
+# 6. TUR
+
+**210. 012'nin yazdığı kişisel bildirimleri hiçbir ekran okumuyordu.** 🟠 ✅
+Migration 012 `notifications` tablosunu tetikleyicilerle canlandırmıştı:
+üyelik onayı, mentorluk sonucu ve yazı incelemesi artık satır olarak
+düşüyordu. Ama `AppContext` yalnızca `announcements` tablosunu okuyordu —
+**bu satırlar kullanıcıya hiç ulaşmıyordu.** Push anlık ve kaçırılabilir
+olduğu için kalıcı kayıt tam da bunun içindi.
+→ Kişisel bildirimler duyurularla birleştirilip tek akışta gösteriliyor;
+okundu bilgisi sunucuya da yazılıyor (başka cihazda tekrar okunmamış
+görünmesin diye).
+
+**161. `runtimeVersion` mağaza sürümü için `appVersion` yapıldı.** ⚪ ✅
+`sdkVersion` iken SDK 56 ile derlenmiş **tüm** sürümler aynı çalışma
+zamanını paylaşıyordu: 1.0.0 için yayınlanan bir OTA güncellemesi 1.1.0'a
+da düşer, orada bulunmayan bir yerel modülü çağırıp uygulamayı
+çökertirdi. Yayın öncesi yapılacaklar listesindeydi; artık yapıldı.
+
+> Bu değişiklik uygulamanın **Expo Go ile açılmasını sonlandırır.**
+> Test artık derlenmiş APK üzerinden yapılır — zaten öyle yapılıyordu.

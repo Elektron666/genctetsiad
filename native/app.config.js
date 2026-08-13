@@ -30,6 +30,29 @@ module.exports = () => {
       orientation: 'portrait',
       icon: './assets/icon.png',
       userInterfaceStyle: 'dark',
+
+      // Açıklama alanı HİÇ TANIMLI DEĞİLDİ. Expo, açıklama bulamayınca
+      // GitHub deposunun açıklamasına düşüyordu; yükleme ekranında
+      // "Uygulama DEMO ... tarafından geliştiriliyor" yazıyordu.
+      // Bu metin mağaza listelemesinde de görünür.
+      description:
+        'Genç TETSİAD üyelerine özel platform: üye rehberi, etkinlik takvimi, ' +
+        'eğitim programları, mentorluk ve dernek duyuruları.',
+
+      // Yükleme çubuğunun ve sistem aksanlarının rengi. Tanımlı
+      // olmadığında Expo'nun varsayılan mavisi çıkıyordu — markanın
+      // lacivert/altın paletiyle çelişiyordu.
+      primaryColor: '#D9C896',
+      backgroundColor: '#051C11',
+
+      // Güncelleme indirilirken düz bir yükleyici yerine markalı açılış
+      // ekranı görünsün; indirme uzarsa kullanıcı beklemesin, önbellekteki
+      // sürümle açılsın ve güncelleme arka planda tamamlansın.
+      updates: {
+        url: 'https://u.expo.dev/83011c32-8359-4c20-8b34-8b5597ecb968',
+        fallbackToCacheTimeout: 8000,
+        checkAutomatically: 'ON_LOAD',
+      },
       ios: {
         supportsTablet: false,
         bundleIdentifier: 'org.tetsiad.genc',
@@ -48,6 +71,10 @@ module.exports = () => {
         },
         package: 'org.tetsiad.genc',
         versionCode: 1,
+        // Açılışta beyaz bir şerit görünmesin
+        backgroundColor: '#051C11',
+        navigationBarColor: '#051C11',
+        softwareKeyboardLayoutMode: 'pan',
         // Yalnızca gerçekten kullanılan izinler.
         // POST_NOTIFICATIONS Android 13+ (API 33) için ZORUNLU — bu izin
         // olmadan bildirim izni isteği sessizce başarısız olur ve hiçbir
@@ -118,13 +145,12 @@ module.exports = () => {
           projectId: '83011c32-8359-4c20-8b34-8b5597ecb968',
         },
       },
-      updates: {
-        url: 'https://u.expo.dev/83011c32-8359-4c20-8b34-8b5597ecb968',
-      },
-      // Expo Go ile test için sdkVersion; mağaza sürümünden önce
-      // appVersion'a çevrilecek (docs/YAYIN-YOL-HARITASI.md)
+      // Mağaza sürümü için appVersion. 'sdkVersion' olsaydı SDK 56 ile
+      // derlenmiş TÜM sürümler aynı çalışma zamanını paylaşırdı: 1.0.0
+      // için yayınlanan bir OTA güncellemesi 1.1.0'a da düşer ve orada
+      // bulunmayan bir yerel modülü çağırıp uygulamayı çökertirdi.
       runtimeVersion: {
-        policy: 'sdkVersion',
+        policy: 'appVersion',
       },
     },
   };
