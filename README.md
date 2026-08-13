@@ -1,88 +1,101 @@
-# Genç TETSİAD
+<div align="center">
 
-Türkiye ev tekstilinin genç iş insanları için üyelik platformu.
-TETSİAD gençlik yapılanmasının üyelerine özel mobil uygulaması.
+# GENÇ TETSİAD
 
-**Konsept ve tasarım:** Fatih Özdemir · ORMEN TEKSTİL, Ankara
+### *Değişim gençlerle olacak.*
 
----
+**Türkiye ev tekstilinin genç iş insanları platformu**
 
-## Ne yapar
+`TETSİAD GENÇLİK YAPILANMASI`
 
-| | |
-|---|---|
-| **Üye rehberi** | Onaylı üyelerin firma, şehir ve sektör bilgisiyle listesi |
-| **Etkinlik takvimi** | Fabrika ziyaretleri, fuarlar, komite toplantıları — kontenjanlı kayıt |
-| **Akademi** | Gelişim programları, eğitim kataloğu ve mentorluk eşleştirmesi |
-| **Bülten** | Üyelerin yazdığı, yönetimin incelediği sektör yazıları |
-| **Duyurular** | Yönetimden anlık bildirim |
-| **Dijital kartvizit** | QR ile paylaşılan üyelik kartı |
-| **Yönetim paneli** | Başvuru onayı, içerik yayını, denetim kaydı |
-
-Üyelik başvuruyla açılır ve **yönetim onayından geçer**. Onay bekleyen
-kullanıcı duyuru ve etkinlikleri görebilir; rehber ile bülten onaydan
-sonra açılır.
+</div>
 
 ---
 
-## Teknoloji
+## Sektörün geleceğini bugünden örüyoruz
 
-React Native 0.85 · Expo SDK 56 · TypeScript · Supabase (Postgres + RLS + Auth)
-· EAS Build · Sentry
+Türkiye ev tekstili, yüzyıllık bir dokuma geleneğinin üzerinde yükseliyor.
+Genç TETSİAD, bu geleneği geleceğe taşıyacak nesli bir araya getiriyor —
+**üretimi, tasarımı ve ihracatı** birleştiren genç iş insanlarının platformu.
 
-Kimlik doğrulama e-posta ile tek kullanımlık kod üzerinden yapılır.
-Veri erişimi tamamen **Row Level Security** ile korunur — istemciye gömülü
-anon anahtarı herkese açıktır, tek gerçek savunma katmanı RLS'tir.
+Rekabeti değil dayanışmayı, kâr yarışını değil ortak büyümeyi seçiyoruz.
+Avrupa'nın yeşil dönüşümünü tehdit değil **fırsat** olarak okuyoruz.
 
----
+<div align="center">
 
-## Yapı
+| **1.500+** | **55** | **40** | **4** |
+|:---:|:---:|:---:|:---:|
+| ÜYE | İL | ÜLKE | PROGRAM |
 
-```
-native/                 Mobil uygulama (Expo Router)
-  app/                  Ekranlar
-  src/hooks/            Veri katmanı (Supabase)
-  src/lib/              Supabase istemcisi, bildirimler, Sentry
-supabase/
-  migrations/           Şema ve RLS politikaları — SIRAYLA çalıştırılır
-  seed/                 Demo verisi (yalnızca geliştirme)
-  functions/            Edge Functions
-docs/                   Gizlilik politikası, güvenlik notları, yayın rehberi
-```
+</div>
 
 ---
 
-## Kurulum
+## Uygulamada neler var
 
-```bash
-cd native
-npm ci
-cp .env.example .env      # Supabase URL ve anon anahtarını girin
-npx expo start
-```
+### ◈ Üye Rehberi
+Türkiye'nin dört bir yanındaki üyelere doğrudan ulaşın. Firma, şehir ve
+sektör bilgisiyle aranabilir dizin. Dijital kartvizitinizi QR ile paylaşın.
 
-Veritabanı: `supabase/migrations/` altındaki dosyalar **numara sırasıyla**
-Supabase SQL Editor'de çalıştırılır. `supabase/seed/` içindekiler yalnızca
-geliştirme ortamı içindir.
+### ◆ Etkinlik Takvimi
+Fabrika ziyaretleri, fuar hazırlıkları, bölge komite toplantıları.
+Kontenjanı görün, tek dokunuşla yerinizi ayırtın.
 
-```bash
-npm run typecheck    # tip denetimi
-npm run lint         # ESLint
-```
+### ◉ Akademi
+İhracattan sürdürülebilirliğe, marka inşasından AB direktiflerine —
+**tüm üyelere ücretsiz** eğitim kataloğu.
 
----
+### ◈ Mentorluk
+Sektörün deneyimli isimleriyle eşleşin. Her genç isim hem öğrenci
+hem öğretmendir.
 
-## Belgeler
+### ◆ Bülten
+Üyelerin kaleminden sektör yazıları. Yönetim incelemesinden geçer,
+bültende yayımlanır.
 
-- [Güvenlik notları](docs/GUVENLIK.md) — tehdit modeli ve RLS kararları
-- [Denetim raporu](docs/DENETIM-200.md) — 210 maddelik inceleme
-- [Yayın yol haritası](docs/YAYIN-YOL-HARITASI.md)
-- [Derleme rehberi](docs/BUILD.md)
-- [Gizlilik politikası](docs/gizlilik-politikasi.html) · [Kullanım koşulları](docs/kullanim-kosullari.html)
+### ◉ Duyurular
+Dernekten gelen her haber anında telefonunuzda.
 
 ---
 
-## İletişim
+## Gelişim ve temsil programları
 
-TETSİAD — Tekstil Sanayicileri ve İşadamları Derneği
+| Program | Kapsam | Kontenjan |
+|---|---|:---:|
+| **3T** — Türkiye Tekstil Temsilcileri | Yıllık liderlik ve temsil programı | 12 |
+| **TBA** — Tekstil Büyükelçileri | Uluslararası fuar ve konferanslarda temsil | 8 |
+| **Altın Mekik** | Üstün başarı ödülü ve bursu | 3 |
+| **UTGİK** | AB ve global trend araştırma komitesi | — |
+
+---
+
+## Üyelik
+
+Üyelik **başvuruyla** açılır ve dernek yönetiminin onayından geçer.
+Başvurunuz komisyon tarafından değerlendirilir; onaylandığında üye kodunuz
+ve dijital kartvizitiniz otomatik olarak tanımlanır.
+
+> Genç TETSİAD, üyelik esaslı kapalı bir platformdur.
+> Üye bilgileri yalnızca onaylı üyelere açıktır ve KVKK kapsamında korunur.
+
+**[Gizlilik Politikası & KVKK Aydınlatma Metni](docs/gizlilik-politikasi.html)** ·
+**[Kullanım Koşulları](docs/kullanim-kosullari.html)**
+
+---
+
+<div align="center">
+
+### İletişim
+
+**TETSİAD** — Tekstil Sanayicileri ve İşadamları Derneği
 info@tetsiad.org · +90 212 292 04 04
+
+<br>
+
+`KONSEPT & TASARIM`
+
+**Fatih Özdemir**
+
+ORMEN TEKSTİL · ANKARA
+
+</div>
