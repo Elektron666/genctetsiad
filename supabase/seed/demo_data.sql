@@ -1,6 +1,15 @@
 -- ============================================================
--- Seed: Demo verisi (geliştirme ortamı için)
--- Production'da çalıştırma!
+-- DEMO VERİSİ — YALNIZCA GELİŞTİRME ORTAMI
+-- ============================================================
+-- ⛔ BU DOSYAYI CANLI VERİTABANINDA ÇALIŞTIRMAYIN.
+--
+-- Daha önce migrations/002_seed_data.sql adıyla duruyordu. Migration'lar
+-- SQL Editor'e sırayla yapıştırılarak uygulandığı için, numarası gereği
+-- yanlışlıkla çalıştırılması işten değildi. Çalıştırılırsa üretime
+-- 3 uydurma etkinlik, 3 uydurma kurs ve 3 uydurma duyuru girer;
+-- duyurular üyelere gerçek bildirim olarak gider.
+--
+-- Bu yüzden migrations/ klasöründen çıkarıldı ve numarası kaldırıldı.
 -- ============================================================
 
 -- Demo etkinlikler

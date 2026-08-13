@@ -17,6 +17,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Fonts, FontSize } from '@/theme';
+import { openTel, openMail } from '@/lib/links';
 import { useAppContext } from '@/context/AppContext';
 import { useAuthContext } from '@/context/AuthContext';
 import { useEvents } from '@/hooks/useEvents';
@@ -82,6 +83,9 @@ const DEMO_EVENTS = [
 ];
 
 const EVENTS = __DEV__ ? DEMO_EVENTS : [];
+
+// Künye ve kapak yılı sabit yazılıydı; 2027'de yanlış görünecekti.
+const YIL = new Date().getFullYear();
 
 const HOME_MONTHS_TR = ['OCAK', 'ŞUBAT', 'MART', 'NİSAN', 'MAYIS', 'HAZİRAN', 'TEMMUZ', 'AĞUSTOS', 'EYLÜL', 'EKİM', 'KASIM', 'ARALIK'];
 
@@ -330,7 +334,7 @@ function ManifestoModal({ onClose }: { onClose: () => void }) {
             ))}
           </ScrollView>
           <View style={manifStyles.divider} />
-          <Text style={manifStyles.sig}>{'GENÇ TETSİAD · 2026'}</Text>
+          <Text style={manifStyles.sig}>{`GENÇ TETSİAD · ${YIL}`}</Text>
           <TouchableOpacity style={manifStyles.closeBtn} onPress={onClose} activeOpacity={0.8}>
             <Text style={manifStyles.closeBtnText}>KAPAT</Text>
           </TouchableOpacity>
@@ -352,7 +356,7 @@ function CreditsModal({ onClose }: { onClose: () => void }) {
           <Text style={credStyles.name}>Fatih Özdemir</Text>
           <View style={credStyles.rule} />
           <Text style={credStyles.firm}>ORMEN TEKSTİL</Text>
-          <Text style={credStyles.meta}>ANKARA · 2026</Text>
+          <Text style={credStyles.meta}>ANKARA · {YIL}</Text>
           <Text style={credStyles.note}>
             Bu uygulama, Genç TETSİAD üyeleri için tasarlandı ve geliştirildi.
           </Text>
@@ -485,7 +489,7 @@ export default function HomeScreen() {
 
           {/* Top bar */}
           <View style={[styles.coverTopBar, { top: insets.top }]}>
-            <Text style={styles.coverTopBarLabel}>GENÇ TETSİAD · 2026</Text>
+            <Text style={styles.coverTopBarLabel}>GENÇ TETSİAD · {YIL}</Text>
             <TouchableOpacity style={styles.bellButton} activeOpacity={0.7} onPress={() => setNotifOpen(true)}>
               {/* Bell icon — drawn inline */}
               <View style={styles.bellIcon}>
@@ -651,7 +655,7 @@ export default function HomeScreen() {
                 <Text style={styles.sigTitle}>{PRESIDENT.title}</Text>
                 <Text style={styles.sigFirm}>{PRESIDENT.firm}</Text>
               </View>
-              <Text style={styles.sigMono}>{'GENÇ\nTETSİAD\n2026'}</Text>
+              <Text style={styles.sigMono}>{`GENÇ\nTETSİAD\n${YIL}`}</Text>
             </View>
           </View>
         </View>
@@ -734,7 +738,7 @@ export default function HomeScreen() {
               <Text style={styles.footerColLabel}>KONSEPT</Text>
               <Text style={styles.footerColName}>Fatih Özdemir</Text>
               <Text style={styles.footerColDetail}>ORMEN TEKSTİL</Text>
-              <Text style={styles.footerColDetail}>ANKARA · 2026</Text>
+              <Text style={styles.footerColDetail}>ANKARA · {YIL}</Text>
             </View>
             <View style={styles.footerCol}>
               <Text style={styles.footerColLabel}>YAYINLAYAN</Text>
@@ -750,7 +754,7 @@ export default function HomeScreen() {
               şey yapmıyordu. */}
           <View style={styles.footerContactRow}>
             <TouchableOpacity
-              onPress={() => Linking.openURL('mailto:info@tetsiad.org')}
+              onPress={() => openMail('info@tetsiad.org')}
               accessibilityRole="button"
               accessibilityLabel="TETSİAD'a e-posta gönder"
             >
@@ -758,7 +762,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
             <Text style={styles.footerContact}>  ·  </Text>
             <TouchableOpacity
-              onPress={() => Linking.openURL('tel:+902122920404')}
+              onPress={() => openTel('+90 212 292 04 04')}
               accessibilityRole="button"
               accessibilityLabel="TETSİAD'ı ara"
             >

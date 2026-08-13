@@ -264,7 +264,7 @@ function ArticleReview({
 
   useEffect(() => {
     let cancelled = false;
-    load().then(r => { if (!cancelled) setItems(r); });
+    load().then(r => { if (!cancelled) setItems(r); }).catch(() => {});
     return () => { cancelled = true; };
   }, [reloadKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -444,7 +444,7 @@ function AttendeeSheet({
 
   useEffect(() => {
     let cancelled = false;
-    load().then(r => { if (!cancelled) setRows(r); });
+    load().then(r => { if (!cancelled) setRows(r); }).catch(() => {});
     return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -528,12 +528,12 @@ function PublishedList({
     setSaving(true);
     const ok = await onEdit(editing, values);
     setSaving(false);
-    if (ok) { setEditing(null); load().then(setItems); }
+    if (ok) { setEditing(null); load().then(setItems).catch(() => {}); }
   };
 
   useEffect(() => {
     let cancelled = false;
-    load().then(rows => { if (!cancelled) setItems(rows); });
+    load().then(rows => { if (!cancelled) setItems(rows); }).catch(() => {});
     return () => { cancelled = true; };
   }, [reloadKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -851,7 +851,7 @@ function AuditTab({ load }: { load: () => Promise<AuditRow[]> }) {
 
   useEffect(() => {
     let cancelled = false;
-    load().then(r => { if (!cancelled) setRows(r); });
+    load().then(r => { if (!cancelled) setRows(r); }).catch(() => {});
     return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
