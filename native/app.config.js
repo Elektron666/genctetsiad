@@ -121,10 +121,12 @@ module.exports = () => {
       updates: {
         url: 'https://u.expo.dev/83011c32-8359-4c20-8b34-8b5597ecb968',
       },
-      // Expo Go ile test için sdkVersion; mağaza sürümünden önce
-      // appVersion'a çevrilecek (docs/YAYIN-YOL-HARITASI.md)
+      // Mağaza sürümü için appVersion. 'sdkVersion' olsaydı SDK 56 ile
+      // derlenmiş TÜM sürümler aynı çalışma zamanını paylaşırdı: 1.0.0
+      // için yayınlanan bir OTA güncellemesi 1.1.0'a da düşer ve orada
+      // bulunmayan bir yerel modülü çağırıp uygulamayı çökertirdi.
       runtimeVersion: {
-        policy: 'sdkVersion',
+        policy: 'appVersion',
       },
     },
   };

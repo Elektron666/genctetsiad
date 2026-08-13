@@ -134,7 +134,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
      
     const rows = (data ?? []) as any[];
     if (rows.length === 0) {
-      setNotifications(DEFAULT_NOTIFICATIONS);
+      // Duyuru yoksa bile kişisel bildirimler gösterilmeli
+      const { data: k } = await supabase
+        .from('notifications')
+        .select('id, title, body, type, read, created_at')
+        .order('created_at', { ascending: false }).limit(30);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const kr = (k ?? []) as any[];
+      setNotifications(kr.length > 0
+        ? kr.map((n) => ({
+            id: `kn-${n.id}`,
+            category: (n.type === 'event' ? 'ETKİNLİK' : n.type === 'mentorship' ? 'SİSTEM' : 'DUYURU') as Notification['category'],
+            title: n.title, body: n.body ?? '', date: fmtDateTR(n.created_at),
+            read: n.read || readIdsRef.current.has(`kn-${n.id}`),
+          }))
+        : DEFAULT_NOTIFICATIONS);
       setAnnouncementBanner(null);
       return;
     }
@@ -142,14 +156,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const catOf = (t: string): Notification['category'] =>
       t === 'event' ? 'ETKİNLİK' : t === 'system' ? 'SİSTEM' : 'DUYURU';
 
-    setNotifications(rows.map((a) => ({
+    const duyurular: Notification[] = rows.map((a) => ({
       id: `sb-${a.id}`,
       category: catOf(a.type),
       title: a.title,
       body: a.body,
       date: fmtDateTR(a.published_at),
       read: readIdsRef.current.has(`sb-${a.id}`),
-    })));
+    }));
+
+    // Kişiye özel bildirimler (üyelik onayı, mentorluk sonucu, yazı
+    // incelemesi). Migration 012 bunları tetikleyicilerle yazıyordu ama
+    // hiçbir ekran okumuyordu — kullanıcıya hiç ulaşmıyorlardı.
+    // Bu tablo RLS ile "yalnızca kendi satırların" şeklinde kapalı.
+    const { data: kisisel } = await supabase
+      .from('notifications')
+      .select('id, title, body, type, read, created_at')
+      .order('created_at', { ascending: false })
+      .limit(30);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const kisiselRows = (kisisel ?? []) as any[];
+    const kisiselList: Notification[] = kisiselRows.map((n) => ({
+      id: `kn-${n.id}`,
+      category: n.type === 'event' ? 'ETKİNLİK' : n.type === 'mentorship' ? 'SİSTEM' : catOf(n.type),
+      title: n.title,
+      body: n.body ?? '',
+      date: fmtDateTR(n.created_at),
+      read: n.read || readIdsRef.current.has(`kn-${n.id}`),
+    }));
+
+    // İkisini tarihe göre birleştir — kullanıcı için tek bir akış.
+    const hepsi = [...kisiselList, ...duyurular];
+    setNotifications(hepsi);
     setAnnouncementBanner({ label: catOf(rows[0].type), text: rows[0].body });
   }, []);
 
@@ -193,6 +232,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     readIdsRef.current.add(String(id));
     saveReadIds(readIdsRef.current);
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    // Kişisel bildirimlerde okundu bilgisi sunucuda da tutulur ki
+    // kullanıcı başka bir cihazda tekrar okunmamış görmesin.
+    const s = String(id);
+    if (s.startsWith('kn-')) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).from('notifications').update({ read: true })
+        .eq('id', s.slice(3)).then(() => {}, () => {});
+    }
   }, []);
 
   const markAllRead = useCallback(() => {
