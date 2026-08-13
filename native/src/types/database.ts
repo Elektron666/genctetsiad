@@ -18,6 +18,11 @@ export interface Profile {
   mentor_bio: string | null;
   member_code: string | null;
   avatar_url: string | null;
+  // migration 011
+  member_type: 'company' | 'student' | null;
+  kvkk_accepted_at: string | null;
+  transfer_consent_at: string | null;
+  phone_visible: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -124,6 +129,18 @@ export interface Article {
   author_company?: string | null;
 }
 
+export interface AuditEntry {
+  id: string;
+  actor_id: string | null;
+  actor_name: string | null;
+  action: string;
+  target_type: string | null;
+  target_id: string | null;
+  target_name: string | null;
+  details: Record<string, unknown> | null;
+  created_at: string;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -137,6 +154,7 @@ export type Database = {
       mentorship_requests: { Row: MentorshipRequest; Insert: Partial<MentorshipRequest>; Update: Partial<MentorshipRequest> };
       announcements: { Row: Announcement; Insert: Partial<Announcement>; Update: Partial<Announcement> };
       notifications: { Row: Notification; Insert: Partial<Notification>; Update: Partial<Notification> };
+      audit_log: { Row: AuditEntry; Insert: never; Update: never };
     };
   };
 };

@@ -1,17 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, KeyboardAvoidingView, Platform, Animated, Share, Alert,
+  ScrollView, KeyboardAvoidingView, Platform, Animated, Share, Alert, BackHandler,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Fonts, FontSize } from '@/theme';
 import { useAuthContext } from '@/context/AuthContext';
+import { openExternal, PRIVACY_URL } from '@/lib/links';
+import { authErrorTR } from '@/lib/errors';
+import { isValidTRMobile } from '@/hooks/useAuth';
 
 const TOTAL_STEPS = 5;
 
-const CITIES = ['İstanbul', 'Bursa', 'Denizli', 'Ankara', 'İzmir', 'Gaziantep', 'Kahramanmaraş', 'Uşak', 'Tekirdağ', 'Konya', 'Adana', 'Kayseri', 'Mersin'];
+const CITIES = ['İstanbul', 'Bursa', 'Denizli', 'Ankara', 'İzmir', 'Gaziantep', 'Kahramanmaraş', 'Uşak', 'Tekirdağ', 'Konya', 'Adana', 'Kayseri', 'Mersin', 'Diğer'];
 const SECTORS = ['Havlu & Bornoz', 'Yatak & Nevresim', 'Perde & Döşeme', 'Halı & Kilim', 'İplik & Örme', 'Teknik Tekstil', 'Diğer'];
 
 function ProgressBar({ step }: { step: number }) {
@@ -43,55 +46,77 @@ const pb = StyleSheet.create({
 });
 
 export default function RegisterScreen() {
-  const { sendEmailOtp, verifyEmailOtp, updateProfile, session } = useAuthContext();
+  const { sendEmailOtp, verifyEmailOtp, updateProfile, session, profile } = useAuthContext();
 
-  const [step, setStep] = useState(1);
-  const [phone, setPhone] = useState('');
+  // Zaten oturum açmışsa doğrulama adımı atlanır. Bu, yarım kalan
+  // kaydı KURTARIR: 1. adımda kod doğrulanınca kullanıcı giriş yapmış
+  // olur; 2. adımda vazgeçerse boş bir profille onay ekranına düşüyor ve
+  // kaydı tamamlamanın hiçbir yolu kalmıyordu.
+  const [step, setStep] = useState(session?.user ? 2 : 1);
+  const [phone, setPhone] = useState((profile?.phone ?? '').replace(/^\+90/, ''));
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [firm, setFirm] = useState('');
-  const [city, setCity] = useState('');
-  const [sector, setSector] = useState('');
-  const [position, setPosition] = useState('');
+  const verifyingRef = useRef(false);
+  const nameParts = (profile?.full_name ?? '').trim().split(' ');
+  const [firstName, setFirstName] = useState(nameParts.slice(0, -1).join(' ') || nameParts[0] || '');
+  const [lastName, setLastName] = useState(nameParts.length > 1 ? nameParts[nameParts.length - 1] : '');
+  const [email, setEmail] = useState(profile?.email ?? session?.user?.email ?? '');
+  const [firm, setFirm] = useState(profile?.company ?? '');
+  const [city, setCity] = useState(profile?.city ?? '');
+  const [sector, setSector] = useState(profile?.sector ?? '');
+  const [position, setPosition] = useState(profile?.position ?? '');
   const [memberType, setMemberType] = useState<'student' | 'company'>('company');
   const [kvkkChecked, setKvkkChecked] = useState(false);
   const [transferConsent, setTransferConsent] = useState(false);
   const [memberCode, setMemberCode] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [codeAnim] = useState(new Animated.Value(0));
-  const otpRefs = Array.from({ length: 6 }, () => useRef<TextInput>(null));
+  // useRef bir döngü/geri çağırma içinde çağrılıyordu — uzunluk sabit
+  // olduğu için çalışıyordu ama hook kuralı ihlali; tek bir ref dizisi
+  // hem doğru hem daha ucuz.
+  const otpRefs = useRef<(TextInput | null)[]>([]);
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   const handleOtpSend = async () => {
     if (!emailValid) return;
     setOtpLoading(true);
-    const error = await sendEmailOtp(email);
+    const error = await sendEmailOtp(email, true);
     setOtpLoading(false);
     if (error) {
-      Alert.alert('Hata', error.message ?? 'Doğrulama e-postası gönderilemedi.');
+      Alert.alert('Kod gönderilemedi', authErrorTR(error));
       return;
     }
     setOtpSent(true);
-    setTimeout(() => otpRefs[0].current?.focus(), 100);
+    setTimeout(() => otpRefs.current[0]?.focus(), 100);
   };
 
   const handleOtp = async (val: string, i: number) => {
+    const digits = val.replace(/\D/g, '');
     const next = [...otp];
-    next[i] = val.slice(-1);
-    setOtp(next);
-    if (val && i < 5) otpRefs[i + 1].current?.focus();
-    if (next.every(d => d)) {
+
+    // Yapıştırma desteği — bkz. login.tsx
+    if (digits.length > 1) {
+      for (let k = 0; k < 6 - i; k++) next[i + k] = digits[k] ?? '';
+      setOtp(next);
+      otpRefs.current[Math.min(i + digits.length, 5)]?.focus();
+    } else {
+      next[i] = digits.slice(-1);
+      setOtp(next);
+      if (digits && i < 5) otpRefs.current[i + 1]?.focus();
+    }
+
+    if (next.every(d => d) && !verifyingRef.current) {
+      verifyingRef.current = true;
       setOtpLoading(true);
       const error = await verifyEmailOtp(email, next.join(''));
       setOtpLoading(false);
+      verifyingRef.current = false;
       if (error) {
-        Alert.alert('Hata', 'Kod hatalı. Tekrar deneyin.');
+        Alert.alert('Doğrulanamadı', authErrorTR(error));
         setOtp(['', '', '', '', '', '']);
-        otpRefs[0].current?.focus();
+        otpRefs.current[0]?.focus();
         return;
       }
       setTimeout(() => setStep(2), 300);
@@ -100,6 +125,13 @@ export default function RegisterScreen() {
 
   const next = async () => {
     if (step === TOTAL_STEPS) {
+      if (submitting) return;
+      setSubmitting(true);
+      // Üyelik tipi ve KVKK onayları artık KAYDEDİLİYOR.
+      // Daha önce 4. adımdaki seçim ve iki açık rıza kutusu hiçbir yere
+      // yazılmıyordu: KVKK denetiminde rızayı KANITLAMAK gerekir ve
+      // kullanıcının seçtiği üyelik tipi tamamen çöpe gidiyordu.
+      const now = new Date().toISOString();
       const { error } = await updateProfile({
         full_name: `${firstName} ${lastName}`.trim(),
         email: email.trim().toLowerCase(),
@@ -108,8 +140,13 @@ export default function RegisterScreen() {
         city,
         sector,
         position,
+        member_type: memberType,
+        kvkk_accepted_at: kvkkChecked ? now : null,
+        transfer_consent_at: transferConsent ? now : null,
         role: 'pending',
-      });
+         
+      } as any);
+      setSubmitting(false);
       if (error) {
         Alert.alert('Hata', 'Başvuru kaydedilemedi. Tekrar deneyin.');
         return;
@@ -127,8 +164,30 @@ export default function RegisterScreen() {
     }
   };
 
+  // Donanım geri tuşu tüm akışı terk ediyordu: 5 adım doldurup geri
+  // tuşuna basan kullanıcı her şeyi kaybediyordu.
+  const goBack = React.useCallback(() => {
+    const first = session?.user ? 2 : 1;
+    if (step > first && step < 6) { setStep(p => p - 1); return true; }
+    if (step >= 6) { router.replace('/(auth)/login'); return true; }
+    if (firstName || lastName || firm) {
+      Alert.alert('Başvurudan çıkılsın mı?', 'Girdiğiniz bilgiler kaydedilmeyecek.', [
+        { text: 'Devam et', style: 'cancel' },
+        { text: 'Çık', style: 'destructive', onPress: () => router.back() },
+      ]);
+      return true;
+    }
+    router.back();
+    return true;
+  }, [step, session, firstName, lastName, firm]);
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', goBack);
+    return () => sub.remove();
+  }, [goBack]);
+
   const canNext = () => {
-    if (step === 2) return firstName.trim().length > 1 && lastName.trim().length > 1 && phone.replace(/\D/g, '').length >= 10;
+    if (step === 2) return firstName.trim().length > 1 && lastName.trim().length > 1 && isValidTRMobile(phone);
     if (step === 3) return firm.trim().length > 1 && city.length > 0 && sector.length > 0;
     if (step === 5) return kvkkChecked && transferConsent;
     return true;
@@ -140,7 +199,7 @@ export default function RegisterScreen() {
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => step > 1 && step < 6 ? setStep(p => p - 1) : router.back()} style={s.backBtn}>
+        <TouchableOpacity onPress={goBack} style={s.backBtn} accessibilityRole="button" accessibilityLabel="Geri">
           <Text style={s.backText}>←</Text>
         </TouchableOpacity>
         <Text style={s.headerTitle}>ÜYELİK BAŞVURUSU</Text>
@@ -169,6 +228,8 @@ export default function RegisterScreen() {
                 placeholder="ornek@firma.com"
                 placeholderTextColor={Colors.textMuted}
                 keyboardType="email-address"
+                autoComplete="email"
+                textContentType="emailAddress"
                 autoCapitalize="none"
                 autoCorrect={false}
               />
@@ -191,12 +252,14 @@ export default function RegisterScreen() {
                 {otp.map((d, i) => (
                   <TextInput
                     key={i}
-                    ref={otpRefs[i]}
+                    ref={el => { otpRefs.current[i] = el; }}
                     style={[s.otpBox, d && s.otpFilled]}
                     value={d}
                     onChangeText={v => handleOtp(v, i)}
                     keyboardType="number-pad"
-                    maxLength={1}
+                    autoComplete="sms-otp"
+                    textContentType="oneTimeCode"
+                    maxLength={6}
                     textAlign="center"
                     editable={otpSent && !otpLoading}
                   />
@@ -340,7 +403,7 @@ export default function RegisterScreen() {
                   Verileriniz pazarlama amacıyla kimseyle paylaşılmaz ve satılmaz. Hizmetin çalışması için şu tedarikçilere sınırlı teknik aktarım yapılır:{'\n'}
                   • Supabase — veritabanı barındırma (Almanya / Frankfurt){'\n'}
                   • Google Firebase & Expo — bildirim iletimi (ABD){'\n'}
-                  • SMS sağlayıcısı — doğrulama kodu iletimi{'\n'}
+                  • E-posta sağlayıcısı (Resend / Supabase) — doğrulama kodu iletimi (AB){'\n'}
                   • Sentry — teknik hata kayıtları (Almanya / AB). Yalnızca hata mesajı,
                   kod konumu, cihaz modeli ve uygulama sürümü gönderilir;
                   kimlik bilgisi, telefon numarası veya yazdığınız metinler
@@ -353,8 +416,12 @@ export default function RegisterScreen() {
                   <Text style={s.kvkkHead}>HAKLARINIZ (KVKK m.11){'\n'}</Text>
                   Verilerinizin işlenip işlenmediğini öğrenme, bilgi talep etme, işleme amacını öğrenme, aktarıldığı üçüncü kişileri bilme, düzeltilmesini veya silinmesini isteme, işlemeye itiraz etme ve zarara uğramanız hâlinde tazminat talep etme haklarına sahipsiniz. Başvurularınızı info@tetsiad.org adresine iletebilirsiniz.{'\n\n'}
 
-                  Tam metin: elektron666.github.io/genctetsiad/gizlilik-politikasi.html
                 </Text>
+                <TouchableOpacity onPress={() => openExternal(PRIVACY_URL)} activeOpacity={0.7}>
+                  <Text style={[s.kvkkText, { color: Colors.gold, marginTop: 10 }]}>
+                    Aydınlatma metninin tam hâlini okuyun →
+                  </Text>
+                </TouchableOpacity>
               </ScrollView>
 
               <TouchableOpacity style={s.checkRow} onPress={() => setKvkkChecked(v => !v)} activeOpacity={0.7}>
@@ -397,7 +464,7 @@ export default function RegisterScreen() {
               </View>
 
               <Text style={s.successNote}>
-                Bu kodu kaydedin. Başvuru durumunuzu sorgulamak için kullanabilirsiniz.
+                Bu kodu kaydedin. Yönetimle iletişimde başvurunuzu bu kodla belirtebilirsiniz.
               </Text>
 
               <TouchableOpacity
@@ -405,7 +472,7 @@ export default function RegisterScreen() {
                 onPress={() => Share.share({ message: memberCode })}
                 activeOpacity={0.8}
               >
-                <Text style={[s.ctaText, { color: Colors.gold }]}>KODU PAYLAŞ / KOPYALA</Text>
+                <Text style={[s.ctaText, { color: Colors.gold }]}>REFERANS KODUNU PAYLAŞ</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -429,10 +496,12 @@ export default function RegisterScreen() {
             style={[s.ctaButton, !canNext() && s.ctaDisabled]}
             onPress={next}
             activeOpacity={0.8}
-            disabled={!canNext()}
+            disabled={!canNext() || submitting}
           >
             <Text style={s.ctaText}>
-              {step === TOTAL_STEPS ? 'BAŞVURUYU TAMAMLA' : 'DEVAM ET'}
+              {step === TOTAL_STEPS
+                ? (submitting ? 'GÖNDERİLİYOR...' : 'BAŞVURUYU TAMAMLA')
+                : 'DEVAM ET'}
             </Text>
           </TouchableOpacity>
         </View>

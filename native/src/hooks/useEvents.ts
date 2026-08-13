@@ -22,7 +22,7 @@ export function useEvents(userId?: string) {
     }
     setError(null);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const rows = data as any[];
     const enriched: Event[] = rows.map((row) => ({
       ...row,
@@ -45,7 +45,7 @@ export function useEvents(userId?: string) {
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
-  const toggleAttendance = useCallback(async (eventId: string): Promise<{ full?: boolean }> => {
+  const toggleAttendance = useCallback(async (eventId: string): Promise<{ full?: boolean; denied?: boolean; failed?: boolean }> => {
     if (!userId) return {};
 
     const event = events.find((e) => e.id === eventId);
@@ -57,18 +57,27 @@ export function useEvents(userId?: string) {
       return { full: true };
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const sb = supabase as any;
     const { error } = event.is_attending
       ? await sb.from('event_attendees').delete().eq('event_id', eventId).eq('user_id', userId)
       : await sb.from('event_attendees').insert({ event_id: eventId, user_id: userId });
 
     // Sunucu reddettiyse arayüzü değiştirmiyoruz — aksi hâlde kullanıcı
-    // katıldığını sanır ama kayıt oluşmamış olur. Kontenjan tetikleyicisi
-    // (migration 006) yarışan kayıtları burada yakalar.
+    // katıldığını sanır ama kayıt oluşmamış olur.
+    //
+    // Hata TÜRÜNÜ ayırt etmek şart: eskiden her hata "kontenjan doldu"
+    // olarak gösteriliyordu, bu yüzden onay bekleyen bir üye KATIL'a
+    // bastığında kontenjanın dolduğu söyleniyordu. Kontenjan tetikleyicisi
+    // (migration 006) check_violation, RLS reddi ise 42501 döner.
     if (error) {
       await fetchEvents();
-      return { full: !event.is_attending };
+       
+      const code = String((error as any).code ?? '');
+      const msg  = String((error as any).message ?? '');
+      if (code === '42501' || /row-level security/i.test(msg)) return { denied: true };
+      if (code === '23514' || /kontenjan/i.test(msg))          return { full: true };
+      return { failed: true };
     }
 
     setEvents((prev) =>

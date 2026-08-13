@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import * as Sentry from '@sentry/react-native';
 import { Colors, Fonts, FontSize } from '@/theme';
 import { isSentryEnabled } from '@/lib/sentry';
@@ -13,12 +13,12 @@ import { isSentryEnabled } from '@/lib/sentry';
 // raporlar. Kullanıcı "TEKRAR DENE" ile uygulamaya geri dönebilir.
 
 type Props = { children: React.ReactNode };
-type State = { hasError: boolean };
+type State = { hasError: boolean; attempts: number };
 
 export class ErrorBoundary extends React.Component<Props, State> {
-  state: State = { hasError: false };
+  state: State = { hasError: false, attempts: 0 };
 
-  static getDerivedStateFromError(): State {
+  static getDerivedStateFromError(): Partial<State> {
     return { hasError: true };
   }
 
@@ -30,10 +30,14 @@ export class ErrorBoundary extends React.Component<Props, State> {
     }
   }
 
-  reset = () => this.setState({ hasError: false });
+  // "TEKRAR DENE" belirleyici bir hatada aynı çökmeye geri dönüyordu:
+  // kullanıcı sonsuz bir döngüye sıkışıyor ve çıkış yolu bulamıyordu.
+  // İki denemeden sonra dürüst olan, uygulamayı kapatmasını söylemek.
+  reset = () => this.setState(p => ({ hasError: false, attempts: p.attempts + 1 }));
 
   render() {
     if (!this.state.hasError) return this.props.children;
+    const stuck = this.state.attempts >= 2;
 
     return (
       <View style={s.root}>
@@ -47,17 +51,26 @@ export class ErrorBoundary extends React.Component<Props, State> {
         <View style={s.rule} />
 
         <Text style={s.body}>
-          Sorun teknik ekibimize otomatik olarak bildirildi. Aşağıdaki
-          düğmeyle uygulamaya geri dönebilirsiniz.
+          {stuck
+            ? 'Sorun tekrar ediyor. Uygulamayı tamamen kapatıp yeniden açmanız gerekiyor. Hata teknik ekibimize iletildi.'
+            : 'Sorun teknik ekibimize otomatik olarak bildirildi. Aşağıdaki düğmeyle uygulamaya geri dönebilirsiniz.'}
         </Text>
 
-        <TouchableOpacity style={s.cta} onPress={this.reset} activeOpacity={0.8}>
-          <Text style={s.ctaText}>TEKRAR DENE</Text>
+        {!stuck && (
+          <TouchableOpacity style={s.cta} onPress={this.reset} activeOpacity={0.8}
+            accessibilityRole="button" accessibilityLabel="Tekrar dene">
+            <Text style={s.ctaText}>TEKRAR DENE</Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity
+          onPress={() => Linking.openURL('mailto:info@tetsiad.org?subject=Genç%20TETSİAD%20uygulama%20hatası').catch(() => {})}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Destek e-postası gönder"
+        >
+          <Text style={s.note}>Sorun sürerse info@tetsiad.org adresine yazabilirsiniz.</Text>
         </TouchableOpacity>
-
-        <Text style={s.note}>
-          Sorun sürerse info@tetsiad.org adresine yazabilirsiniz.
-        </Text>
       </View>
     );
   }
@@ -73,5 +86,5 @@ const s = StyleSheet.create({
   body:     { fontFamily: Fonts.jakarta, fontSize: 11, color: Colors.textMuted, textAlign: 'center', lineHeight: 18, marginBottom: 30 },
   cta:      { backgroundColor: Colors.gold, paddingVertical: 14, paddingHorizontal: 44 },
   ctaText:  { fontFamily: Fonts.jakarta, fontSize: FontSize.xs, fontWeight: '700', color: Colors.navyDeep, letterSpacing: 3 },
-  note:     { fontFamily: Fonts.jakarta, fontSize: 9, color: Colors.textMuted, textAlign: 'center', marginTop: 24 },
+  note:     { fontFamily: Fonts.jakarta, fontSize: 9, color: Colors.gold, textAlign: 'center', marginTop: 24, textDecorationLine: 'underline' },
 });

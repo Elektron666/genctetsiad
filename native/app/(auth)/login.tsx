@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Fonts, FontSize } from '@/theme';
 import { useAuthContext } from '@/context/AuthContext';
+import { authErrorTR } from '@/lib/errors';
 
 type Step = 'email' | 'otp';
 
@@ -20,8 +21,14 @@ export default function LoginScreen() {
   const [otpError, setOtpError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  // Altı kutu doluyken yapılan her düzeltme yeni bir doğrulama isteği
+  // gönderiyordu: art arda istek → Supabase kilitlenmesi.
+  const verifyingRef = useRef(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
-  const otpRefs = Array.from({ length: 6 }, () => useRef<TextInput>(null));
+  // useRef bir döngü/geri çağırma içinde çağrılıyordu — uzunluk sabit
+  // olduğu için çalışıyordu ama hook kuralı ihlali; tek bir ref dizisi
+  // hem doğru hem daha ucuz.
+  const otpRefs = useRef<(TextInput | null)[]>([]);
 
   useEffect(() => {
     if (status === 'authenticated') router.replace('/(tabs)');
@@ -42,32 +49,58 @@ export default function LoginScreen() {
     const error = await sendEmailOtp(email);
     setLoading(false);
     if (error) {
-      Alert.alert('Hata', error.message ?? 'Doğrulama e-postası gönderilemedi. Lütfen tekrar deneyin.');
+      // shouldCreateUser artık false: bu adresle hesap yoksa Supabase
+      // hata döner. Kullanıcıyı kayıt akışına yönlendiriyoruz.
+      const msg = String(error.message ?? '').toLowerCase();
+      if (msg.includes('signups not allowed') || msg.includes('user not found') || error.status === 400) {
+        Alert.alert(
+          'Bu adresle kayıt bulunamadı',
+          'Önce üyelik başvurusu yapmanız gerekiyor.',
+          [
+            { text: 'Vazgeç', style: 'cancel' },
+            { text: 'BAŞVURU YAP', onPress: () => router.push('/(auth)/register') },
+          ]
+        );
+        return;
+      }
+      Alert.alert('Kod gönderilemedi', authErrorTR(error));
       return;
     }
     Animated.timing(slideAnim, { toValue: 1, duration: 320, useNativeDriver: true }).start(() => {
       setStep('otp');
       setCountdown(60);
-      setTimeout(() => otpRefs[0].current?.focus(), 100);
+      setTimeout(() => otpRefs.current[0]?.focus(), 100);
     });
   };
 
   const handleOtpChange = async (val: string, idx: number) => {
     setOtpError(false);
+    const digits = val.replace(/\D/g, '');
     const next = [...otp];
-    next[idx] = val.slice(-1);
-    setOtp(next);
-    if (val && idx < 5) {
-      otpRefs[idx + 1].current?.focus();
+
+    // Yapıştırma: kullanıcılar kodu e-postadan kopyalayıp ilk kutuya
+    // yapıştırıyor. Eskiden yalnızca son hane yazılıyordu ve kod hiç
+    // tamamlanmıyordu.
+    if (digits.length > 1) {
+      for (let i = 0; i < 6 - idx; i++) next[idx + i] = digits[i] ?? '';
+      setOtp(next);
+      otpRefs.current[Math.min(idx + digits.length, 5)]?.focus();
+    } else {
+      next[idx] = digits.slice(-1);
+      setOtp(next);
+      if (digits && idx < 5) otpRefs.current[idx + 1]?.focus();
     }
-    if (next.every(d => d !== '')) {
+
+    if (next.every(d => d !== '') && !verifyingRef.current) {
+      verifyingRef.current = true;
       setLoading(true);
       const error = await verifyEmailOtp(email, next.join(''));
       setLoading(false);
+      verifyingRef.current = false;
       if (error) {
         setOtpError(true);
         setOtp(['', '', '', '', '', '']);
-        otpRefs[0].current?.focus();
+        otpRefs.current[0]?.focus();
       }
       // on success, useEffect handles redirect via status change
     }
@@ -75,17 +108,23 @@ export default function LoginScreen() {
 
   const handleOtpKeyPress = (e: any, idx: number) => {
     if (e.nativeEvent.key === 'Backspace' && !otp[idx] && idx > 0) {
-      otpRefs[idx - 1].current?.focus();
+      otpRefs.current[idx - 1]?.focus();
     }
   };
 
   const handleResend = async () => {
     setOtp(['', '', '', '', '', '']);
     setLoading(true);
-    await sendEmailOtp(email);
+    const error = await sendEmailOtp(email);
     setLoading(false);
+    // Hata yutuluyordu: Supabase saatlik gönderim sınırına takıldığında
+    // hiçbir şey olmuyor ama geri sayım "gönderildi" gibi yeniden başlıyordu.
+    if (error) {
+      Alert.alert('Kod gönderilemedi', authErrorTR(error));
+      return;
+    }
     setCountdown(60);
-    otpRefs[0].current?.focus();
+    otpRefs.current[0]?.focus();
   };
 
   return (
@@ -132,6 +171,8 @@ export default function LoginScreen() {
                 placeholder="ornek@firma.com"
                 placeholderTextColor={Colors.textMuted}
                 keyboardType="email-address"
+                autoComplete="email"
+                textContentType="emailAddress"
                 autoCapitalize="none"
                 autoCorrect={false}
                 editable={!loading}
@@ -174,13 +215,15 @@ export default function LoginScreen() {
                 {otp.map((digit, i) => (
                   <TextInput
                     key={i}
-                    ref={otpRefs[i]}
+                    ref={el => { otpRefs.current[i] = el; }}
                     style={[styles.otpBox, digit && styles.otpBoxFilled, otpError && styles.otpBoxError]}
                     value={digit}
                     onChangeText={v => handleOtpChange(v, i)}
                     onKeyPress={e => handleOtpKeyPress(e, i)}
                     keyboardType="number-pad"
-                    maxLength={1}
+                    autoComplete="sms-otp"
+                    textContentType="oneTimeCode"
+                    maxLength={6}
                     textAlign="center"
                     selectTextOnFocus
                     editable={!loading}

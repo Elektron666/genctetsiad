@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
   Modal, StyleSheet, RefreshControl, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 import { Colors, Fonts, FontSize } from '@/theme';
 import { useAuthContext } from '@/context/AuthContext';
 import { useArticles, useMyArticles } from '@/hooks/useArticles';
 import { useToast } from '@/components/Toast';
 import type { Article } from '@/types/database';
+
+const DRAFT_KEY = 'gt_bulletin_draft';
 
 const MONTHS = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
 const fmt = (iso: string | null) => {
@@ -29,7 +32,7 @@ function ArticleReader({ article, onClose }: { article: Article; onClose: () => 
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <View style={s.readerRoot}>
         <View style={s.readerBar}>
-          <TouchableOpacity onPress={onClose} activeOpacity={0.7}>
+          <TouchableOpacity onPress={onClose} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="Bültene dön">
             <Text style={s.readerBack}>← BÜLTEN</Text>
           </TouchableOpacity>
           <Text style={s.readerDate}>{fmt(article.published_at)}</Text>
@@ -77,6 +80,51 @@ function ComposeModal({
   const [summary, setSummary] = useState(editing?.summary ?? '');
   const [body, setBody] = useState(editing?.body ?? '');
   const [busy, setBusy] = useState(false);
+  const [restored, setRestored] = useState(false);
+
+  // Bu, uygulamadaki en uzun form (en az 200, en fazla 20.000 karakter).
+  // Taslak hiçbir yerde saklanmıyordu: kullanıcı yazarken bir telefon
+  // gelse ve sistem uygulamayı bellekten düşürse yazının tamamı yok
+  // oluyordu. Yazdıkça yerel taslağa kaydediyoruz.
+  useEffect(() => {
+    if (editing) return;                       // düzenlemede taslak yükleme
+    (async () => {
+      try {
+        const raw = await SecureStore.getItemAsync(DRAFT_KEY);
+        if (!raw) return;
+        const d = JSON.parse(raw) as { title: string; summary: string; body: string };
+        if (!d.title && !d.body) return;
+        setTitle(d.title ?? ''); setSummary(d.summary ?? ''); setBody(d.body ?? '');
+        setRestored(true);
+      } catch { /* taslak okunamazsa boş başla */ }
+    })();
+  }, [editing]);
+
+  useEffect(() => {
+    if (editing) return;
+    const t = setTimeout(() => {
+      SecureStore.setItemAsync(DRAFT_KEY, JSON.stringify({ title, summary, body })).catch(() => {});
+    }, 800);
+    return () => clearTimeout(t);
+  }, [title, summary, body, editing]);
+
+  // Kapatırken kaydedilmemiş metin varsa uyar — eskiden ✕ dokunuşu
+  // her şeyi sessizce siliyordu.
+  const requestClose = () => {
+    if (busy) return;
+    const dirty = title.trim().length > 0 || body.trim().length > 0;
+    if (!dirty) { onClose(); return; }
+    Alert.alert(
+      'Yazıdan çıkılsın mı?',
+      editing
+        ? 'Yaptığınız değişiklikler kaydedilmeyecek.'
+        : 'Yazınız taslak olarak saklanır; bu ekranı tekrar açtığınızda kaldığınız yerden devam edebilirsiniz.',
+      [
+        { text: 'Yazmaya devam et', style: 'cancel' },
+        { text: 'Çık', onPress: onClose },
+      ]
+    );
+  };
 
   // Sunucudaki CHECK kısıtıyla aynı sınırlar — kullanıcı hata almadan görsün
   const titleOk = title.trim().length >= 5 && title.trim().length <= 120;
@@ -91,14 +139,22 @@ function ComposeModal({
       editing?.id,
     );
     setBusy(false);
-    if (ok) onClose();
+    if (ok) {
+      if (!editing) await SecureStore.deleteItemAsync(DRAFT_KEY).catch(() => {});
+      onClose();
+    }
   };
 
   return (
-    <Modal visible animationType="slide" onRequestClose={onClose}>
+    <Modal visible animationType="slide" onRequestClose={requestClose}>
       <View style={s.readerRoot}>
+        {restored && (
+          <View style={s.draftBar}>
+            <Text style={s.draftText}>Kaydedilmemiş taslağınız geri yüklendi</Text>
+          </View>
+        )}
         <View style={s.readerBar}>
-          <TouchableOpacity onPress={onClose} activeOpacity={0.7}>
+          <TouchableOpacity onPress={requestClose} accessibilityRole="button" accessibilityLabel="Vazgeç" activeOpacity={0.7}>
             <Text style={s.readerBack}>← VAZGEÇ</Text>
           </TouchableOpacity>
           <Text style={s.readerDate}>{editing ? 'DÜZENLE' : 'YENİ YAZI'}</Text>
@@ -325,6 +381,8 @@ export function BulletinTab() {
 }
 
 const s = StyleSheet.create({
+  draftBar:  { backgroundColor: 'rgba(217,200,150,0.10)', borderBottomWidth: 0.5, borderBottomColor: Colors.goldLine, paddingVertical: 8, paddingHorizontal: 20 },
+  draftText: { fontFamily: Fonts.jakarta, fontSize: 9.5, color: Colors.gold, letterSpacing: 0.3 },
   listContent:  { paddingHorizontal: 24, paddingTop: 20 },
   intro:        { fontFamily: Fonts.jakarta, fontSize: 11, color: Colors.textMuted, lineHeight: 18, marginBottom: 18 },
 

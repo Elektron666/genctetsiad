@@ -65,15 +65,31 @@ export async function registerPushToken(): Promise<string | null> {
  * dokunmak hiçbir şey yapmıyordu — kullanıcı ana ekranda kalıyor ve
  * bildirimin konusunu kendisi aramak zorunda kalıyordu.
  */
+function routeFor(content: { title?: string | null; data?: Record<string, unknown> }): string {
+  // Öncelik `data.screen`: başlık metnine bakmak kırılgandı — yönetici
+  // "Yeni Etkinlik" yerine "Etkinlik Duyurusu" yazınca yönlendirme
+  // sessizce bozuluyordu.
+  const screen = content.data?.screen;
+  if (typeof screen === 'string' && screen.startsWith('/')) return screen;
+
+  const title = String(content.title ?? '');
+  if (title.includes('Etkinlik')) return '/(tabs)/calendar';
+  if (title.includes('Bülten')) return '/(tabs)/academy';
+  if (title.includes('Onayland')) return '/(tabs)/profile';
+  return '/(tabs)';
+}
+
 export function attachNotificationTapHandler(navigate: (path: string) => void) {
   if (IS_EXPO_GO) return () => {};
   try {
+    // Uygulama KAPALIYKEN bildirime dokunulursa dinleyici henüz
+    // bağlanmamış olur ve yönlendirme tamamen kaybolurdu.
+    Notifications.getLastNotificationResponseAsync()
+      .then(res => { if (res) navigate(routeFor(res.notification.request.content)); })
+      .catch(() => {});
+
     const sub = Notifications.addNotificationResponseReceivedListener(res => {
-      const title = String(res.notification.request.content.title ?? '');
-      if (title.includes('Etkinlik')) navigate('/(tabs)/calendar');
-      else if (title.includes('Bülten')) navigate('/(tabs)/academy');
-      else if (title.includes('Onayland')) navigate('/(tabs)/profile');
-      else navigate('/(tabs)');
+      navigate(routeFor(res.notification.request.content));
     });
     return () => sub.remove();
   } catch {
@@ -85,25 +101,44 @@ export function attachNotificationTapHandler(navigate: (path: string) => void) {
  * Expo Push API üzerinden toplu bildirim gönderir (100'lük parçalar halinde).
  * Gönderilen mesaj sayısını döner.
  */
-export async function sendPushBatch(tokens: string[], title: string, body: string): Promise<number> {
-  const messages = tokens
-    .filter(t => typeof t === 'string' && t.startsWith('ExponentPushToken'))
-    .map(to => ({ to, sound: 'default' as const, title, body, priority: 'high' as const }));
+export async function sendPushBatch(
+  tokens: string[],
+  title: string,
+  body: string,
+  screen?: string,
+): Promise<{ sent: number; dead: string[] }> {
+  const valid = tokens.filter(t => typeof t === 'string' && t.startsWith('ExponentPushToken'));
+  const messages = valid.map(to => ({
+    to, sound: 'default' as const, title, body, priority: 'high' as const,
+    ...(screen ? { data: { screen } } : {}),
+  }));
+
+  let sent = 0;
+  const dead: string[] = [];
 
   for (let i = 0; i < messages.length; i += 100) {
+    const chunk = messages.slice(i, i + 100);
     try {
-      await fetch('https://exp.host/--/api/v2/push/send', {
+      const res = await fetch('https://exp.host/--/api/v2/push/send', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(messages.slice(i, i + 100)),
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(chunk),
+      });
+      // Yanıt hiç okunmuyordu: her istek "gönderildi" sayılıyor,
+      // silinmiş uygulamaların token'ları da başarılı görünüyordu.
+      // Expo her mesaj için ayrı bir bilet döner.
+      const json = await res.json().catch(() => null) as { data?: { status: string; details?: { error?: string } }[] } | null;
+      const tickets = json?.data ?? [];
+      chunk.forEach((m, k) => {
+        const t = tickets[k];
+        if (!t) { sent += 1; return; }                  // bilet yoksa iyimser say
+        if (t.status === 'ok') { sent += 1; return; }
+        if (t.details?.error === 'DeviceNotRegistered') dead.push(m.to);
       });
     } catch {
       // tek parça başarısız olsa da kalanları göndermeye devam et
     }
   }
 
-  return messages.length;
+  return { sent, dead };
 }

@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import type { Profile } from '@/types/database';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 type SupabaseRow = any;
 
 export type AuthStatus = 'loading' | 'unauthenticated' | 'pending' | 'authenticated';
@@ -16,24 +16,44 @@ export function normalizePhone(raw: string): string {
   return `+90${digits}`;
 }
 
+/**
+ * Türkiye cep telefonu doğrulaması. Eskiden hiç doğrulama yoktu:
+ * boş girdi "+90" üretiyor, 15 haneli bir sayı da kabul ediliyordu.
+ * Geçerli numara 5 ile başlayan tam 10 hanedir.
+ */
+export function isValidTRMobile(raw: string): boolean {
+  let d = raw.replace(/\D/g, '');
+  if (d.startsWith('90') && d.length > 10) d = d.slice(2);
+  d = d.replace(/^0+/, '');
+  return /^5\d{9}$/.test(d);
+}
+
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [status, setStatus] = useState<AuthStatus>('loading');
+  // getSession() ve onAuthStateChange aynı anda profil yükleyebiliyordu;
+  // geç dönen ESKİ yanıt yeni durumu geri yazabiliyordu. Her isteğe sıra
+  // numarası veriyoruz, yalnızca en sonuncusu duruma yazabilir.
+  const loadSeq = useRef(0);
 
   const loadProfile = useCallback(async (userId: string) => {
+    const seq = ++loadSeq.current;
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single();
+    if (seq !== loadSeq.current) return;          // daha yeni bir istek var
     const row = data as SupabaseRow;
     if (row) {
       setProfile(row as Profile);
       setStatus(row.role === 'pending' ? 'pending' : 'authenticated');
     } else if (error && error.code !== 'PGRST116') {
-      // Geçici hata (ağ vb.) — oturumu düşürme, pending say ki kullanıcı atılmasın
-      setStatus('pending');
+      // Geçici hata (ağ vb.). Elimizde daha önce yüklenmiş bir profil
+      // varsa ONU KORU — eskiden onaylı bir üye, tek bir ağ kesintisinde
+      // "onay bekleniyor" ekranına düşüyor ve uygulamadan atılıyordu.
+      setStatus(prev => (prev === 'authenticated' ? 'authenticated' : 'pending'));
     } else {
       // Profil satırı gerçekten yok (trigger gecikmesi olabilir) — pending kabul et
       setStatus('pending');
@@ -54,6 +74,7 @@ export function useAuth() {
       // Oturum süresi dolduğunda veya yenileme başarısız olduğunda kullanıcı
       // hata ekranlarıyla karşılaşmasın; temiz şekilde çıkışa düşsün.
       if (event === 'SIGNED_OUT' || (event === 'TOKEN_REFRESHED' && !session)) {
+        loadSeq.current += 1;                     // uçuştaki yanıtları geçersiz kıl
         setSession(null);
         setProfile(null);
         setStatus('unauthenticated');
@@ -75,10 +96,14 @@ export function useAuth() {
   // SMS parayla, e-posta bedava. Kimlik doğrulamanın asıl kapısı zaten
   // yönetim onayı; e-posta yalnızca "bu adres gerçekten senin mi" sorusunu
   // cevaplıyor. Telefon numarası profil alanı olarak toplanmaya devam eder.
-  const sendEmailOtp = useCallback(async (email: string) => {
+  // createUser: GİRİŞ ekranında false olmalı. Aksi hâlde yazılan her
+  // adres için bir auth.users kaydı açılıyor; yanlış yazılan adresler
+  // birikiyor ve e-posta gönderim kotası boşa harcanıyor. Yeni hesap
+  // yalnızca KAYIT akışında (createUser: true) açılır.
+  const sendEmailOtp = useCallback(async (email: string, createUser = false) => {
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
-      options: { shouldCreateUser: true },
+      options: { shouldCreateUser: createUser },
     });
     return error;
   }, []);
@@ -110,13 +135,22 @@ export function useAuth() {
   }, []);
 
   const signOut = useCallback(async () => {
+    // Cihaz kaydını çıkarmadan çıkılırsa, telefon dernek duyurularını
+    // almaya DEVAM ediyordu — ortak kullanılan bir cihazda başkasının
+    // bildirimlerini görmek demek.
+    if (session?.user) {
+       
+      try {
+        await (supabase as any).from('push_tokens').delete().eq('user_id', session.user.id);
+      } catch { /* token silinemezse çıkış yine de yapılmalı */ }
+    }
     await supabase.auth.signOut();
-  }, []);
+  }, [session]);
 
   // Mağaza zorunluluğu: kullanıcı kendi hesabını kalıcı olarak silebilmeli.
   // RPC auth.users kaydını siler; tüm veriler CASCADE ile temizlenir.
   const deleteAccount = useCallback(async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { error } = await (supabase as any).rpc('delete_own_account');
     if (!error) {
       await supabase.auth.signOut().catch(() => {});
@@ -133,7 +167,7 @@ export function useAuth() {
 
   const updateProfile = useCallback(async (updates: Partial<Profile>) => {
     if (!session?.user) return { error: new Error('No session') };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { error } = await (supabase as any)
       .from('profiles')
       .update(updates)

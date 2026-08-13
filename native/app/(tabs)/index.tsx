@@ -6,16 +6,20 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
   Platform,
   Modal,
+  Linking,
+  RefreshControl,
+  useWindowDimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Fonts, FontSize } from '@/theme';
 import { useAppContext } from '@/context/AppContext';
+import { useAuthContext } from '@/context/AuthContext';
+import { useEvents } from '@/hooks/useEvents';
 
 // ── Data ───────────────────────────────────────────────────────────────────
 
@@ -37,7 +41,12 @@ const IMG_HOMETEX   = require('../../assets/images/hometex-2026-acilis.jpg');
 const IMG_KOMITE    = require('../../assets/images/bolge-komite-toplantisi.jpg');
 const IMG_PRESIDENT = require('../../assets/images/resul-oden-roportaj.jpg');
 
-const EVENTS = [
+// Sunum verisi. Ana sayfa artık gerçek etkinlikleri Supabase'den çekiyor;
+// bu dizi yalnızca geliştirme/sunum modunda geri düşüş olarak kullanılır.
+// Eskiden burası HİÇ sorgu yapmıyordu: 2 Ağustos'ta "YAKLAŞAN ETKİNLİKLER"
+// başlığı altında 24 Temmuz görünüyordu ve "✓ KATILDIM" rozeti sayısal
+// id'lere baktığı için gerçek katılımı asla yansıtamıyordu.
+const DEMO_EVENTS = [
   {
     id: 1,
     day: 24,
@@ -72,6 +81,10 @@ const EVENTS = [
   },
 ];
 
+const EVENTS = __DEV__ ? DEMO_EVENTS : [];
+
+const HOME_MONTHS_TR = ['OCAK', 'ŞUBAT', 'MART', 'NİSAN', 'MAYIS', 'HAZİRAN', 'TEMMUZ', 'AĞUSTOS', 'EYLÜL', 'EKİM', 'KASIM', 'ARALIK'];
+
 const ANNOUNCEMENTS = [
   {
     id: 1,
@@ -81,35 +94,29 @@ const ANNOUNCEMENTS = [
   },
 ];
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-
 // ── Animated counter hook ──────────────────────────────────────────────────
 
+// Dört sayaç, saniyede 60 kez ateşlenen DÖRT AYRI setTimeout zinciri
+// çalıştırıyordu. requestAnimationFrame hem tek kare bütçesine uyar hem
+// de ekran kapanınca kendiliğinden durur — düşük segment Android'de
+// açılıştaki takılmanın kaynağı buydu.
 function useCounter(target: number, duration = 1200, delay = 0) {
   const [val, setVal] = useState(0);
-  const frameRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const startAt = Date.now() + delay;
-    const tick = () => {
-      const now = Date.now();
+    let raf = 0;
+    let startAt = 0;
+    const tick = (now: number) => {
+      if (startAt === 0) startAt = now + delay;
       const elapsed = now - startAt;
-      if (elapsed < 0) {
-        frameRef.current = setTimeout(tick, 16);
-        return;
-      }
+      if (elapsed < 0) { raf = requestAnimationFrame(tick); return; }
       const progress = Math.min(elapsed / duration, 1);
-      // ease-out cubic
-      const eased = 1 - Math.pow(1 - progress, 3);
+      const eased = 1 - Math.pow(1 - progress, 3);   // ease-out cubic
       setVal(Math.round(eased * target));
-      if (progress < 1) {
-        frameRef.current = setTimeout(tick, 16);
-      }
+      if (progress < 1) raf = requestAnimationFrame(tick);
     };
-    frameRef.current = setTimeout(tick, 16);
-    return () => {
-      if (frameRef.current) clearTimeout(frameRef.current);
-    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, [target, duration, delay]);
 
   return val;
@@ -117,11 +124,14 @@ function useCounter(target: number, duration = 1200, delay = 0) {
 
 // ── Stats strip ────────────────────────────────────────────────────────────
 
-function StatsStrip() {
+// Not: ÜYE / İL / ÜLKE rakamları derneğin kurumsal rakamlarıdır
+// (uygulama verisi değil) ve yönetimin onayıyla güncellenir.
+// ETKİNLİK sayısı ise gerçek kayıtlardan gelir.
+function StatsStrip({ eventCount }: { eventCount: number }) {
   const c1 = useCounter(1500, 1400, 0);
   const c2 = useCounter(55, 1000, 200);
   const c3 = useCounter(40, 900, 400);
-  const c4 = useCounter(10, 700, 600);
+  const c4 = useCounter(eventCount, 700, 600);
 
   const stats = [
     { value: c1 >= 1500 ? '1.500' : c1.toLocaleString('tr-TR'), suffix: '+', label: 'ÜYE' },
@@ -195,8 +205,15 @@ const statsStyles = StyleSheet.create({
 type NotifTab = 'TÜMÜ' | 'DUYURU' | 'ETKİNLİK' | 'SİSTEM';
 
 function NotificationDrawer({ onClose }: { onClose: () => void }) {
-  const { notifications, markRead, markAllRead } = useAppContext();
+  const { notifications, markRead, markAllRead, announcementsError, refreshAnnouncements } = useAppContext();
   const [tab, setTab] = useState<NotifTab>('TÜMÜ');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshAnnouncements();
+    setRefreshing(false);
+  };
 
   const filtered = tab === 'TÜMÜ'
     ? notifications
@@ -213,8 +230,11 @@ function NotificationDrawer({ onClose }: { onClose: () => void }) {
     <Modal visible animationType="slide" transparent onRequestClose={onClose}>
       <View style={notifStyles.overlay}>
         <View style={notifStyles.sheet}>
-          {/* Handle */}
-          <View style={notifStyles.handle} />
+          {/* Tutamağa dokunmak da kapatır — çubuk sürüklenebilir
+              görünüyordu ama hiçbir şey yapmıyordu. */}
+          <TouchableOpacity onPress={onClose} activeOpacity={0.6} accessibilityRole="button" accessibilityLabel="Bildirimleri kapat">
+            <View style={notifStyles.handleTouch}><View style={notifStyles.handle} /></View>
+          </TouchableOpacity>
 
           {/* Header */}
           <View style={notifStyles.header}>
@@ -239,7 +259,33 @@ function NotificationDrawer({ onClose }: { onClose: () => void }) {
           </View>
 
           {/* List */}
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 40, flexGrow: 1 }}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} colors={[Colors.gold]} progressBackgroundColor={Colors.navyDeep} />
+            }
+          >
+            {/* Boş durum yoktu: filtre sonuç vermeyince bomboş bir
+                sayfa açılıyordu. */}
+            {filtered.length === 0 && (
+              <View style={notifStyles.empty}>
+                <View style={notifStyles.emptyDot} />
+                <Text style={notifStyles.emptyTitle}>
+                  {announcementsError
+                    ? 'Bildirimler yüklenemedi.'
+                    : tab === 'TÜMÜ'
+                    ? 'Henüz bildirim yok.'
+                    : `${tab} kategorisinde bildirim yok.`}
+                </Text>
+                <Text style={notifStyles.emptySub}>
+                  {announcementsError
+                    ? 'İnternet bağlantınızı kontrol edip aşağı çekin.'
+                    : 'Dernek duyuru yayınladığında burada ve telefonunuzda görünecek.'}
+                </Text>
+              </View>
+            )}
+
             {filtered.map(n => (
               <TouchableOpacity key={n.id} style={[notifStyles.item, !n.read && notifStyles.itemUnread]} onPress={() => markRead(n.id)} activeOpacity={0.8}>
                 {!n.read && <View style={notifStyles.unreadDot} />}
@@ -352,11 +398,50 @@ const manifStyles = StyleSheet.create({
 });
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
+  const { height: winH } = useWindowDimensions();
+  // Kapak 580px sabitti: küçük ekranlarda alttaki düğme satırı başlığın
+  // üstüne biniyordu. Ekranın %68'i, 440–620 arasına sıkıştırılıyor.
+  const coverHeight = Math.max(440, Math.min(620, Math.round(winH * 0.68)));
   const { registeredEvents, unreadCount, announcementBanner } = useAppContext();
+  const { session, profile } = useAuthContext();
+  const isMember = !!session?.user;
+  const { events: sbEvents, loading: eventsLoading, error: eventsError } = useEvents(session?.user.id);
   const [notifOpen, setNotifOpen] = useState(false);
   const [manifestoOpen, setManifestoOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
   const banner = announcementBanner ?? ANNOUNCEMENTS.find((a) => a.pinned) ?? ANNOUNCEMENTS[0];
+
+  // Yaklaşan etkinlikler — gerçek kayıtlardan, tarihi geçmişler süzülerek.
+  const cutoff = Date.now() - 12 * 60 * 60 * 1000;
+  const upcoming = sbEvents
+    .filter((e) => new Date(e.starts_at).getTime() > cutoff)
+    .slice(0, 4)
+    .map((e) => {
+      const d = new Date(e.starts_at);
+      return {
+        key: e.id,
+        day: d.getDate(),
+        month: HOME_MONTHS_TR[d.getMonth()] ?? '',
+        tag: e.city ?? 'ETKİNLİK',
+        title: e.title,
+        src: e.image_url ? { uri: e.image_url } : null,
+        joined: !!e.is_attending,
+      };
+    });
+
+  // Geri düşüş yalnızca geliştirme modunda; yayında boş liste boş durumu gösterir.
+  const homeEvents = upcoming.length > 0
+    ? upcoming
+    : EVENTS.slice(0, 4).map((ev) => ({
+        key: String(ev.id),
+        day: ev.day,
+        month: ev.month,
+        tag: ev.tag,
+        title: ev.title,
+        src: ev.src,
+        joined: registeredEvents.has(ev.id),
+      }));
 
   const handleQuickCard = (target: string) => {
     if (target === 'directory') {
@@ -378,7 +463,7 @@ export default function HomeScreen() {
       >
 
         {/* ── A. COVER IMAGE ──────────────────────────────────── */}
-        <View style={styles.cover}>
+        <View style={[styles.cover, { height: coverHeight }]}>
           <Image
             source={IMG_FABRIKA}
             style={styles.coverImage}
@@ -399,7 +484,7 @@ export default function HomeScreen() {
           />
 
           {/* Top bar */}
-          <View style={styles.coverTopBar}>
+          <View style={[styles.coverTopBar, { top: insets.top }]}>
             <Text style={styles.coverTopBarLabel}>GENÇ TETSİAD · 2026</Text>
             <TouchableOpacity style={styles.bellButton} activeOpacity={0.7} onPress={() => setNotifOpen(true)}>
               {/* Bell icon — drawn inline */}
@@ -431,9 +516,18 @@ export default function HomeScreen() {
           {/* CTA buttons */}
           <View style={styles.coverCTAWrap}>
             <View style={styles.coverCTARow}>
-              <TouchableOpacity style={styles.btnFill} activeOpacity={0.8} onPress={() => router.push('/(auth)/register')}>
-                <Text style={styles.btnFillText}>BAŞVUR</Text>
-              </TouchableOpacity>
+              {/* Giriş yapmış üyeye "BAŞVUR" gösteriliyordu; dokunan
+                  kişi kaydı baştan yapmaya başlıyordu. Üye için burada
+                  anlamlı olan kendi kartı. */}
+              {isMember ? (
+                <TouchableOpacity style={styles.btnFill} activeOpacity={0.8} onPress={() => router.push('/(tabs)/profile')}>
+                  <Text style={styles.btnFillText}>ÜYE KARTIM</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.btnFill} activeOpacity={0.8} onPress={() => router.push('/(auth)/register')}>
+                  <Text style={styles.btnFillText}>BAŞVUR</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity style={styles.btnOutline} activeOpacity={0.8} onPress={() => setManifestoOpen(true)}>
                 <Text style={styles.btnOutlineText}>MANİFESTO</Text>
               </TouchableOpacity>
@@ -470,7 +564,8 @@ export default function HomeScreen() {
           {[
             { icon: '◈', label: 'Üyelere\nUlaş', sub: 'REHBER', target: 'directory' },
             { icon: '◆', label: 'Sektörel\nGelişim', sub: 'AKADEMİ', target: 'academy' },
-            { icon: '◉', label: 'Trendleri\nKeşfet', sub: 'GÜNDEM', target: 'news' },
+            // Kart 'GÜNDEM' diyor ama sürdürülebilirlik sekmesini açıyordu.
+            { icon: '◉', label: 'Yeşil\nDönüşüm', sub: 'SÜRDÜRÜLEBİLİRLİK', target: 'news' },
           ].map((card) => (
             <TouchableOpacity
               key={card.target}
@@ -487,7 +582,7 @@ export default function HomeScreen() {
 
         {/* ── D. STATS STRIP ─────────────────────────────────── */}
         <View style={styles.statsWrap}>
-          <StatsStrip />
+          <StatsStrip eventCount={sbEvents.length} />
         </View>
 
         {/* ── E. BAŞKAN'DAN ───────────────────────────────────── */}
@@ -573,36 +668,45 @@ export default function HomeScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.eventsScroll}
           >
-            {EVENTS.slice(0, 4).map((ev) => {
-              const joined = registeredEvents.has(ev.id);
-              return (
-                <TouchableOpacity
-                  key={ev.id}
-                  style={styles.eventCard}
-                  activeOpacity={0.85}
-                  onPress={() => router.push('/(tabs)/calendar')}
-                >
-                  <Image
-                    source={typeof ev.src === 'string' ? { uri: ev.src } : ev.src}
-                    style={styles.eventCardImage}
-                    resizeMode="cover"
-                  />
-                  {joined && (
-                    <View style={styles.eventJoinedBadge}>
-                      <Text style={styles.eventJoinedText}>✓ KATILDIM</Text>
-                    </View>
-                  )}
-                  <View style={styles.eventCardBody}>
-                    <Text style={styles.eventTag}>{ev.tag}</Text>
-                    <Text style={styles.eventTitle}>{ev.title}</Text>
-                    <View style={styles.eventDateRow}>
-                      <Text style={styles.eventDay}>{ev.day}</Text>
-                      <Text style={styles.eventMonth}>{ev.month}</Text>
-                    </View>
+            {homeEvents.map((ev) => (
+              <TouchableOpacity
+                key={ev.key}
+                style={styles.eventCard}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={`${ev.title}, ${ev.day} ${ev.month}${ev.joined ? ', katıldınız' : ''}. Takvimi aç.`}
+                onPress={() => router.push('/(tabs)/calendar')}
+              >
+                {ev.src
+                  ? <Image source={ev.src} style={styles.eventCardImage} resizeMode="cover" />
+                  : <View style={[styles.eventCardImage, styles.eventCardImagePlaceholder]} />}
+                {ev.joined && (
+                  <View style={styles.eventJoinedBadge}>
+                    <Text style={styles.eventJoinedText}>✓ KATILDIM</Text>
                   </View>
-                </TouchableOpacity>
-              );
-            })}
+                )}
+                <View style={styles.eventCardBody}>
+                  <Text style={styles.eventTag}>{ev.tag}</Text>
+                  <Text style={styles.eventTitle}>{ev.title}</Text>
+                  <View style={styles.eventDateRow}>
+                    <Text style={styles.eventDay}>{ev.day}</Text>
+                    <Text style={styles.eventMonth}>{ev.month}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+
+            {homeEvents.length === 0 && (
+              <View style={styles.eventsEmpty}>
+                <Text style={styles.eventsEmptyText}>
+                  {eventsLoading
+                    ? 'Yükleniyor...'
+                    : eventsError
+                    ? 'Etkinlikler yüklenemedi.\nİnternet bağlantınızı kontrol edin.'
+                    : 'Yaklaşan etkinlik yok.\nYeni etkinlik açıldığında bildirim alacaksınız.'}
+                </Text>
+              </View>
+            )}
           </ScrollView>
         </View>
 
@@ -642,9 +746,25 @@ export default function HomeScreen() {
           <View style={styles.footerRule} />
 
           {/* Contact */}
-          <Text style={styles.footerContact}>
-            info@tetsiad.org  ·  +90 212 292 04 04
-          </Text>
+          {/* Künyedeki iletişim bilgileri düz metindi; dokunmak hiçbir
+              şey yapmıyordu. */}
+          <View style={styles.footerContactRow}>
+            <TouchableOpacity
+              onPress={() => Linking.openURL('mailto:info@tetsiad.org')}
+              accessibilityRole="button"
+              accessibilityLabel="TETSİAD'a e-posta gönder"
+            >
+              <Text style={styles.footerContact}>info@tetsiad.org</Text>
+            </TouchableOpacity>
+            <Text style={styles.footerContact}>  ·  </Text>
+            <TouchableOpacity
+              onPress={() => Linking.openURL('tel:+902122920404')}
+              accessibilityRole="button"
+              accessibilityLabel="TETSİAD'ı ara"
+            >
+              <Text style={styles.footerContact}>+90 212 292 04 04</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
       </ScrollView>
@@ -672,7 +792,6 @@ const styles = StyleSheet.create({
 
   // ── Cover ────────────────────────────────────────────
   cover: {
-    height: 580,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -684,7 +803,6 @@ const styles = StyleSheet.create({
   },
   coverTopBar: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 0 : 12,
     left: 0,
     right: 0,
     paddingHorizontal: 24,
@@ -1102,6 +1220,27 @@ const styles = StyleSheet.create({
     color: Colors.navy,
     letterSpacing: 1,
   },
+  eventCardImagePlaceholder: {
+    backgroundColor: Colors.navyMid,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.goldLine,
+  },
+  eventsEmpty: {
+    width: 240,
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    borderWidth: 0.5,
+    borderColor: Colors.goldLine,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  eventsEmptyText: {
+    fontFamily: Fonts.jakarta,
+    fontSize: 10,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 17,
+  },
   eventCardImage: {
     width: '100%',
     height: 110,
@@ -1225,6 +1364,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     fontWeight: '600',
   },
+  footerContactRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
   footerContact: {
     fontFamily: Fonts.mono,
     fontSize: 8,
@@ -1237,6 +1382,11 @@ const styles = StyleSheet.create({
 // ── Notification drawer styles ──────────────────────────────────────────────
 
 const notifStyles = StyleSheet.create({
+  handleTouch: { paddingVertical: 6, alignItems: 'center' },
+  empty:      { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 64, paddingHorizontal: 32 },
+  emptyDot:   { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.gold, marginBottom: 18 },
+  emptyTitle: { fontFamily: Fonts.cormorant, fontStyle: 'italic', fontSize: 20, color: Colors.ivory, marginBottom: 8, textAlign: 'center' },
+  emptySub:   { fontFamily: Fonts.jakarta, fontSize: 10, color: Colors.textMuted, textAlign: 'center', lineHeight: 16 },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(3,15,9,0.88)',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   ActionSheetIOS,
   Platform,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,8 +18,10 @@ import { router } from 'expo-router';
 import QRCode from 'react-native-qrcode-svg';
 import Constants from 'expo-constants';
 import { Colors, Fonts, FontSize } from '@/theme';
+import { openExternal, PRIVACY_URL, TERMS_URL } from '@/lib/links';
 import { useAppContext } from '@/context/AppContext';
 import { useAuthContext } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 import type { MemberRole } from '@/types/database';
 
 const ADMIN_ROLES: MemberRole[] = ['board', 'president', 'admin'];
@@ -37,13 +40,18 @@ type Member = {
   email?: string;
 };
 
-const MEMBERS: Member[] = [
+// Sunum kartları. Yayında ASLA gösterilmez: profil yüklenemediğinde
+// kullanıcı Resul Öden'in kartını telefon numarasıyla birlikte görüyor
+// ve numaraya dokunup arayabiliyordu.
+const DEMO_MEMBERS: Member[] = [
   { id: 1, name: 'Resul Öden',      role: 'Başkan',          firm: 'ROSSA HOME',            city: 'İstanbul', memberNo: 'GT-2026-00001', phone: '+90 532 101 00 01', sector: 'Ev Tekstili' },
   { id: 2, name: 'Fatih Özdemir',   role: 'Yönetim Kurulu',  firm: 'ORMEN TEKSTİL',         city: 'Ankara',   memberNo: 'GT-2026-00002', phone: '+90 542 312 04 60', sector: 'Dokuma' },
   { id: 3, name: 'Elif Yıldız',     role: 'Üye',             firm: 'YILDIZ HOME',            city: 'Bursa',    memberNo: 'GT-2026-00003', phone: '+90 505 234 56 78', sector: 'Tasarım' },
   { id: 4, name: 'Kerem Bayraktar', role: 'Üye',             firm: 'BAYRAKTAR TEKSTİL',     city: 'İstanbul', memberNo: 'GT-2026-00004', phone: '+90 533 456 78 90', sector: 'İhracat' },
   { id: 5, name: 'Ayşe Kaya',       role: 'Öğrenci Üye',    firm: 'İTÜ Tekstil Müh.',      city: 'İstanbul', memberNo: 'GT-2026-00005', phone: '+90 544 567 89 01', sector: 'Öğrenci' },
 ];
+
+const MEMBERS: Member[] = __DEV__ ? DEMO_MEMBERS : [];
 
 const ROLE_LABELS: Record<MemberRole, string> = {
   pending:   'Onay Bekliyor',
@@ -64,19 +72,29 @@ function getInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+// vCard alanlarında ; , \ ve satır sonu kaçırılmazsa kart bozulur
+// ("ORMEN, TEKSTİL" gibi bir firma adı kaydı ikiye böler).
+function vcEsc(v: string): string {
+  return v.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+}
+
 function buildVCard(member: Member): string {
-  return [
+  // Bilinmeyen alanları HİÇ yazmıyoruz. Eskiden telefonu olmayan üyenin
+  // kartına 'TEL:—' ve derneğin genel adresi kişinin e-postasıymış gibi
+  // gömülüyordu; QR'ı okutan kişi bunu rehberine kaydediyordu.
+  const lines = [
     'BEGIN:VCARD',
     'VERSION:3.0',
-    `FN:${member.name}`,
-    `ORG:${member.firm}`,
-    `TITLE:Genç TETSİAD ${member.role}`,
-    `TEL;TYPE=CELL:${member.phone}`,
-    `EMAIL:${member.email ?? 'genctetsiad@tetsiad.org'}`,
-    `ADR:;;${member.city};;;Türkiye`,
-    `NOTE:GENÇ TETSİAD · ${member.memberNo}`,
+    `FN:${vcEsc(member.name)}`,
+    ...(member.firm  !== '—' ? [`ORG:${vcEsc(member.firm)}`] : []),
+    `TITLE:${vcEsc(`Genç TETSİAD ${member.role}`)}`,
+    ...(member.phone !== '—' ? [`TEL;TYPE=CELL:${vcEsc(member.phone)}`] : []),
+    ...(member.email ? [`EMAIL:${vcEsc(member.email)}`] : []),
+    ...(member.city  !== '—' ? [`ADR:;;${vcEsc(member.city)};;;Türkiye`] : []),
+    `NOTE:${vcEsc(`GENÇ TETSİAD · ${member.memberNo}`)}`,
     'END:VCARD',
-  ].join('\n');
+  ];
+  return lines.join('\n');
 }
 
 // ── AppHeader ────────────────────────────────────────────────────────────────
@@ -203,13 +221,17 @@ function QRModal({ member, onClose }: { member: Member; onClose: () => void }) {
           <Text style={qrStyles.memberRole}>{member.role}</Text>
           <Text style={qrStyles.memberFirm}>{member.firm} · {member.city}</Text>
 
-          <TouchableOpacity
-            style={qrStyles.phoneRow}
-            activeOpacity={0.7}
-            onPress={() => Linking.openURL(`tel:${member.phone.replace(/\s/g, '')}`)}
-          >
-            <Text style={qrStyles.phoneText}>{member.phone}</Text>
-          </TouchableOpacity>
+          {member.phone !== '—' && (
+            <TouchableOpacity
+              style={qrStyles.phoneRow}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`${member.phone} numarasını ara`}
+              onPress={() => Linking.openURL(`tel:${member.phone.replace(/\s/g, '')}`)}
+            >
+              <Text style={qrStyles.phoneText}>{member.phone}</Text>
+            </TouchableOpacity>
+          )}
 
           <View style={qrStyles.divider} />
 
@@ -593,8 +615,27 @@ export default function ProfileScreen() {
   const [showPicker, setShowPicker] = useState(false);
 
   const { registeredEvents, enrolledCourses, mentorRequests } = useAppContext();
-  const { profile, signOut, deleteAccount } = useAuthContext();
+  const { profile, signOut, deleteAccount, refreshProfile } = useAuthContext();
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Yönetim üyeliği onayladıktan sonra kart eski durumu göstermeye
+  // devam ediyordu; kullanıcının uygulamayı kapatıp açması gerekiyordu.
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshProfile();
+    setRefreshing(false);
+  };
   const isAdmin = !!profile && ADMIN_ROLES.includes(profile.role);
+  // Yeni başvuru geldiğinde yönetime hiçbir işaret gitmiyordu; panel
+  // açılmadan kuyruğun dolduğu anlaşılmıyordu.
+  const [pendingCount, setPendingCount] = useState(0);
+  useEffect(() => {
+    if (!isAdmin) return;
+    let cancelled = false;
+    supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'pending')
+      .then(({ count }) => { if (!cancelled) setPendingCount(count ?? 0); });
+    return () => { cancelled = true; };
+  }, [isAdmin]);
 
   const confirmDeleteAccount = () => {
     Alert.alert(
@@ -707,6 +748,9 @@ export default function ProfileScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} colors={[Colors.gold]} progressBackgroundColor={Colors.navyDeep} />
+        }
       >
         {/* ── Membership card ─────────────────────────────── */}
         <View style={styles.cardSection}>
@@ -730,7 +774,12 @@ export default function ProfileScreen() {
               onPress={() => router.push('/admin')}
               activeOpacity={0.8}
             >
-              <Text style={styles.adminBtnText}>◆  YÖNETİM PANELİ</Text>
+              <Text style={styles.adminBtnText}>
+                ◆  YÖNETİM PANELİ
+                {pendingCount > 0 && (
+                  <Text style={{ color: Colors.gold }}>{`   ·   ${pendingCount} BEKLEYEN BAŞVURU`}</Text>
+                )}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -782,12 +831,23 @@ export default function ProfileScreen() {
             <Text style={styles.infoVal}>{member.sector}</Text>
           </View>
           <View style={[styles.infoRow, styles.infoRowBorder]}>
+            <Text style={styles.infoKey}>TELEFON</Text>
+            <Text style={styles.infoVal}>
+              {member.phone}
+              {profile?.phone_visible === false && (
+                <Text style={{ color: Colors.textMuted }}>  · rehberde gizli</Text>
+              )}
+            </Text>
+          </View>
+          <View style={[styles.infoRow, styles.infoRowBorder]}>
             <Text style={styles.infoKey}>E-POSTA</Text>
-            <Text style={styles.infoVal}>{member.email ?? 'genctetsiad@tetsiad.org'}</Text>
+            <Text style={styles.infoVal}>{member.email ?? '—'}</Text>
           </View>
           <View style={[styles.infoRow, styles.infoRowBorder]}>
             <Text style={styles.infoKey}>DURUM</Text>
-            <Text style={[styles.infoVal, { color: Colors.gold }]}>AKTİF ÜYE · 2026</Text>
+            <Text style={[styles.infoVal, { color: Colors.gold }]}>
+              {profile?.role === 'pending' ? 'ONAY BEKLİYOR' : `AKTİF ÜYE · ${memberSince}`}
+            </Text>
           </View>
         </View>
 
@@ -820,13 +880,13 @@ export default function ProfileScreen() {
         {/* ── Gizlilik / KVKK — kayıt sonrası da erişilebilir olmalı ── */}
         <View style={styles.legalWrap}>
           <TouchableOpacity
-            onPress={() => Linking.openURL('https://elektron666.github.io/genctetsiad/gizlilik-politikasi.html')}
+            onPress={() => openExternal(PRIVACY_URL)}
             activeOpacity={0.7}
           >
             <Text style={styles.legalLink}>Gizlilik Politikası & KVKK Aydınlatma Metni →</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => Linking.openURL('https://elektron666.github.io/genctetsiad/kullanim-kosullari.html')}
+            onPress={() => openExternal(TERMS_URL)}
             activeOpacity={0.7}
           >
             <Text style={styles.legalLink}>Kullanım Koşulları →</Text>

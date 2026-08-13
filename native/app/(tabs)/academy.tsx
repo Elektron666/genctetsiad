@@ -16,8 +16,9 @@ import { useToast } from '@/components/Toast';
 import { useAppContext } from '@/context/AppContext';
 import { useAuthContext } from '@/context/AuthContext';
 import { useCourses } from '@/hooks/useCourses';
-import { useMembers } from '@/hooks/useMembers';
+import { useMentors } from '@/hooks/useMembers';
 import { supabase } from '@/lib/supabase';
+import { sendPushBatch } from '@/lib/notifications';
 import { BulletinTab } from '@/components/BulletinTab';
 import type { Course as SupabaseCourse, CourseLevel } from '@/types/database';
 
@@ -37,6 +38,7 @@ type Course = {
   uuid?: string;   // Supabase kaydıysa gerçek UUID
   title: string;
   tag: string;
+  instructor?: string | null;
   level: string;
   duration: string;
   progress: number;
@@ -88,7 +90,9 @@ const PROGRAMS: Program[] = [
   },
 ];
 
-const COURSES: Course[] = [
+// Sunum verisi — yayında gösterilmez. Daha önce Supabase boş dönerse
+// üye, hiç kaydolmadığı 6 kursu "%72 tamamlandı" gibi görüyordu.
+const DEMO_COURSES: Course[] = [
   { id: 1, title: 'İhracat Temelleri', tag: 'İHRACAT', level: 'BAŞLANGIÇ', duration: '8 SAAT', progress: 72 },
   { id: 2, title: 'Sürdürülebilir Tedarik Zinciri', tag: 'SÜRDÜRÜLEBİLİRLİK', level: 'ORTA', duration: '12 SAAT', progress: 45 },
   { id: 3, title: 'Marka İnşası & Konumlandırma', tag: 'MARKA', level: 'ORTA', duration: '10 SAAT', progress: 0 },
@@ -97,12 +101,19 @@ const COURSES: Course[] = [
   { id: 6, title: 'AB Direktifleri & Uyum', tag: 'YEŞİL', level: 'ORTA', duration: '8 SAAT', progress: 20 },
 ];
 
-const MENTORS: Mentor[] = [
+const COURSES: Course[] = __DEV__ ? DEMO_COURSES : [];
+
+// Sunum verisi — yayında gösterilmez. Daha önce bu 4 uydurma mentora
+// "BAŞVUR" denebiliyor ve var olmayan kişi için başarı bildirimi
+// gösteriliyordu; hiçbir kayıt oluşmuyordu.
+const DEMO_MENTORS: Mentor[] = [
   { id: 1, name: 'Ahmet Yılmaz', title: 'CEO', firm: 'ATLAS TEKSTİL', expertise: 'İhracat & AB Pazarları', initials: 'AY' },
   { id: 2, name: 'Selin Çelik', title: 'Genel Müdür', firm: 'ÖZGÜR HOME', expertise: 'Sürdürülebilir Üretim', initials: 'SÇ' },
   { id: 3, name: 'Murat Demir', title: 'Kurucu', firm: 'DEMIR DESIGN', expertise: 'Marka ve Tasarım', initials: 'MD' },
   { id: 4, name: 'Fatma Kara', title: 'İhracat Direktörü', firm: 'KARA TEKSTİL', expertise: 'Uluslararası Ticaret', initials: 'FK' },
 ];
+
+const MENTORS: Mentor[] = __DEV__ ? DEMO_MENTORS : [];
 
 const LEVEL_LABELS: Record<CourseLevel, string> = {
   beginner:     'BAŞLANGIÇ',
@@ -115,8 +126,11 @@ function supabaseToCourse(c: SupabaseCourse, index: number): Course {
     id:       index + 1,   // liste içi benzersiz key; gerçek kimlik uuid'de
     uuid:     c.id,
     title:    c.title,
-    tag:      c.instructor ?? 'EĞİTİM',
-    level:    LEVEL_LABELS[c.level ?? 'beginner'],
+    // 'tag' kategori rozeti; eğitmenin ADI yazılıyordu. Seviye boşken
+    // de sessizce "BAŞLANGIÇ" iddia ediliyordu.
+    tag:      'EĞİTİM',
+    instructor: c.instructor ?? null,
+    level:    c.level ? LEVEL_LABELS[c.level] : '—',
     duration: c.duration_hours ? `${c.duration_hours} SAAT` : '—',
     progress: c.enrollment?.progress ?? 0,
     enrolled: !!c.enrollment,
@@ -451,7 +465,7 @@ function ProgramsTab() {
 
 function CoursesTab() {
   const { session } = useAuthContext();
-  const { courses: supabaseCourses, enroll } = useCourses(session?.user.id);
+  const { courses: supabaseCourses, loading, error, enroll } = useCourses(session?.user.id);
   const { show: showToast, ToastComponent } = useToast();
 
   const displayCourses = supabaseCourses.length > 0
@@ -460,7 +474,13 @@ function CoursesTab() {
 
   const handleEnroll = async (course: Course) => {
     if (!course.uuid) return;
-    await enroll(course.uuid);
+    // Daha önce hata yutuluyordu ve başarı bildirimi KOŞULSUZ
+    // gösteriliyordu: kayıt oluşmasa da üye kaydolduğunu sanıyordu.
+    const { error } = await enroll(course.uuid);
+    if (error) {
+      showToast('Kayıt oluşturulamadı. Üyeliğiniz onaylı mı?', 'error');
+      return;
+    }
     showToast(`"${course.title}" kursuna kaydoldunuz`, 'success');
   };
 
@@ -470,6 +490,13 @@ function CoursesTab() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.tabContent}
       >
+        {displayCourses.length === 0 && (
+          <Text style={styles.tabIntro}>
+            {loading ? 'Yükleniyor...' : error
+              ? 'Bağlantı kurulamadı. İnternet bağlantınızı kontrol edin.'
+              : 'Eğitim kataloğu hazırlanıyor. Yeni kurslar eklendiğinde bildirim alacaksınız.'}
+          </Text>
+        )}
         <View style={styles.coursesGrid}>
           {displayCourses.map((c) => (
             <CourseCard
@@ -481,7 +508,7 @@ function CoursesTab() {
         </View>
         <View style={styles.tabFooter}>
           <Text style={styles.tabFooterText}>
-            {`${String(displayCourses.length).padStart(2, '0')} KATEGORİ · TÜM ÜYELERE `}
+            {`${String(displayCourses.length).padStart(2, '0')} KURS · TÜM ÜYELERE `}
             <Text style={{ color: Colors.gold }}>ÜCRETSİZ</Text>
           </Text>
         </View>
@@ -501,7 +528,24 @@ type InboxRequest = {
   menteeFirm: string;
 };
 
-function MentorInbox({ onResponded }: { onResponded: (name: string, accepted: boolean) => void }) {
+async function notifyMentee(menteeId: string, accepted: boolean) {
+  const { data } = await supabase.from('push_tokens').select('token').eq('user_id', menteeId);
+  const tokens = ((data ?? []) as { token: string }[]).map(t => t.token);
+  if (tokens.length === 0) return;
+  await sendPushBatch(
+    tokens,
+    accepted ? 'Mentorluk başvurunuz kabul edildi' : 'Mentorluk başvurunuz hakkında',
+    accepted
+      ? 'Mentörünüz başvurunuzu kabul etti ve sizinle iletişime geçecek.'
+      : 'Bu dönem eşleşme sağlanamadı. Akademi sekmesinden başka mentörlere başvurabilirsiniz.',
+    '/(tabs)/academy',
+  );
+}
+
+function MentorInbox({ onResponded, onFailed }: {
+  onResponded: (name: string, accepted: boolean) => void;
+  onFailed: () => void;
+}) {
   const { session } = useAuthContext();
   const [requests, setRequests] = useState<InboxRequest[]>([]);
 
@@ -514,13 +558,13 @@ function MentorInbox({ onResponded }: { onResponded: (name: string, accepted: bo
         .select('id, mentee_id, message')
         .eq('mentor_id', session.user.id)
         .eq('status', 'pending');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const rows = (data ?? []) as any[];
       if (cancelled || rows.length === 0) return;
 
       const menteeIds = rows.map(r => r.mentee_id);
       const { data: profiles } = await supabase.from('profiles').select('id, full_name, company').in('id', menteeIds);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const pMap = new Map(((profiles ?? []) as any[]).map(p => [p.id, p]));
 
       if (!cancelled) {
@@ -537,7 +581,7 @@ function MentorInbox({ onResponded }: { onResponded: (name: string, accepted: bo
   }, [session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const respond = async (req: InboxRequest, accepted: boolean) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { error } = await (supabase as any)
       .from('mentorship_requests')
       .update({ status: accepted ? 'accepted' : 'rejected' })
@@ -577,7 +621,9 @@ function MentorInbox({ onResponded }: { onResponded: (name: string, accepted: bo
 function MentorsTab() {
   const { mentorRequests, addMentorRequest } = useAppContext();
   const { session, profile } = useAuthContext();
-  const { mentors: supabaseMentors } = useMembers();
+  // Eskiden useMembers() TÜM üyeleri çekip istemcide süzüyordu:
+  // dört mentor için bin beş yüz profil ve her birinin telefonu.
+  const { mentors: supabaseMentors } = useMentors();
   const [modalMentor, setModalMentor] = useState<Mentor | null>(null);
   const [sentTo, setSentTo] = useState<Map<string, string>>(new Map());
   const { show: showToast, ToastComponent } = useToast();
@@ -614,7 +660,7 @@ function MentorsTab() {
     if (!modalMentor) return false;
 
     if (modalMentor.uuid && session?.user) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { error } = await (supabase as any).from('mentorship_requests').insert({
         mentee_id: session.user.id,
         mentor_id: modalMentor.uuid,
@@ -653,7 +699,15 @@ function MentorsTab() {
             onResponded={(name, accepted) =>
               showToast(accepted ? `${name} başvurusu kabul edildi` : `${name} başvurusu reddedildi`, accepted ? 'success' : 'info')
             }
+            onFailed={() => showToast('İşlem kaydedilemedi. Bağlantınızı kontrol edin.', 'error')}
           />
+        )}
+
+        {displayMentors.length === 0 && (
+          <Text style={styles.tabIntro}>
+            Mentor listesi henüz oluşturulmadı. Yönetim mentor atadığında
+            burada görünecekler.
+          </Text>
         )}
 
         {displayMentors.map((m) => (

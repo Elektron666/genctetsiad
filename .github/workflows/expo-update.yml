@@ -1,10 +1,20 @@
 name: Expo Update
 
+# DİKKAT: `eas update` mağaza incelemesini atlayarak JS'i doğrudan
+# kullanıcıların telefonuna gönderir. Otomatik tetikleme kapatıldı —
+# yayına giden her güncelleme elle başlatılır ve önce tip denetiminden
+# geçer. (Eskiden main'e atılan her commit anında yayına düşüyordu.)
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'native/**'
+  workflow_dispatch:
+    inputs:
+      message:
+        description: 'Güncelleme notu'
+        required: false
+        default: 'manual update'
+
+concurrency:
+  group: expo-update
+  cancel-in-progress: false
 
 jobs:
   update:
@@ -20,7 +30,10 @@ jobs:
 
       - name: Install dependencies
         working-directory: native
-        run: npm install --legacy-peer-deps
+        # npm ci: package-lock.json'a HARFİ HARFİNE uyar.
+        # `npm install` kilidi yok sayıp bağımlılıkları yükseltebiliyordu —
+        # Hermes'i kıran supabase-js 2.106 sürümü tam olarak böyle gelmişti.
+        run: npm ci
 
       - name: Publish to Expo
         uses: expo/expo-github-action@v8
@@ -29,8 +42,12 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
+      - name: Type check
+        working-directory: native
+        run: npx tsc --noEmit
+
       - name: EAS Update
         working-directory: native
-        run: eas update --auto --non-interactive
+        run: eas update --auto --non-interactive --message "${{ inputs.message }}"
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Article } from '@/types/database';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const sb = supabase as any;
 
 // Yazar adlarını ayrı sorguyla alıyoruz: profiles üzerindeki RLS,
@@ -15,7 +15,7 @@ async function attachAuthors(rows: Article[]): Promise<Article[]> {
     .from('profiles')
     .select('id, full_name, company')
     .in('id', ids);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const map = new Map(((data ?? []) as any[]).map(p => [p.id, p]));
   return rows.map(r => ({
     ...r,
@@ -57,15 +57,20 @@ export function useArticles() {
 export function useMyArticles(userId?: string) {
   const [mine, setMine] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
+  // Hata hiç tutulmuyordu: ağ kesintisinde kullanıcı gönderdiği
+  // yazıların silindiğini sanıyordu.
+  const [error, setError] = useState<string | null>(null);
 
   const refetch = useCallback(async () => {
     if (!userId) { setMine([]); setLoading(false); return; }
     setLoading(true);
-    const { data } = await supabase
+    const { data, error: err } = await supabase
       .from('articles')
       .select('*')
       .eq('author_id', userId)
       .order('created_at', { ascending: false });
+    if (err) { setError('Bağlantı kurulamadı'); setLoading(false); return; }
+    setError(null);
     setMine((data ?? []) as Article[]);
     setLoading(false);
   }, [userId]);
@@ -87,18 +92,20 @@ export function useMyArticles(userId?: string) {
   }, [userId, refetch]);
 
   const update = useCallback(async (id: string, input: { title: string; summary?: string; body: string }) => {
+    // author_id koşulu RLS'e ek savunma katmanı — tek bir politika
+    // hatası tüm yazıları düzenlenebilir hâle getirmesin.
     const { error } = await sb.from('articles')
       .update({ ...input, summary: input.summary || null, status: 'pending' })
-      .eq('id', id);
+      .eq('id', id).eq('author_id', userId ?? '');
     if (!error) await refetch();
     return { error };
-  }, [refetch]);
+  }, [refetch, userId]);
 
   const withdraw = useCallback(async (id: string) => {
-    const { error } = await sb.from('articles').delete().eq('id', id);
+    const { error } = await sb.from('articles').delete().eq('id', id).eq('author_id', userId ?? '');
     if (!error) await refetch();
     return { error };
-  }, [refetch]);
+  }, [refetch, userId]);
 
-  return { mine, loading, refetch, submit, update, withdraw };
+  return { mine, loading, error, refetch, submit, update, withdraw };
 }

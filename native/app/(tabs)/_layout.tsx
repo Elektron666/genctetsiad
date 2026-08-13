@@ -1,6 +1,8 @@
 import { Tabs } from 'expo-router';
 import { Colors, Fonts } from '@/theme';
 import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuthContext } from '@/context/AuthContext';
 import {
   HomeIcon,
   CalendarIcon,
@@ -11,6 +13,17 @@ import {
 } from '@/components/TabIcons';
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+  const { profile, status } = useAuthContext();
+  // Onay bekleyen kullanıcıya REHBER sekmesi gösteriliyordu; açtığında
+  // RLS boş dönüyor ve "rehber henüz oluşturuluyor" gibi yanıltıcı bir
+  // ekranla karşılaşıyordu. Onay alınca sekme kendiliğinden görünür.
+  const approved = status === 'authenticated' && profile?.role !== 'pending';
+
+  // Jest çubuğu olan Android cihazlarda sabit 64px sekme çubuğu sistem
+  // gezinme çubuğuyla çakışıyordu.
+  const bottomInset = Platform.OS === 'ios' ? 24 : Math.max(insets.bottom, 8);
+
   return (
     <Tabs
       screenOptions={{
@@ -19,8 +32,8 @@ export default function TabLayout() {
           backgroundColor: Colors.navyDeep,
           borderTopColor: Colors.goldLine,
           borderTopWidth: 0.5,
-          height: Platform.OS === 'ios' ? 82 : 64,
-          paddingBottom: Platform.OS === 'ios' ? 24 : 8,
+          height: 56 + bottomInset,
+          paddingBottom: bottomInset,
           paddingTop: 8,
         },
         tabBarActiveTintColor: Colors.gold,
@@ -52,6 +65,7 @@ export default function TabLayout() {
         options={{
           title: 'REHBER',
           tabBarIcon: ({ color }) => <DirectoryIcon color={color} />,
+          href: approved ? undefined : null,
         }}
       />
       <Tabs.Screen

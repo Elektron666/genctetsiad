@@ -9,12 +9,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Fonts, FontSize } from '@/theme';
 import { useAuthContext } from '@/context/AuthContext';
 import { useAdmin } from '@/hooks/useAdmin';
+import type { AuditRow } from '@/hooks/useAdmin';
 import { useToast } from '@/components/Toast';
 import type { Profile } from '@/types/database';
 
 const ADMIN_ROLES = ['board', 'president', 'admin'];
 
-type AdminTab = 'ONAYLAR' | 'ÜYELER' | 'BÜLTEN' | 'DUYURU' | 'ETKİNLİK' | 'KURS';
+type AdminTab = 'ONAYLAR' | 'ÜYELER' | 'BÜLTEN' | 'DUYURU' | 'ETKİNLİK' | 'KURS' | 'KAYIT';
 
 const ROLE_LABELS: Record<string, string> = {
   pending:   'Onay Bekliyor',
@@ -38,8 +39,26 @@ function fmtDate(iso: string) {
 
 // ─── Bekleyen başvuru kartı ───────────────────────────────────────────────────
 
-function PendingCard({ p, onApprove }: { p: Profile; onApprove: (role: 'member' | 'student') => void }) {
+function PendingCard({ p, onApprove, onReject }: {
+  p: Profile;
+  onApprove: (role: 'member' | 'student') => void;
+  onReject: () => void;
+}) {
   const [busy, setBusy] = useState(false);
+
+  // Sahte/spam başvurular eskiden sonsuza kadar kuyrukta kalıyordu:
+  // yönetimin elinde yalnızca ONAYLA vardı. Reddetme kaydı audit_log'a
+  // yazılır, kişisel veri ise silinir (KVKK: gereksiz veriyi tutma).
+  const confirmReject = () => {
+    Alert.alert(
+      'Başvuruyu Reddet',
+      `${p.full_name || 'Bu başvuru'} reddedilecek ve kişisel verileri silinecek. İşlem denetim kaydına yazılır ve geri alınamaz.`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        { text: 'REDDET', style: 'destructive', onPress: onReject },
+      ]
+    );
+  };
 
   const confirm = (role: 'member' | 'student') => {
     Alert.alert(
@@ -82,6 +101,9 @@ function PendingCard({ p, onApprove }: { p: Profile; onApprove: (role: 'member' 
           <Text style={s.pBtnOutlineText}>ÖĞRENCİ</Text>
         </TouchableOpacity>
       </View>
+      <TouchableOpacity onPress={confirmReject} disabled={busy} activeOpacity={0.7} style={s.pRejectBtn}>
+        <Text style={s.pRejectText}>Başvuruyu reddet ve sil</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -102,10 +124,14 @@ function MembersTab({
   members,
   currentUserId,
   onSetRole,
+  hasMore,
+  onLoadMore,
 }: {
   members: Profile[];
   currentUserId?: string;
   onSetRole: (p: Profile, role: MemberRoleKey) => void;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
 }) {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Profile | null>(null);
@@ -157,6 +183,14 @@ function MembersTab({
             <Text style={s.emptySub}>{q ? 'Aramayla eşleşen üye yok.' : 'Henüz onaylı üye yok.'}</Text>
           </View>
         }
+        ListFooterComponent={
+          hasMore && !q ? (
+            <TouchableOpacity style={s.loadMore} onPress={onLoadMore} activeOpacity={0.8}
+              accessibilityRole="button" accessibilityLabel="Daha fazla üye yükle">
+              <Text style={s.loadMoreText}>DAHA FAZLA ÜYE YÜKLE</Text>
+            </TouchableOpacity>
+          ) : null
+        }
         renderItem={({ item: m }) => (
           <TouchableOpacity
             style={s.mRow}
@@ -193,7 +227,10 @@ function MembersTab({
               {selected.member_code ? `  ·  ${selected.member_code}` : ''}
             </Text>
             <View style={s.roleSheetDivider} />
-            {ASSIGNABLE_ROLES.filter(r => r.key !== selected.role).map(r => (
+            {/* Kendi rolünü değiştirmek RLS tarafından da engellenir
+                (migration 011) — düğmeyi hiç göstermiyoruz ki yönetici
+                başarısız olacak bir işlemi denemesin. */}
+            {ASSIGNABLE_ROLES.filter(r => r.key !== selected.role && selected.id !== currentUserId).map(r => (
               <TouchableOpacity key={r.key} style={s.roleOption} onPress={() => pickRole(r.key)} activeOpacity={0.7}>
                 <Text style={[s.roleOptionLabel, r.key === 'pending' && { color: 'rgba(224,96,96,0.85)' }]}>{r.label}</Text>
                 <Text style={s.roleOptionDesc}>{r.desc}</Text>
@@ -450,13 +487,17 @@ function AttendeeSheet({
 
 // ─── Yayınlananlar listesi (silme) ───────────────────────────────────────────
 
-type PublishedItem = { id: string; title: string; subtitle: string };
+// Düzenleme alanları liste satırının yanında taşınır; böylece
+// yayınlanmış içerik yeniden yazılmadan düzeltilebilir.
+type EditField = { key: string; label: string; value: string; multiline?: boolean; keyboard?: 'default' | 'number-pad' };
+type PublishedItem = { id: string; title: string; subtitle: string; edit?: EditField[] };
 
 function PublishedList({
   heading,
   load,
   onDelete,
   onDetail,
+  onEdit,
   detailLabel,
   reloadKey,
 }: {
@@ -464,10 +505,31 @@ function PublishedList({
   load: () => Promise<PublishedItem[]>;
   onDelete: (item: PublishedItem) => Promise<boolean>;
   onDetail?: (item: PublishedItem) => void;
+  onEdit?: (item: PublishedItem, values: Record<string, string>) => Promise<boolean>;
   detailLabel?: string;
   reloadKey: number;
 }) {
   const [items, setItems] = useState<PublishedItem[]>([]);
+  // useAdmin'de update* fonksiyonları vardı ama hiçbir arayüz onları
+  // ÇAĞIRMIYORDU: yönetim yayınlanmış bir duyurudaki yazım hatasını
+  // ancak silip yeniden yazarak düzeltebiliyordu — bu da üyelere
+  // İKİNCİ KEZ bildirim gitmesi demekti. Düzenlemede bildirim gitmez.
+  const [editing, setEditing] = useState<PublishedItem | null>(null);
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+
+  const openEdit = (item: PublishedItem) => {
+    setValues(Object.fromEntries((item.edit ?? []).map(f => [f.key, f.value])));
+    setEditing(item);
+  };
+
+  const saveEdit = async () => {
+    if (!editing || !onEdit || saving) return;
+    setSaving(true);
+    const ok = await onEdit(editing, values);
+    setSaving(false);
+    if (ok) { setEditing(null); load().then(setItems); }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -510,11 +572,52 @@ function PublishedList({
               <Text style={s.pubDetailText}>{detailLabel ?? 'DETAY'}</Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity onPress={() => confirmDelete(item)} activeOpacity={0.7} style={s.pubDelBtn}>
+          {onEdit && item.edit && (
+            <TouchableOpacity onPress={() => openEdit(item)} activeOpacity={0.7} style={s.pubDetailBtn}
+              accessibilityRole="button" accessibilityLabel={`${item.title} kaydını düzenle`}>
+              <Text style={s.pubDetailText}>DÜZENLE</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={() => confirmDelete(item)} activeOpacity={0.7} style={s.pubDelBtn}
+            accessibilityRole="button" accessibilityLabel={`${item.title} kaydını kaldır`}>
             <Text style={s.pubDelText}>KALDIR</Text>
           </TouchableOpacity>
         </View>
       ))}
+
+      <Modal visible={!!editing} transparent animationType="slide" onRequestClose={() => setEditing(null)}>
+        <View style={s.roleSheetOverlay}>
+          <TouchableOpacity style={{ flex: 1 }} onPress={() => setEditing(null)} activeOpacity={1} />
+          <View style={s.roleSheet}>
+            <Text style={s.roleSheetName}>Düzenle</Text>
+            <View style={s.roleSheetDivider} />
+            <ScrollView style={{ maxHeight: 340 }} keyboardShouldPersistTaps="handled">
+              {(editing?.edit ?? []).map(f => (
+                <View key={f.key} style={{ marginBottom: 16 }}>
+                  <Text style={s.fieldLabel}>{f.label}</Text>
+                  <TextInput
+                    style={[s.input, f.multiline && s.textArea]}
+                    value={values[f.key] ?? ''}
+                    onChangeText={v => setValues(prev => ({ ...prev, [f.key]: v }))}
+                    multiline={f.multiline}
+                    textAlignVertical={f.multiline ? 'top' : 'center'}
+                    keyboardType={f.keyboard ?? 'default'}
+                    placeholderTextColor={Colors.textMuted}
+                  />
+                  <View style={s.underline} />
+                </View>
+              ))}
+            </ScrollView>
+            <Text style={s.helper}>Düzenleme yeni bildirim GÖNDERMEZ.</Text>
+            <TouchableOpacity style={[s.cta, saving && s.disabled]} onPress={saveEdit} disabled={saving} activeOpacity={0.8}>
+              <Text style={s.ctaText}>{saving ? 'KAYDEDİLİYOR...' : 'KAYDET'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.roleCancel} onPress={() => setEditing(null)} activeOpacity={0.7}>
+              <Text style={s.roleCancelText}>VAZGEÇ</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -535,12 +638,27 @@ function AnnouncementForm({ onPublish }: { onPublish: (input: { title: string; b
 
   const valid = title.trim().length > 3 && body.trim().length > 10;
 
-  const submit = async () => {
+  // Duyuru yayınlamak GERİ ALINAMAZ bir işlemdir: metin uygulamadan
+  // silinse bile bildirim 1.500 telefona düşmüş olur. Onay adımı,
+  // gidecek metni son kez gösteriyor.
+  const submit = () => {
     if (!valid || busy) return;
-    setBusy(true);
-    const ok = await onPublish({ title: title.trim(), body: body.trim(), type });
-    setBusy(false);
-    if (ok) { setTitle(''); setBody(''); setType('general'); }
+    Alert.alert(
+      'Duyuru yayınlansın mı?',
+      `Bu metin TÜM ÜYELERİN telefonuna bildirim olarak gidecek ve geri alınamaz.\n\n"${title.trim()}"\n\n${body.trim()}`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'YAYINLA',
+          onPress: async () => {
+            setBusy(true);
+            const ok = await onPublish({ title: title.trim(), body: body.trim(), type });
+            setBusy(false);
+            if (ok) { setTitle(''); setBody(''); setType('general'); }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -610,21 +728,36 @@ function EventForm({ onCreate }: { onCreate: (input: { title: string; descriptio
   const [quota, setQuota] = useState('');
   const [busy, setBusy] = useState(false);
 
+  // JavaScript'te new Date(2026, 12, 31) HATA VERMEZ — sessizce 2027
+  // Ocak'a taşar. Yönetici "24.13.2026" yazdığında etkinlik bir yıl
+  // sonraya kayıyor ve kimse fark etmiyordu. Gün/ay/saat aralıkları
+  // artık açıkça denetleniyor ve sonuç geri okunarak taşma yakalanıyor.
   const parseDateTime = (): Date | null => {
     const m = date.trim().match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/);
     if (!m) return null;
-    const t = time.trim().match(/^(\d{1,2})[:.](\d{2})$/) ?? ['', '10', '00'];
-    const d = new Date(
-      parseInt(m[3], 10), parseInt(m[2], 10) - 1, parseInt(m[1], 10),
-      parseInt(t[1] as string, 10), parseInt(t[2] as string, 10)
-    );
-    return isNaN(d.getTime()) ? null : d;
+    const dd = parseInt(m[1], 10), mm = parseInt(m[2], 10), yy = parseInt(m[3], 10);
+    if (mm < 1 || mm > 12 || dd < 1 || dd > 31 || yy < 2026 || yy > 2100) return null;
+
+    const tm = time.trim() === '' ? null : time.trim().match(/^(\d{1,2})[:.](\d{2})$/);
+    if (time.trim() !== '' && !tm) return null;
+    const hh = tm ? parseInt(tm[1], 10) : 10;
+    const mi = tm ? parseInt(tm[2], 10) : 0;
+    if (hh > 23 || mi > 59) return null;
+
+    const d = new Date(yy, mm - 1, dd, hh, mi);
+    if (isNaN(d.getTime())) return null;
+    // 31.02 → 3 Mart'a taşar; geri okuyup yakalıyoruz
+    if (d.getDate() !== dd || d.getMonth() !== mm - 1 || d.getFullYear() !== yy) return null;
+    return d;
   };
 
-  const valid = title.trim().length > 3 && parseDateTime() !== null;
+  const dt = parseDateTime();
+  const inPast = dt !== null && dt.getTime() < Date.now();
+  const quotaNum = quota.trim() === '' ? null : parseInt(quota.trim(), 10);
+  const quotaOk = quotaNum === null || (Number.isFinite(quotaNum) && quotaNum > 0);
+  const valid = title.trim().length > 3 && dt !== null && !inPast && quotaOk;
 
   const submit = async () => {
-    const dt = parseDateTime();
     if (!dt || !valid || busy) return;
     setBusy(true);
     const ok = await onCreate({
@@ -633,7 +766,7 @@ function EventForm({ onCreate }: { onCreate: (input: { title: string; descriptio
       location: location.trim() || undefined,
       city: city.trim() || undefined,
       starts_at: dt.toISOString(),
-      max_attendees: quota.trim() ? parseInt(quota.trim(), 10) || null : null,
+      max_attendees: quotaNum,
     });
     setBusy(false);
     if (ok) { setTitle(''); setDesc(''); setLocation(''); setCity(''); setDate(''); setTime(''); setQuota(''); }
@@ -683,7 +816,86 @@ function EventForm({ onCreate }: { onCreate: (input: { title: string; descriptio
       <TouchableOpacity style={[s.cta, (!valid || busy) && s.disabled]} onPress={submit} disabled={!valid || busy} activeOpacity={0.8}>
         <Text style={s.ctaText}>{busy ? 'EKLENİYOR...' : 'ETKİNLİĞİ YAYINLA'}</Text>
       </TouchableOpacity>
-      <Text style={s.helper}>Etkinlik, takvim sekmesinde tüm üyelere anında açılır.</Text>
+      <Text style={s.helper}>
+        {date.trim() !== '' && dt === null
+          ? '⚠ Tarih geçersiz. Biçim: GG.AA.YYYY (örn. 24.07.2026)'
+          : inPast
+          ? '⚠ Bu tarih geçmişte. Etkinlik takvimde görünmez.'
+          : !quotaOk
+          ? '⚠ Kontenjan 1 veya daha büyük olmalı (boş bırakırsanız sınırsız).'
+          : 'Etkinlik takvim sekmesinde tüm üyelere anında açılır ve herkese bildirim gider.'}
+      </Text>
+    </View>
+  );
+}
+
+// ─── Denetim kaydı ────────────────────────────────────────────────────────────
+// Kayıt 009/010 ile tutuluyordu ama uygulamada okunamıyordu; yönetimin
+// resmî bir talebe cevap verebilmesi için görünür olması gerekiyor.
+
+const ACTION_TR: Record<string, string> = {
+  role_change:          'Rol değişikliği',
+  application_rejected: 'Başvuru reddi',
+  article_published:    'Yazı yayınlandı',
+  article_rejected:     'Yazı reddedildi',
+  article_pending:      'Yazı yeniden gönderildi',
+  article_deleted:      'Yazı silindi',
+  announcement_created: 'Duyuru yayınlandı',
+  announcement_deleted: 'Duyuru kaldırıldı',
+  event_created:        'Etkinlik açıldı',
+  event_deleted:        'Etkinlik kaldırıldı',
+};
+
+function AuditTab({ load }: { load: () => Promise<AuditRow[]> }) {
+  const [rows, setRows] = useState<AuditRow[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    load().then(r => { if (!cancelled) setRows(r); });
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (rows === null) {
+    return <Text style={s.emptySub}>Yükleniyor...</Text>;
+  }
+  if (rows.length === 0) {
+    return (
+      <View style={s.empty}>
+        <Text style={s.emptyTitle}>Denetim kaydı boş.</Text>
+        <Text style={s.emptySub}>
+          Rol değişiklikleri, onaylar, yayınlar ve silmeler burada
+          otomatik olarak kayda geçer. Kayıtlar değiştirilemez ve silinemez.
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={s.form}>
+      <Text style={s.helper}>
+        Son {rows.length} işlem. Kayıtlar yalnızca eklenebilir — değiştirilemez,
+        silinemez. Resmî bir talep hâlinde bu döküm kullanılabilir.
+      </Text>
+      {rows.map(r => (
+        <View key={r.id} style={s.auditRow}>
+          <View style={s.auditTop}>
+            <Text style={s.auditAction}>{ACTION_TR[r.action] ?? r.action}</Text>
+            <Text style={s.auditDate}>{fmtDate(r.created_at)}</Text>
+          </View>
+          <Text style={s.auditTarget} numberOfLines={2}>
+            {r.target_name ?? r.target_type ?? '—'}
+          </Text>
+          <Text style={s.auditActor}>{r.actor_name ?? 'Bilinmiyor'}</Text>
+          {r.details && Object.keys(r.details).length > 0 && (
+            <Text style={s.auditDetails} numberOfLines={3}>
+              {Object.entries(r.details)
+                .filter(([, v]) => v !== null && v !== undefined && v !== '')
+                .map(([k, v]) => `${k}: ${String(v)}`)
+                .join('  ·  ')}
+            </Text>
+          )}
+        </View>
+      ))}
     </View>
   );
 }
@@ -693,12 +905,12 @@ function EventForm({ onCreate }: { onCreate: (input: { title: string; descriptio
 export default function AdminScreen() {
   const { profile, status } = useAuthContext();
   const {
-    pending, members, stats, loading, refetch, approve, setRole,
+    pending, members, stats, loading, hasMore, loadMoreMembers, refetch, approve, rejectApplication, setRole,
     publishAnnouncement, createEvent,
     listAnnouncements, deleteAnnouncement, updateAnnouncement,
     listEvents, deleteEvent, updateEvent,
     listCourses, createCourse, updateCourse, deleteCourse,
-    listAttendees, listPendingArticles, reviewArticle,
+    listAttendees, listPendingArticles, reviewArticle, listAudit,
   } = useAdmin();
   const [tab, setTab] = useState<AdminTab>('ONAYLAR');
   const [reloadKey, setReloadKey] = useState(0);
@@ -730,6 +942,11 @@ export default function AdminScreen() {
     }
   };
 
+  const handleReject = async (p: Profile) => {
+    const error = await rejectApplication(p.id);
+    showToast(error ? 'Reddedilemedi — yetkinizi kontrol edin.' : 'Başvuru reddedildi.', error ? 'error' : 'success');
+  };
+
   const handlePublish = async (input: { title: string; body: string; type: 'general' | 'event' | 'system' }) => {
     const { error, sent } = await publishAnnouncement(input);
     if (error) { showToast('Duyuru yayınlanamadı.', 'error'); return false; }
@@ -759,7 +976,7 @@ export default function AdminScreen() {
     { value: stats.announcements, label: 'DUYURU' },
   ];
 
-  const TABS: AdminTab[] = ['ONAYLAR', 'ÜYELER', 'BÜLTEN', 'DUYURU', 'ETKİNLİK', 'KURS'];
+  const TABS: AdminTab[] = ['ONAYLAR', 'ÜYELER', 'BÜLTEN', 'DUYURU', 'ETKİNLİK', 'KURS', 'KAYIT'];
 
   return (
     <SafeAreaView style={s.root}>
@@ -792,7 +1009,10 @@ export default function AdminScreen() {
       {/* Tabs */}
       <View style={s.tabRow}>
         {TABS.map(t => (
-          <TouchableOpacity key={t} style={[s.tabItem, tab === t && s.tabItemActive]} onPress={() => setTab(t)} activeOpacity={0.8}>
+          <TouchableOpacity key={t} style={[s.tabItem, tab === t && s.tabItemActive]} onPress={() => setTab(t)} activeOpacity={0.8}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: tab === t }}
+            accessibilityLabel={t === 'ONAYLAR' && stats.pending > 0 ? `Onaylar, ${stats.pending} bekleyen başvuru` : t}>
             <Text style={[s.tabLabel, tab === t && s.tabLabelActive]}>
               {t}{t === 'ONAYLAR' && stats.pending > 0 ? ` (${stats.pending})` : ''}
             </Text>
@@ -819,14 +1039,14 @@ export default function AdminScreen() {
                 </View>
               ) : (
                 pending.map(p => (
-                  <PendingCard key={p.id} p={p} onApprove={(role) => handleApprove(p, role)} />
+                  <PendingCard key={p.id} p={p} onApprove={(role) => handleApprove(p, role)} onReject={() => handleReject(p)} />
                 ))
               )}
             </View>
           )}
 
           {tab === 'ÜYELER' && (
-            <MembersTab members={members} currentUserId={profile?.id} onSetRole={handleSetRole} />
+            <MembersTab members={members} currentUserId={profile?.id} onSetRole={handleSetRole} hasMore={hasMore} onLoadMore={loadMoreMembers} />
           )}
 
           {tab === 'BÜLTEN' && (
@@ -857,7 +1077,22 @@ export default function AdminScreen() {
                   id: a.id,
                   title: a.title,
                   subtitle: fmtDate(a.published_at),
+                  edit: [
+                    { key: 'title', label: 'BAŞLIK', value: a.title },
+                    { key: 'body',  label: 'METİN',  value: a.body, multiline: true },
+                  ],
+                  _type: a.type,
                 }))}
+                onEdit={async (item, v) => {
+                  const error = await updateAnnouncement(item.id, {
+                    title: v.title.trim(),
+                    body: v.body.trim(),
+                     
+                    type: (item as any)._type ?? 'general',
+                  });
+                  showToast(error ? 'Güncellenemedi.' : 'Duyuru güncellendi.', error ? 'error' : 'success');
+                  return !error;
+                }}
                 onDelete={async (item) => {
                   const error = await deleteAnnouncement(item.id);
                   showToast(error ? 'Duyuru kaldırılamadı.' : 'Duyuru kaldırıldı.', error ? 'error' : 'success');
@@ -876,7 +1111,33 @@ export default function AdminScreen() {
                   id: e.id,
                   title: e.title,
                   subtitle: [fmtDate(e.starts_at), e.city].filter(Boolean).join(' · '),
+                  edit: [
+                    { key: 'title',    label: 'ETKİNLİK ADI', value: e.title },
+                    { key: 'desc',     label: 'AÇIKLAMA',     value: e.description ?? '', multiline: true },
+                    { key: 'location', label: 'YER',          value: e.location ?? '' },
+                    { key: 'city',     label: 'ŞEHİR',        value: e.city ?? '' },
+                    { key: 'quota',    label: 'KONTENJAN (boş = sınırsız)', value: e.max_attendees != null ? String(e.max_attendees) : '', keyboard: 'number-pad' as const },
+                  ],
+                  _startsAt: e.starts_at,
                 }))}
+                onEdit={async (item, v) => {
+                  const q = v.quota.trim() === '' ? null : parseInt(v.quota.trim(), 10);
+                  if (q !== null && (!Number.isFinite(q) || q < 1)) {
+                    showToast('Kontenjan 1 veya daha büyük olmalı.', 'error');
+                    return false;
+                  }
+                  const error = await updateEvent(item.id, {
+                    title: v.title.trim(),
+                    description: v.desc.trim() || undefined,
+                    location: v.location.trim() || undefined,
+                    city: v.city.trim() || undefined,
+                     
+                    starts_at: (item as any)._startsAt,
+                    max_attendees: q,
+                  });
+                  showToast(error ? 'Güncellenemedi.' : 'Etkinlik güncellendi.', error ? 'error' : 'success');
+                  return !error;
+                }}
                 onDelete={async (item) => {
                   const error = await deleteEvent(item.id);
                   showToast(error ? 'Etkinlik kaldırılamadı.' : 'Etkinlik kaldırıldı.', error ? 'error' : 'success');
@@ -887,6 +1148,8 @@ export default function AdminScreen() {
               />
             </>
           )}
+
+          {tab === 'KAYIT' && <AuditTab load={listAudit} />}
 
           {tab === 'KURS' && (
             <>
@@ -906,7 +1169,27 @@ export default function AdminScreen() {
                   title: c.title,
                   subtitle: [c.instructor, c.duration_hours ? `${c.duration_hours} saat` : null]
                     .filter(Boolean).join(' · ') || '—',
+                  edit: [
+                    { key: 'title',      label: 'KURS ADI',   value: c.title },
+                    { key: 'desc',       label: 'AÇIKLAMA',   value: c.description ?? '', multiline: true },
+                    { key: 'instructor', label: 'EĞİTMEN',    value: c.instructor ?? '' },
+                    { key: 'hours',      label: 'SÜRE (SAAT)', value: c.duration_hours != null ? String(c.duration_hours) : '', keyboard: 'number-pad' as const },
+                  ],
+                  _level: c.level,
                 }))}
+                onEdit={async (item, v) => {
+                  const h = v.hours.trim() === '' ? null : parseInt(v.hours.trim(), 10);
+                  const error = await updateCourse(item.id, {
+                    title: v.title.trim(),
+                    description: v.desc.trim() || undefined,
+                    instructor: v.instructor.trim() || undefined,
+                    duration_hours: Number.isFinite(h as number) ? h : null,
+                     
+                    level: (item as any)._level ?? undefined,
+                  });
+                  showToast(error ? 'Güncellenemedi.' : 'Kurs güncellendi.', error ? 'error' : 'success');
+                  return !error;
+                }}
                 onDelete={async (item) => {
                   const error = await deleteCourse(item.id);
                   showToast(error ? 'Kurs kaldırılamadı.' : 'Kurs kaldırıldı.', error ? 'error' : 'success');
@@ -934,6 +1217,17 @@ export default function AdminScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
+  loadMore:     { marginTop: 16, borderWidth: 0.5, borderColor: Colors.goldLine, paddingVertical: 13, alignItems: 'center' },
+  loadMoreText: { fontFamily: Fonts.jakarta, fontSize: 9, letterSpacing: 2, color: Colors.gold, fontWeight: '600' },
+  auditRow:     { borderWidth: 0.5, borderColor: Colors.goldLine, padding: 14, marginBottom: 10 },
+  auditTop:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 },
+  auditAction:  { fontFamily: Fonts.jakarta, fontSize: 10, fontWeight: '700', color: Colors.gold, letterSpacing: 1 },
+  auditDate:    { fontFamily: Fonts.mono, fontSize: 8, color: Colors.textMuted },
+  auditTarget:  { fontFamily: Fonts.cormorant, fontSize: 16, color: Colors.ivory, marginBottom: 4 },
+  auditActor:   { fontFamily: Fonts.jakarta, fontSize: 9, color: Colors.textMuted },
+  auditDetails: { fontFamily: Fonts.mono, fontSize: 8, color: Colors.textMuted, marginTop: 6, lineHeight: 13 },
+  pRejectBtn:  { marginTop: 12, alignItems: 'center', paddingVertical: 6 },
+  pRejectText: { fontFamily: Fonts.jakarta, fontSize: 9, color: 'rgba(224,96,96,0.75)', letterSpacing: 0.5 },
   root:           { flex: 1, backgroundColor: Colors.navy },
 
   header:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16, backgroundColor: Colors.navyDeep, borderBottomWidth: 0.5, borderBottomColor: Colors.goldLine },

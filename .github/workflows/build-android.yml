@@ -24,7 +24,14 @@ jobs:
 
       - name: Install dependencies
         working-directory: native
-        run: npm install --legacy-peer-deps
+        # npm ci: package-lock.json'a HARFİ HARFİNE uyar.
+        # `npm install` kilidi yok sayıp bağımlılıkları yükseltebiliyordu —
+        # Hermes'i kıran supabase-js 2.106 sürümü tam olarak böyle gelmişti.
+        run: npm ci
+
+      - name: Type check
+        working-directory: native
+        run: npx tsc --noEmit
 
       - uses: expo/expo-github-action@v8
         with:

@@ -3,8 +3,9 @@ import * as Sentry from '@sentry/react-native';
 // ============================================================
 // Çökme takibi — KVKK'ya dikkat ederek yapılandırıldı
 // ============================================================
-// Sentry raporları ABD sunucularına gider. Bu yüzden kişisel veri
-// göndermeyecek şekilde kısıtlandı:
+// Sentry raporları AB (Almanya) sunucularına gider — DSN 'ingest.de'
+// bölgesine işaret ediyor. Yine de kişisel veri göndermeyecek şekilde
+// kısıtlandı:
 //   • sendDefaultPii: false  → IP adresi, cihaz kimliği gönderilmez
 //   • Sentry.setUser hiç çağrılmaz → kullanıcı kimliği eşlenmez
 //   • beforeBreadcrumb → kullanıcının yazdığı metinler (arama, form,
