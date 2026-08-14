@@ -19,7 +19,7 @@
 <body>
 
 <h1>Genç TETSİAD Mobil Uygulaması — Gizlilik Politikası</h1>
-<p class="meta">Yürürlük tarihi: 16 Haziran 2026 · Veri Sorumlusu: TETSİAD — Tekstil Sanayicileri ve İşadamları Derneği</p>
+<p class="meta">Yürürlük tarihi: 13 Ağustos 2026 · Veri Sorumlusu: TETSİAD — Tekstil Sanayicileri ve İşadamları Derneği</p>
 
 <p>Bu politika, Genç TETSİAD mobil uygulamasını ("Uygulama") kullandığınızda kişisel verilerinizin
 6698 sayılı Kişisel Verilerin Korunması Kanunu ("KVKK") ve ilgili mevzuat kapsamında nasıl işlendiğini açıklar.</p>
@@ -28,19 +28,21 @@
 <table>
   <tr><th>Veri</th><th>Kaynak</th><th>Amaç</th></tr>
   <tr><td>Ad, soyad</td><td>Üyelik başvuru formu</td><td>Üyelik yönetimi, üye rehberi</td></tr>
-  <tr><td>Telefon numarası</td><td>Kayıt / giriş (SMS doğrulama)</td><td>Kimlik doğrulama, hesap güvenliği</td></tr>
-  <tr><td>E-posta adresi</td><td>Üyelik başvuru formu</td><td>İletişim</td></tr>
+  <tr><td>E-posta adresi</td><td>Kayıt / giriş (tek kullanımlık kod)</td><td>Kimlik doğrulama, hesap güvenliği, iletişim</td></tr>
+  <tr><td>Telefon numarası</td><td>Üyelik başvuru formu</td><td>Üye rehberi, dernek iletişimi (görünürlüğü üye kapatabilir)</td></tr>
   <tr><td>Firma, şehir, sektör, pozisyon</td><td>Üyelik başvuru formu</td><td>Üye rehberi, sektörel eşleştirme</td></tr>
   <tr><td>Etkinlik katılımları, kurs kayıtları, mentorluk başvuruları</td><td>Uygulama içi kullanım</td><td>Etkinlik/eğitim organizasyonu</td></tr>
   <tr><td>Bildirim aygıt kimliği (push token)</td><td>Cihazınız (izninizle)</td><td>Duyuru ve etkinlik bildirimleri</td></tr>
   <tr><td>Teknik hata kaydı (cihaz modeli, sürüm, hata konumu)</td><td>Uygulama çökmesi hâlinde otomatik</td><td>Hatanın giderilmesi</td></tr>
   <tr><td>Bülten yazıları (başlık, özet, metin)</td><td>Üyenin kendi gönderimi</td><td>Bültende yayımlama</td></tr>
+  <tr><td>KVKK onay zamanı ve yurt dışı aktarım rızası zamanı</td><td>Üyelik başvuru formu</td><td>Rızanın belgelenmesi (KVKK ispat yükümlülüğü)</td></tr>
   <tr><td>Yönetimsel işlem kaydı (üyelik onayı, rol değişikliği, içerik yayınlama/kaldırma)</td><td>Yönetim işlemleri</td><td>Hesap verebilirlik, suistimalin önlenmesi</td></tr>
 </table>
 <p><strong>Kaydedilmeyenler:</strong> Uygulama içinde hangi sayfayı görüntülediğiniz,
 ne aradığınız veya hangi üyenin profiline baktığınız <em>kaydedilmez</em>.
 İşlem kaydı yalnızca dernek yönetiminin aldığı kararları (kim kimi onayladı,
 kim hangi duyuruyu yayınladı) içerir ve yalnızca yönetim tarafından görülebilir.</p>
+<p><strong>Telefon görünürlüğü:</strong> Telefon numaranızın üye rehberinde görünüp görünmeyeceğini uygulama içinden (Kart &gt; Profili Düzenle) kendiniz belirlersiniz. Kapattığınızda diğer üyeler size yalnızca e-posta ile ulaşabilir.</p>
 <p>Uygulama; konum, rehber, fotoğraf, mikrofon gibi verilere erişmez. Reklam ve üçüncü taraf analitik/izleme aracı kullanılmaz.</p>
 
 <h2>2. İşleme Amaçları ve Hukuki Dayanak</h2>
@@ -61,7 +63,7 @@ Hizmetin çalışabilmesi için aşağıdaki tedarikçilere sınırlı teknik ak
   <tr><th>Tedarikçi</th><th>Amaç</th><th>Sunucu konumu</th></tr>
   <tr><td>Supabase Inc.</td><td>Veritabanı ve kimlik doğrulama</td><td>Almanya (Frankfurt)</td></tr>
   <tr><td>Google Firebase (FCM) / Expo</td><td>Bildirim iletimi</td><td>ABD</td></tr>
-  <tr><td>SMS sağlayıcısı</td><td>Doğrulama kodu iletimi</td><td>Yurt dışı</td></tr>
+  <tr><td>Resend (e-posta sağlayıcısı)</td><td>Doğrulama kodu iletimi</td><td>Avrupa Birliği</td></tr>
   <tr><td>Sentry</td><td>Teknik hata (çökme) kayıtları</td><td>Almanya (AB bölgesi)</td></tr>
 </table>
 <p><strong>Sentry hakkında:</strong> Uygulamada teknik bir hata oluştuğunda,

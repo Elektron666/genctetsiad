@@ -1,8 +1,8 @@
-# MAĞAZA ÖNCESİ TAM DENETİM — 210 MADDE
+# MAĞAZA ÖNCESİ TAM DENETİM — 214 MADDE
 
 **Kapsam:** 11.702 satır — `native/` (29 dosya), `supabase/` (12 dosya), `.github/`, `docs/`, `project/`
 **Yöntem:** her dosya baştan sona okundu. Tahmin yok; her madde bir satıra dayanıyor.
-**Tarih:** 2 Ağustos 2026 · **Durum:** 210 bulgu — **143'ü düzeltildi**, 67'si gerekçeli olarak açık.
+**Tarih:** 2 Ağustos 2026 · **Durum:** 214 bulgu — **147'si düzeltildi**, 67'si gerekçeli olarak açık.
 
 > **2. tur:** 25 madde daha kapatıldı; ESLint kurulunca bir ölü özellik çıktı (201).
 > **3. tur:** 37 madde daha kapatıldı. Migration'lar gerçek PostgreSQL'de
@@ -13,6 +13,8 @@
 > **5. tur:** hızlı tarama — 4 bulgu daha (206–209).
 > **6. tur:** 012'nin yazdığı bildirimleri kimse okumuyordu (210) + mağaza
 > için `runtimeVersion` çevrildi (161).
+> **7. tur:** yasal metinler gerçekle örtüşmüyordu (211–212), Pages kökü
+> 404 verecekti (213), Play başvuru dosyası hazırlandı (214).
 
 > Bu belgenin amacı listelemek değil, **karar verilebilir hâle getirmek**.
 > Her madde: ne bozuk · kullanıcı ne yaşıyor · ne yapıldı.
@@ -24,9 +26,9 @@
 | Ağırlık | Adet | Düzeltildi | Açık |
 |---|---|---|---|
 | 🔴 Kritik — veri/güvenlik/yayın engeli | 27 | 25 | 2 |
-| 🟠 Yüksek — yanlış bilgi, bozuk akış | 56 | 53 | 3 |
+| 🟠 Yüksek — yanlış bilgi, bozuk akış | 59 | 56 | 3 |
 | 🟡 Orta — UX, performans, tutarlılık | 80 | 53 | 27 |
-| ⚪ Düşük — temizlik, ileri sürüm | 47 | 12 | 35 |
+| ⚪ Düşük — temizlik, ileri sürüm | 48 | 13 | 35 |
 
 ---
 
@@ -573,3 +575,47 @@ da düşer, orada bulunmayan bir yerel modülü çağırıp uygulamayı
 
 > Bu değişiklik uygulamanın **Expo Go ile açılmasını sonlandırır.**
 > Test artık derlenmiş APK üzerinden yapılır — zaten öyle yapılıyordu.
+
+---
+
+# 7. TUR — YASAL METİNLER VE MAĞAZA DOSYASI
+
+**211. Gizlilik politikası hâlâ SMS doğrulaması anlatıyordu.** 🟠 ✅
+Kimlik doğrulama e-postaya geçmişti; uygulama içi KVKK metni
+düzeltilmiş ama **yayınlanan HTML politika düzeltilmemişti.** Politika,
+var olmayan bir veri akışını (SMS sağlayıcısına telefon numarası
+aktarımı) tarif ediyor, gerçekte veriyi işleyen tarafı (e-posta
+sağlayıcısı) ise hiç açıklamıyordu. KVKK açısından yanlış aydınlatma.
+→ Telefon artık "üye rehberi" amacıyla, e-posta "kimlik doğrulama"
+amacıyla listeleniyor; tedarikçi tablosunda Resend (AB) yer alıyor.
+
+**212. Yeni toplanan veriler politikada beyan edilmiyordu.** 🟠 ✅
+`011` ile rıza zaman damgaları (`kvkk_accepted_at`,
+`transfer_consent_at`) ve telefon görünürlük tercihi saklanmaya
+başlamıştı ama politikada geçmiyordu. Toplanan her veri beyan
+edilmelidir. → Tabloya eklendi + telefon görünürlüğü hakkı ayrı
+paragraf olarak yazıldı.
+
+**213. GitHub Pages kökü 404 verecekti.** 🟠 ✅
+`docs/` altında `index.html` yoktu. Pages açıldığında
+`elektron666.github.io/genctetsiad/` boş dönerdi — mağaza formunda
+"Web sitesi" alanına verilecek adres tam da bu.
+→ İki yasal belgeye yönlendiren, uygulamanın paletiyle uyumlu bir
+kök sayfa eklendi.
+
+**214. Play Console başvuru dosyası yoktu.** ⚪ ✅
+Mevcut `play-yayin-rehberi.md` süreci anlatıyordu ama doldurulacak
+alanları içermiyordu. → `play-basvuru-dosyasi.md`: kısa/tam açıklama
+(karakter sınırlarına uygun), **Veri Güvenliği formunun her satırı**,
+içerik derecelendirme anketi cevapları, incelemeci erişim metni,
+ekran görüntüsü planı ve reddedilme sebepleri tablosu.
+
+Dosyadaki beyanlar koddan doğrulandı:
+- Reklam/izleme kütüphanesi: **yok** → "paylaşım yok" beyanı doğru
+- İstenen izinler: `INTERNET`, `VIBRATE`, `POST_NOTIFICATIONS` → hassas
+  izin beyanı gerekmiyor
+- Hesap silme: iki ekranda mevcut → "silme talep edilebilir" doğru
+
+> ⚠️ Dosyadaki en kritik uyarı: **inceleme hesabı önceden oluşturulup
+> `role='member'` yapılmalı.** `pending` kalırsa Google incelemecisi
+> yalnızca onay bekleme ekranını görür ve uygulamayı işlevsiz sayar.
