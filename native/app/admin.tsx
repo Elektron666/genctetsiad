@@ -12,6 +12,7 @@ import { useAdmin } from '@/hooks/useAdmin';
 import type { AuditRow } from '@/hooks/useAdmin';
 import { useToast } from '@/components/Toast';
 import type { Profile } from '@/types/database';
+import { initials, parseTRDate, parseQuota } from '@/lib/format';
 
 const ADMIN_ROLES = ['board', 'president', 'admin'];
 
@@ -25,10 +26,6 @@ const ROLE_LABELS: Record<string, string> = {
   president: 'Başkan',
   admin:     'Admin',
 };
-
-function initials(name: string) {
-  return name.trim().split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '—';
-}
 
 const MONTHS_TR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 
@@ -78,7 +75,7 @@ function PendingCard({ p, onApprove, onReject }: {
           <Text style={s.pAvatarText}>{initials(p.full_name)}</Text>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={s.pName}>{p.full_name || 'İsimsiz başvuru'}</Text>
+          <Text style={s.pName} numberOfLines={1}>{p.full_name || 'İsimsiz başvuru'}</Text>
           <Text style={s.pFirm}>{[p.company, p.city].filter(Boolean).join(' · ') || '—'}</Text>
           <Text style={s.pMeta}>{p.phone ?? '—'}{p.sector ? `  ·  ${p.sector}` : ''}</Text>
         </View>
@@ -203,7 +200,7 @@ function MembersTab({
               <Text style={s.pAvatarText}>{initials(m.full_name)}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.pName}>{m.full_name || '—'}{m.id === currentUserId ? '  (SİZ)' : ''}</Text>
+              <Text style={s.pName} numberOfLines={1}>{m.full_name || '—'}{m.id === currentUserId ? '  (SİZ)' : ''}</Text>
               <Text style={s.pFirm}>{[m.company, m.city].filter(Boolean).join(' · ') || '—'}</Text>
             </View>
             <View style={[s.roleTag, ADMIN_ROLES.includes(m.role) && s.roleTagGold]}>
@@ -295,7 +292,7 @@ function ArticleReview({
         </View>
       ) : items.map(a => (
         <TouchableOpacity key={a.id} style={s.pCard} onPress={() => { setOpen(a); setNote(''); }} activeOpacity={0.8}>
-          <Text style={s.pName}>{a.title}</Text>
+          <Text style={s.pName} numberOfLines={2}>{a.title}</Text>
           <Text style={s.pFirm}>{a.author_name} · {fmtDate(a.created_at)}</Text>
           {!!a.summary && <Text style={s.artSummary} numberOfLines={2}>{a.summary}</Text>}
           <Text style={s.artOpen}>OKU VE KARAR VER →</Text>
@@ -728,33 +725,14 @@ function EventForm({ onCreate }: { onCreate: (input: { title: string; descriptio
   const [quota, setQuota] = useState('');
   const [busy, setBusy] = useState(false);
 
-  // JavaScript'te new Date(2026, 12, 31) HATA VERMEZ — sessizce 2027
-  // Ocak'a taşar. Yönetici "24.13.2026" yazdığında etkinlik bir yıl
-  // sonraya kayıyor ve kimse fark etmiyordu. Gün/ay/saat aralıkları
-  // artık açıkça denetleniyor ve sonuç geri okunarak taşma yakalanıyor.
-  const parseDateTime = (): Date | null => {
-    const m = date.trim().match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/);
-    if (!m) return null;
-    const dd = parseInt(m[1], 10), mm = parseInt(m[2], 10), yy = parseInt(m[3], 10);
-    if (mm < 1 || mm > 12 || dd < 1 || dd > 31 || yy < 2026 || yy > 2100) return null;
-
-    const tm = time.trim() === '' ? null : time.trim().match(/^(\d{1,2})[:.](\d{2})$/);
-    if (time.trim() !== '' && !tm) return null;
-    const hh = tm ? parseInt(tm[1], 10) : 10;
-    const mi = tm ? parseInt(tm[2], 10) : 0;
-    if (hh > 23 || mi > 59) return null;
-
-    const d = new Date(yy, mm - 1, dd, hh, mi);
-    if (isNaN(d.getTime())) return null;
-    // 31.02 → 3 Mart'a taşar; geri okuyup yakalıyoruz
-    if (d.getDate() !== dd || d.getMonth() !== mm - 1 || d.getFullYear() !== yy) return null;
-    return d;
-  };
-
+  // Tarih ve kontenjan ayrıştırması src/lib/format.ts'e taşındı;
+  // orada birim testleri var (13. ay taşması, 31 Şubat, "0" kontenjan).
+  const parseDateTime = () => parseTRDate(date, time);
   const dt = parseDateTime();
   const inPast = dt !== null && dt.getTime() < Date.now();
-  const quotaNum = quota.trim() === '' ? null : parseInt(quota.trim(), 10);
-  const quotaOk = quotaNum === null || (Number.isFinite(quotaNum) && quotaNum > 0);
+  const q = parseQuota(quota);
+  const quotaNum = q.value;
+  const quotaOk = q.valid;
   const valid = title.trim().length > 3 && dt !== null && !inPast && quotaOk;
 
   const submit = async () => {

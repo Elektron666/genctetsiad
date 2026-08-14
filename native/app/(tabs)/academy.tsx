@@ -21,6 +21,7 @@ import { supabase } from '@/lib/supabase';
 import { sendPushBatch } from '@/lib/notifications';
 import { BulletinTab } from '@/components/BulletinTab';
 import type { Course as SupabaseCourse, CourseLevel } from '@/types/database';
+import { initials } from '@/lib/format';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -137,10 +138,6 @@ function supabaseToCourse(c: SupabaseCourse, index: number): Course {
   };
 }
 
-function initials(name: string) {
-  return name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
-}
-
 // ─── AppHeader ─────────────────────────────────────────────────────────────────
 
 function AppHeader({ section, title }: { section: string; title: string }) {
@@ -211,7 +208,7 @@ function ProgramCard({ program }: { program: Program }) {
 
 // ─── CourseCard (with animated progress bar) ──────────────────────────────────
 
-function CourseCard({ course, onEnroll }: { course: Course; onEnroll?: () => void }) {
+function CourseCard({ course, onEnroll, busy }: { course: Course; onEnroll?: () => void; busy?: boolean }) {
   const progressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -280,7 +277,14 @@ function CourseCard({ course, onEnroll }: { course: Course; onEnroll?: () => voi
 
       {/* Enroll CTA — sadece kayıt olunmamış Supabase kurslarında */}
       {onEnroll && (
-        <TouchableOpacity style={styles.courseEnrollBtn} onPress={onEnroll} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={[styles.courseEnrollBtn, busy && { opacity: 0.5 }]}
+          onPress={onEnroll}
+          disabled={busy}
+          accessibilityRole="button"
+          accessibilityLabel={`${course.title} kursuna kaydol`}
+          activeOpacity={0.8}
+        >
           <Text style={styles.courseEnrollText}>KAYIT OL →</Text>
         </TouchableOpacity>
       )}
@@ -467,6 +471,9 @@ function CoursesTab() {
   const { session } = useAuthContext();
   const { courses: supabaseCourses, loading, error, enroll } = useCourses(session?.user.id);
   const { show: showToast, ToastComponent } = useToast();
+  // Kayıt düğmesinde yükleme durumu yoktu: hızlı çift dokunuş iki
+  // ayrı kayıt isteği gönderiyordu.
+  const [busyCourse, setBusyCourse] = useState<string | null>(null);
 
   const displayCourses = supabaseCourses.length > 0
     ? supabaseCourses.map(supabaseToCourse)
@@ -476,7 +483,10 @@ function CoursesTab() {
     if (!course.uuid) return;
     // Daha önce hata yutuluyordu ve başarı bildirimi KOŞULSUZ
     // gösteriliyordu: kayıt oluşmasa da üye kaydolduğunu sanıyordu.
+    if (busyCourse) return;
+    setBusyCourse(course.uuid);
     const { error } = await enroll(course.uuid);
+    setBusyCourse(null);
     if (error) {
       showToast('Kayıt oluşturulamadı. Üyeliğiniz onaylı mı?', 'error');
       return;
@@ -503,6 +513,7 @@ function CoursesTab() {
               key={c.id}
               course={c}
               onEnroll={c.uuid && !c.enrolled && session?.user ? () => handleEnroll(c) : undefined}
+              busy={busyCourse === c.uuid}
             />
           ))}
         </View>
@@ -548,6 +559,9 @@ function MentorInbox({ onResponded, onFailed }: {
 }) {
   const { session } = useAuthContext();
   const [requests, setRequests] = useState<InboxRequest[]>([]);
+  // Kabul/Reddet düğmeleri kilitlenmiyordu; hızlı çift dokunuş iki
+  // güncelleme gönderiyor ve ikincisi 0 satır etkiliyordu.
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session?.user) return;
@@ -581,6 +595,8 @@ function MentorInbox({ onResponded, onFailed }: {
   }, [session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const respond = async (req: InboxRequest, accepted: boolean) => {
+    if (busyId) return;
+    setBusyId(req.id);
      
     const { error } = await (supabase as any)
       .from('mentorship_requests')
@@ -603,10 +619,14 @@ function MentorInbox({ onResponded, onFailed }: {
           <Text style={styles.inboxFirm}>{req.menteeFirm}</Text>
           {!!req.message && <Text style={styles.inboxMsg}>"{req.message}"</Text>}
           <View style={styles.inboxBtnRow}>
-            <TouchableOpacity style={styles.inboxAccept} onPress={() => respond(req, true)} activeOpacity={0.8}>
+            <TouchableOpacity style={[styles.inboxAccept, busyId === req.id && { opacity: 0.5 }]} disabled={!!busyId}
+              accessibilityRole="button" accessibilityLabel={`${req.menteeName} başvurusunu kabul et`}
+              onPress={() => respond(req, true)} activeOpacity={0.8}>
               <Text style={styles.inboxAcceptText}>✓ KABUL ET</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.inboxReject} onPress={() => respond(req, false)} activeOpacity={0.8}>
+            <TouchableOpacity style={[styles.inboxReject, busyId === req.id && { opacity: 0.5 }]} disabled={!!busyId}
+              accessibilityRole="button" accessibilityLabel={`${req.menteeName} başvurusunu reddet`}
+              onPress={() => respond(req, false)} activeOpacity={0.8}>
               <Text style={styles.inboxRejectText}>REDDET</Text>
             </TouchableOpacity>
           </View>

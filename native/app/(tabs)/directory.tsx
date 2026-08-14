@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   Modal, StyleSheet, Linking, FlatList, ActivityIndicator,
@@ -8,6 +8,7 @@ import { Colors, Fonts, FontSize } from '@/theme';
 import { openTel, openMail } from '@/lib/links';
 import { useMembers } from '@/hooks/useMembers';
 import type { Profile, MemberRole } from '@/types/database';
+import { initials } from '@/lib/format';
 
 type Member = {
   id: string;
@@ -77,17 +78,20 @@ const DEMO_MEMBERS: Member[] = [
 
 const FALLBACK_MEMBERS: Member[] = __DEV__ ? DEMO_MEMBERS : [];
 
-function initials(name: string) {
-  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-}
-
 export default function DirectoryScreen() {
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<FilterKey>('TÜMÜ');
   const [search, setSearch] = useState('');
+  // Her tuş vuruşunda 1.500 kaydı Türkçe'ye duyarlı küçültmeyle taramak
+  // düşük segment cihazlarda yazmayı takılmalı hâle getiriyordu.
+  const [query, setQuery] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(search.trim()), 220);
+    return () => clearTimeout(t);
+  }, [search]);
   const [selected, setSelected] = useState<Member | null>(null);
 
-  const { members: supabaseMembers, loading, error, refetch } = useMembers();
+  const { members: supabaseMembers, loading, error, hasMore, total, loadMore, refetch } = useMembers();
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = async () => {
@@ -101,21 +105,30 @@ export default function DirectoryScreen() {
     ? supabaseMembers.map(profileToMember)
     : __DEV__ ? FALLBACK_MEMBERS : [];
 
+  // Arama anahtarı üye başına BİR KEZ hesaplanır. Eskiden her tuş
+  // vuruşunda her üye için iki kez toLocaleLowerCase çağrılıyordu.
+  const indexed = useMemo(
+    () => allMembers.map(m => ({
+      m,
+      key: `${m.name} ${m.firm} ${m.city}`.toLocaleLowerCase('tr-TR'),
+    })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [supabaseMembers],
+  );
+
   const filtered = useMemo(() => {
-    let list = allMembers;
-    if (filter === 'YÖNETİM') list = list.filter(m => m.roleKey === 'president' || m.roleKey === 'board' || m.roleKey === 'admin');
-    else if (filter === 'ÜYE')      list = list.filter(m => m.roleKey === 'member');
-    else if (filter === 'ÖĞRENCİ') list = list.filter(m => m.roleKey === 'student');
-    if (search.trim()) {
+    let list = indexed;
+    if (filter === 'YÖNETİM') list = list.filter(x => x.m.roleKey === 'president' || x.m.roleKey === 'board' || x.m.roleKey === 'admin');
+    else if (filter === 'ÜYE')      list = list.filter(x => x.m.roleKey === 'member');
+    else if (filter === 'ÖĞRENCİ') list = list.filter(x => x.m.roleKey === 'student');
+    if (query) {
       // Türkçe'de 'I'.toLowerCase() → 'i' olmaz; 'İSTANBUL' araması
       // locale-aware küçültme olmadan 'İstanbul'u bulamaz.
-      const lower = (t: string) => t.toLocaleLowerCase('tr-TR');
-      const q = lower(search.trim());
-      list = list.filter(m => lower(m.name).includes(q) || lower(m.firm).includes(q));
+      const q = query.toLocaleLowerCase('tr-TR');
+      list = list.filter(x => x.key.includes(q));
     }
-    return list;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, search, supabaseMembers]);
+    return list.map(x => x.m);
+  }, [filter, query, indexed]);
 
   const FILTERS: FilterKey[] = ['TÜMÜ', 'YÖNETİM', 'ÜYE', 'ÖĞRENCİ'];
 
@@ -146,7 +159,10 @@ export default function DirectoryScreen() {
       </View>
 
       <View style={styles.countRow}>
-        <Text style={styles.count}>{filtered.length} ÜYE</Text>
+        <Text style={styles.count}>
+          {filtered.length} ÜYE
+          {total > allMembers.length && !query && filter === 'TÜMÜ' ? ` / ${total}` : ''}
+        </Text>
         {loading && <ActivityIndicator size="small" color={Colors.gold} style={{ marginLeft: 8 }} />}
       </View>
 
@@ -157,6 +173,15 @@ export default function DirectoryScreen() {
         onRefresh={onRefresh}
         contentContainerStyle={{ paddingBottom: 100 }}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
+        onEndReached={() => { if (hasMore && !query) loadMore(); }}
+        onEndReachedThreshold={0.4}
+        initialNumToRender={12}
+        removeClippedSubviews
+        ListFooterComponent={
+          hasMore && !query ? (
+            <Text style={styles.loadingMore}>Yükleniyor...</Text>
+          ) : null
+        }
         ListEmptyComponent={
           loading ? null : (
             <View style={styles.emptyWrap}>
@@ -190,8 +215,8 @@ export default function DirectoryScreen() {
               <Text style={styles.avatarText}>{initials(m.name)}</Text>
             </View>
             <View style={styles.info}>
-              <Text style={styles.name}>{m.name}</Text>
-              <Text style={styles.firm}>{m.firm}</Text>
+              <Text style={styles.name} numberOfLines={1}>{m.name}</Text>
+              <Text style={styles.firm} numberOfLines={1}>{m.firm}</Text>
               <View style={styles.tags}>
                 <View style={styles.roleTag}>
                   <Text style={styles.roleTagText}>{m.role.toUpperCase()}</Text>
@@ -211,7 +236,7 @@ export default function DirectoryScreen() {
               <View style={styles.modalAvatar}>
                 <Text style={styles.modalAvatarText}>{initials(selected.name)}</Text>
               </View>
-              <Text style={styles.modalName}>{selected.name}</Text>
+              <Text style={styles.modalName} numberOfLines={2}>{selected.name}</Text>
               <Text style={styles.modalRole}>{selected.role.toUpperCase()}</Text>
               <View style={styles.modalDivider} />
               {([
@@ -270,6 +295,7 @@ const styles = StyleSheet.create({
   pillTextActive: { color: Colors.navy },
   countRow:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 10 },
   count:          { fontFamily: Fonts.mono, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 1.5 },
+  loadingMore: { fontFamily: Fonts.jakarta, fontSize: 10, color: Colors.textMuted, textAlign: 'center', paddingVertical: 18 },
   separator:      { height: 0.5, backgroundColor: Colors.goldLine },
   emptyWrap:      { alignItems: 'center', paddingTop: 72, paddingHorizontal: 44 },
   emptyDot:       { width: 10, height: 10, borderRadius: 5, borderWidth: 1, borderColor: Colors.goldLine, marginBottom: 20 },

@@ -1,8 +1,8 @@
-# MAĞAZA ÖNCESİ TAM DENETİM — 214 MADDE
+# MAĞAZA ÖNCESİ TAM DENETİM — 222 MADDE
 
 **Kapsam:** 11.702 satır — `native/` (29 dosya), `supabase/` (12 dosya), `.github/`, `docs/`, `project/`
 **Yöntem:** her dosya baştan sona okundu. Tahmin yok; her madde bir satıra dayanıyor.
-**Tarih:** 2 Ağustos 2026 · **Durum:** 214 bulgu — **147'si düzeltildi**, 67'si gerekçeli olarak açık.
+**Tarih:** 2 Ağustos 2026 · **Durum:** 222 bulgu — **156'sı düzeltildi**, 66'sı gerekçeli olarak açık.
 
 > **2. tur:** 25 madde daha kapatıldı; ESLint kurulunca bir ölü özellik çıktı (201).
 > **3. tur:** 37 madde daha kapatıldı. Migration'lar gerçek PostgreSQL'de
@@ -15,6 +15,8 @@
 > için `runtimeVersion` çevrildi (161).
 > **7. tur:** yasal metinler gerçekle örtüşmüyordu (211–212), Pages kökü
 > 404 verecekti (213), Play başvuru dosyası hazırlandı (214).
+> **8. tur:** performans ve edge-case (215–221), tekrarlanan mantık tek
+> modülde toplandı (222) ve **48 test** yazılıp CI'ya eklendi (155).
 
 > Bu belgenin amacı listelemek değil, **karar verilebilir hâle getirmek**.
 > Her madde: ne bozuk · kullanıcı ne yaşıyor · ne yapıldı.
@@ -26,9 +28,9 @@
 | Ağırlık | Adet | Düzeltildi | Açık |
 |---|---|---|---|
 | 🔴 Kritik — veri/güvenlik/yayın engeli | 27 | 25 | 2 |
-| 🟠 Yüksek — yanlış bilgi, bozuk akış | 59 | 56 | 3 |
-| 🟡 Orta — UX, performans, tutarlılık | 80 | 53 | 27 |
-| ⚪ Düşük — temizlik, ileri sürüm | 48 | 13 | 35 |
+| 🟠 Yüksek — yanlış bilgi, bozuk akış | 62 | 59 | 3 |
+| 🟡 Orta — UX, performans, tutarlılık | 85 | 63 | 22 |
+| ⚪ Düşük — temizlik, ileri sürüm | 48 | 14 | 34 |
 
 ---
 
@@ -619,3 +621,78 @@ Dosyadaki beyanlar koddan doğrulandı:
 > ⚠️ Dosyadaki en kritik uyarı: **inceleme hesabı önceden oluşturulup
 > `role='member'` yapılmalı.** `pending` kalırsa Google incelemecisi
 > yalnızca onay bekleme ekranını görür ve uygulamayı işlevsiz sayar.
+
+---
+
+# 8. TUR — PERFORMANS, EDGE-CASE VE TEST ALTYAPISI
+
+**215. Rehber araması her tuş vuruşunda tüm listeyi tarıyordu.** 🟡 ✅
+1.500 üyede her harf için **3.000 `toLocaleLowerCase('tr-TR')` çağrısı**
+yapılıyordu (ad + firma, üye başına, her tuşta). Düşük segment Android'de
+yazmayı takılmalı hâle getiriyordu.
+→ 220 ms debounce + üye başına **bir kez** hesaplanan arama anahtarı
+(ad + firma + şehir birleşik). Şehir de artık aranabiliyor.
+
+**216. Rehber 1.500 üyeyi tek istekte, tüm sütunlarıyla indiriyordu.** 🟡 ✅
+`select('*')` — e-posta, rıza damgaları, mentor notu dahil ekranda hiç
+kullanılmayan her şey. → Gösterilen sütunlarla sınırlandı + 100'lük
+sayfalama (`onEndReached` ile otomatik).
+
+**217. Kursa kayıt düğmesinde çift dokunuş iki kayıt gönderiyordu.** 🟠 ✅
+`CourseCard`'da yükleme durumu yoktu. → `busy` durumu + `disabled`.
+
+**218. Mentorluk kabul/red düğmelerinde aynı sorun.** 🟠 ✅
+Hızlı çift dokunuş iki güncelleme gönderiyor, ikincisi 0 satır
+etkiliyordu. → İstek başına kilit.
+
+**219. Kullanılmayan iki görsel yayın paketinde taşınıyordu.** 🟡 ✅
+`DEMO_EVENTS` `__DEV__` ile boşaltılmıştı ama `require()` modül düzeyinde
+çalıştığı için Metro ikisini de paketliyordu — **~465 KB ölü ağırlık**.
+→ `require` da `__DEV__` arkasına alındı.
+
+**220. Kullanıcı girdisi uzun olduğunda düzen taşıyordu.** 🟡 ✅
+Uzun firma/üye adı ve duyuru başlığı satırları itiyordu. → Rehber, admin
+listeleri ve bildirim çekmecesinde `numberOfLines`.
+
+**221. Kayıt ekranında sökülmüş bileşende `setState`.** ⚪ ✅
+Doğrulama sonrası 300 ms'lik geçiş zamanlayıcısı temizlenmiyordu.
+
+**222. Aynı yardımcı fonksiyon dört dosyada kopyalanmıştı.** 🟡 ✅
+`initials` dörtte, vCard üretimi ve tarih ayrıştırma ekran bileşenlerinin
+içinde. Ekran içinde oldukları için **test edilemiyorlardı** — oysa
+bulduğumuz hataların çoğu tam olarak bu saf fonksiyonlardaydı.
+→ `src/lib/format.ts`: `trLower`, `initials`, `fmtDateTR`, `vcEsc`,
+`buildVCard`, `parseTRDate`, `parseQuota`.
+
+**155. Test altyapısı hiç yoktu.** 🟠 ✅
+→ `jest-expo` kuruldu, **48 test** yazıldı, CI'ya eklendi.
+
+### Testler neyi koruyor
+
+Her test, gerçekten yaşanmış bir hatanın tekrarını engelliyor:
+
+| Test | Koruduğu hata |
+|---|---|
+| `trLower` | "İSTANBUL" araması "İstanbul"u bulamıyordu |
+| `initials` | çift boşluklu ad, boş ad, Türkçe büyütme |
+| `vcEsc` / `buildVCard` | "ORMEN, TEKSTİL" kartı ikiye bölüyordu; telefonu olmayana `TEL:—` ve derneğin e-postası gömülüyordu |
+| `parseTRDate` | "24.13.2026" sessizce 2027 Ocak'a kayıyordu; "31.02" 3 Mart'a; geçersiz saat 10:00 oluyordu |
+| `parseQuota` | kontenjana "0" yazınca sınırsız oluyordu |
+| `authErrorTR` | ham İngilizce Supabase hatası kullanıcıya gösteriliyordu |
+| `isValidTRMobile` | boş girdi "+90" üretiyor, 15 hane kabul ediliyordu |
+
+> Testi yazarken **aynı tuzağa ben de düştüm:** `/internet bağlantı/i`
+> ile eşleştirmeye çalıştım, geçmedi. JS'in `/i` bayrağı ASCII'ye göre
+> katlıyor; `'İ'` (U+0130) ile `'i'` eşleşmiyor. Testin kendisi Türkçe
+> küçültme hatasına yakalandı ve düzeltildi.
+
+### Doğrulama sonuçları
+
+```
+tsc --noEmit    temiz
+eslint .        0 hata (4 uyarı)
+jest            48/48 geçti
+expo export     Hermes bytecode üretildi
+```
+
+CI artık her derlemede üçünü de çalıştırıyor.

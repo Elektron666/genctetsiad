@@ -18,7 +18,8 @@ import { router } from 'expo-router';
 import QRCode from 'react-native-qrcode-svg';
 import Constants from 'expo-constants';
 import { Colors, Fonts, FontSize } from '@/theme';
-import {openExternal, PRIVACY_URL, TERMS_URL, openTel, openMail} from '@/lib/links';
+import { openExternal, PRIVACY_URL, TERMS_URL, openTel, openMail } from '@/lib/links';
+import { buildVCard as makeVCard, initials as getInitials } from '@/lib/format';
 import { useAppContext } from '@/context/AppContext';
 import { useAuthContext } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -65,37 +66,6 @@ const ROLE_LABELS: Record<MemberRole, string> = {
 // Sabit sahte aktivite listesi kaldırıldı — kullanıcıya hiç yapmadığı
 // işleri kendi geçmişi gibi gösteriyordu. Yerine gerçek sayaçlardan
 // türetilen özet kullanılıyor (aşağıda ACTIVITY_SUMMARY).
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(' ');
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-// vCard alanlarında ; , \ ve satır sonu kaçırılmazsa kart bozulur
-// ("ORMEN, TEKSTİL" gibi bir firma adı kaydı ikiye böler).
-function vcEsc(v: string): string {
-  return v.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
-}
-
-function buildVCard(member: Member): string {
-  // Bilinmeyen alanları HİÇ yazmıyoruz. Eskiden telefonu olmayan üyenin
-  // kartına 'TEL:—' ve derneğin genel adresi kişinin e-postasıymış gibi
-  // gömülüyordu; QR'ı okutan kişi bunu rehberine kaydediyordu.
-  const lines = [
-    'BEGIN:VCARD',
-    'VERSION:3.0',
-    `FN:${vcEsc(member.name)}`,
-    ...(member.firm  !== '—' ? [`ORG:${vcEsc(member.firm)}`] : []),
-    `TITLE:${vcEsc(`Genç TETSİAD ${member.role}`)}`,
-    ...(member.phone !== '—' ? [`TEL;TYPE=CELL:${vcEsc(member.phone)}`] : []),
-    ...(member.email ? [`EMAIL:${vcEsc(member.email)}`] : []),
-    ...(member.city  !== '—' ? [`ADR:;;${vcEsc(member.city)};;;Türkiye`] : []),
-    `NOTE:${vcEsc(`GENÇ TETSİAD · ${member.memberNo}`)}`,
-    'END:VCARD',
-  ];
-  return lines.join('\n');
-}
 
 // ── AppHeader ────────────────────────────────────────────────────────────────
 
@@ -176,7 +146,11 @@ const headerStyles = StyleSheet.create({
 // ── QR Modal ─────────────────────────────────────────────────────────────────
 
 function QRModal({ member, onClose }: { member: Member; onClose: () => void }) {
-  const vcard = buildVCard(member);
+  const vcard = makeVCard({
+    name: member.name, role: member.role, firm: member.firm,
+    phone: member.phone, email: member.email, city: member.city,
+    memberNo: member.memberNo,
+  });
   return (
     <Modal
       visible

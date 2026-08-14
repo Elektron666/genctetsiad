@@ -33,6 +33,14 @@ jobs:
         working-directory: native
         run: npx tsc --noEmit
 
+      - name: Lint
+        working-directory: native
+        run: npx eslint .
+
+      - name: Tests
+        working-directory: native
+        run: npx jest --ci
+
       - uses: expo/expo-github-action@v8
         with:
           expo-version: latest
