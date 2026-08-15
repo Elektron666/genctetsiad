@@ -8,7 +8,8 @@ import type { Profile, MemberRole } from '@/types/database';
 const DIRECTORY_COLUMNS =
   'id, full_name, email, phone, phone_visible, company, city, sector, position, role, member_code, is_mentor, mentor_bio, created_at, updated_at';
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 200;
+const MAX_PAGES = 50;   // 10.000 üyeye kadar; güvenlik sınırı
 
 export function useMembers(roles?: MemberRole[]) {
   const [members, setMembers] = useState<Profile[]>([]);
@@ -16,13 +17,14 @@ export function useMembers(roles?: MemberRole[]) {
   // Ağ hatası sessizce yutulursa kullanıcı 'kayıt yok' sanır — oysa
   // istek başarısız olmuştur. Ekranlar bu ikisini ayırt edebilmeli.
   const [error, setError] = useState<string | null>(null);
-  // 1.500 üye tek istekte iniyordu. Sayfa sayfa alınıyor.
-  const [hasMore, setHasMore] = useState(false);
+  // Arka planda kalan sayfalar çekilirken true. Arama bu sırada
+  // eksik sonuç verebileceği için ekran kullanıcıyı uyarır.
+  const [loadingAll, setLoadingAll] = useState(false);
   const [total, setTotal] = useState(0);
 
   const roleKey = roles?.join(',') ?? '';
 
-  const buildQuery = useCallback((from: number) => {
+  const page = useCallback((from: number) => {
     let q = supabase
       .from('profiles')
       .select(DIRECTORY_COLUMNS, { count: 'exact' })
@@ -36,35 +38,47 @@ export function useMembers(roles?: MemberRole[]) {
     return q;
   }, [roleKey]);
 
+  // Önce ilk sayfa gelir ve liste ANINDA çizilir; kalan sayfalar arka
+  // planda akar.
+  //
+  // Neden sonsuz kaydırma (onEndReached) DEĞİL: arama istemcide ve
+  // Türkçe'ye duyarlı yapılıyor. Yalnızca görünen sayfa yüklüyken
+  // arama yapılırsa, listede var olan bir üye "bulunamadı" görünür —
+  // sayfalamayı eklerken tam da bu gerilemeye yol açılmıştı.
+  // Tüm kayıtlar indiğinde arama yeniden eksiksiz olur.
   const fetchMembers = useCallback(async () => {
     setLoading(true);
-    const { data, error: err, count } = await buildQuery(0);
+    const { data, error: err, count } = await page(0);
     if (err) {
       setError('Bağlantı kurulamadı');
-    } else {
-      setError(null);
-      const rows = (data ?? []) as unknown as Profile[];
-      setMembers(rows);
-      setTotal(count ?? rows.length);
-      setHasMore(rows.length < (count ?? 0));
+      setLoading(false);
+      return;
     }
+    setError(null);
+    const first = (data ?? []) as unknown as Profile[];
+    const toplam = count ?? first.length;
+    setMembers(first);
+    setTotal(toplam);
     setLoading(false);
-  }, [buildQuery]);
 
-  const loadMore = useCallback(async () => {
-    const from = members.length;
-    const { data, count } = await buildQuery(from);
-    const rows = (data ?? []) as unknown as Profile[];
-    if (rows.length === 0) { setHasMore(false); return; }
-    setMembers(prev => [...prev, ...rows]);
-    setHasMore(from + rows.length < (count ?? 0));
-  }, [members.length, buildQuery]);
+    if (first.length >= toplam) return;
+
+    setLoadingAll(true);
+    const acc = [...first];
+    // Üst sınır: beklenmedik bir sayım hatasında sonsuz döngüye girmesin.
+    for (let i = 0; i < MAX_PAGES && acc.length < toplam; i++) {
+      const { data: more } = await page(acc.length);
+      const rows = (more ?? []) as unknown as Profile[];
+      if (rows.length === 0) break;
+      acc.push(...rows);
+      setMembers([...acc]);
+    }
+    setLoadingAll(false);
+  }, [page]);
 
   useEffect(() => { fetchMembers(); }, [fetchMembers]);
 
-  const mentors = members.filter((m) => m.is_mentor);
-
-  return { members, mentors, loading, error, hasMore, total, loadMore, refetch: fetchMembers };
+  return { members, loading, loadingAll, error, total, refetch: fetchMembers };
 }
 
 /**

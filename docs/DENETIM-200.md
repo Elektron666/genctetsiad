@@ -1,8 +1,8 @@
-# MAĞAZA ÖNCESİ TAM DENETİM — 222 MADDE
+# MAĞAZA ÖNCESİ TAM DENETİM — 225 MADDE
 
 **Kapsam:** 11.702 satır — `native/` (29 dosya), `supabase/` (12 dosya), `.github/`, `docs/`, `project/`
 **Yöntem:** her dosya baştan sona okundu. Tahmin yok; her madde bir satıra dayanıyor.
-**Tarih:** 2 Ağustos 2026 · **Durum:** 222 bulgu — **156'sı düzeltildi**, 66'sı gerekçeli olarak açık.
+**Tarih:** 2 Ağustos 2026 · **Durum:** 225 bulgu — **160'ı düzeltildi**, 65'i gerekçeli olarak açık.
 
 > **2. tur:** 25 madde daha kapatıldı; ESLint kurulunca bir ölü özellik çıktı (201).
 > **3. tur:** 37 madde daha kapatıldı. Migration'lar gerçek PostgreSQL'de
@@ -17,6 +17,8 @@
 > 404 verecekti (213), Play başvuru dosyası hazırlandı (214).
 > **8. tur:** performans ve edge-case (215–221), tekrarlanan mantık tek
 > modülde toplandı (222) ve **48 test** yazılıp CI'ya eklendi (155).
+> **9. tur:** kendi turumu review ettim — 8. turdaki sayfalama aramayı
+> bozmuş (223); ağ yokken açılış sonsuz çarkta kalıyordu (138).
 
 > Bu belgenin amacı listelemek değil, **karar verilebilir hâle getirmek**.
 > Her madde: ne bozuk · kullanıcı ne yaşıyor · ne yapıldı.
@@ -27,10 +29,10 @@
 
 | Ağırlık | Adet | Düzeltildi | Açık |
 |---|---|---|---|
-| 🔴 Kritik — veri/güvenlik/yayın engeli | 27 | 25 | 2 |
-| 🟠 Yüksek — yanlış bilgi, bozuk akış | 62 | 59 | 3 |
-| 🟡 Orta — UX, performans, tutarlılık | 85 | 63 | 22 |
-| ⚪ Düşük — temizlik, ileri sürüm | 48 | 14 | 34 |
+| 🔴 Kritik — veri/güvenlik/yayın engeli | 28 | 26 | 2 |
+| 🟠 Yüksek — yanlış bilgi, bozuk akış | 63 | 60 | 3 |
+| 🟡 Orta — UX, performans, tutarlılık | 86 | 65 | 21 |
+| ⚪ Düşük — temizlik, ileri sürüm | 48 | 15 | 33 |
 
 ---
 
@@ -696,3 +698,40 @@ expo export     Hermes bytecode üretildi
 ```
 
 CI artık her derlemede üçünü de çalıştırıyor.
+
+---
+
+# 9. TUR — KENDİ TURUMU REVIEW ETMEK
+
+**223. 8. turda soktuğum sayfalama, aramanın doğruluğunu bozdu.** 🟠 ✅
+Rehbere `onEndReached` ile sonsuz kaydırma eklemiştim. Ama arama
+**istemcide** yapılıyor: yalnızca ilk 200 kayıt yüklüyken "Zeynep"
+aranırsa, listenin 400. sırasındaki Zeynep **"Sonuç bulunamadı"**
+görünüyordu. Sayfalamadan önce hepsi tek seferde geldiği için arama
+doğruydu — performansı düzeltirken doğruluğu bozmuşum.
+
+> Aramayı sunucuya taşımak çözüm değildi: Postgres `ilike` varsayılan
+> collation'da Türkçe İ/ı ayrımını doğru yapmıyor. Aramanın doğruluğu
+> istemcideki `toLocaleLowerCase('tr-TR')` sayesinde.
+
+→ Sonsuz kaydırma kaldırıldı. İlk sayfa gelir gelmez liste çizilir,
+kalan sayfalar **arka planda akar**. Yüklenirken altta
+"Üyeler yükleniyor — 400 / 1.500" görünür; arama o sırada sonuç
+vermezse "liste hâlâ yükleniyor" denir. Tümü indiğinde arama yine
+eksiksiz.
+
+**138. Ağ yokken açılış sonsuza kadar dönen çarkta kalıyordu.** 🔴 ✅
+`supabase.auth.getSession()` zaman aşımına sahip değil. Ağ yoksa
+çözülmüyor, `status` kalıcı olarak `'loading'` kalıyor ve kullanıcı
+**sonsuza kadar** dönen çarka bakıyordu — ne mesaj, ne yeniden deneme,
+ne çıkış. Uçakta veya tünelde uygulamayı açan üye onu "bozuk" sayardı.
+→ 8 saniye zaman aşımı → giriş ekranına düşer. Zaman aşımından sonra
+gelen yanıtta gerçek oturum varsa yine devreye alınır.
+
+**224. Yavaş bağlantıda açılış ekranı hiçbir şey söylemiyordu.** 🟡 ✅
+3 saniyeden uzun sürerse "Bağlantı kuruluyor... İnternet bağlantınız
+yavaşsa bu biraz sürebilir." yazılıyor.
+
+**225. `useMembers.mentors` ölü kaldı.** ⚪ ✅
+Mentör sekmesi `useMentors()`'a geçirilmişti; eski `mentors` alanı
+kimse tarafından kullanılmıyordu. Kaldırıldı.

@@ -61,14 +61,41 @@ export function useAuth() {
   }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        loadProfile(session.user.id);
-      } else {
+    // getSession() ağ yokken ÇÖZÜLMEYEBİLİR. Zaman aşımı olmadığı için
+    // status kalıcı olarak 'loading' kalıyor ve kullanıcı sonsuza kadar
+    // dönen çarka bakıyordu — ne mesaj, ne yeniden deneme.
+    //
+    // 8 saniye sonra oturumsuz kabul edip giriş ekranına düşüyoruz;
+    // orada zaten anlaşılır bir hata gösterilebiliyor. Yanıt sonradan
+    // gelirse ve gerçekten oturum varsa, aşağıdaki kontrol devreye girer.
+    let settled = false;
+    const bootTimer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
         setStatus('unauthenticated');
       }
-    });
+    }, 8000);
+
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        clearTimeout(bootTimer);
+        // Zaman aşımından SONRA gelen yanıtta oturum yoksa dokunma;
+        // kullanıcı giriş ekranında yazıyor olabilir.
+        if (settled && !session?.user) return;
+        settled = true;
+        setSession(session);
+        if (session?.user) {
+          loadProfile(session.user.id);
+        } else {
+          setStatus('unauthenticated');
+        }
+      })
+      .catch(() => {
+        clearTimeout(bootTimer);
+        if (settled) return;
+        settled = true;
+        setStatus('unauthenticated');
+      });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       // Oturum süresi dolduğunda veya yenileme başarısız olduğunda kullanıcı
@@ -89,7 +116,7 @@ export function useAuth() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => { clearTimeout(bootTimer); subscription.unsubscribe(); };
   }, [loadProfile]);
 
   // ── E-posta ile doğrulama (birincil yöntem) ────────────────

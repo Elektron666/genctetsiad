@@ -91,7 +91,7 @@ export default function DirectoryScreen() {
   }, [search]);
   const [selected, setSelected] = useState<Member | null>(null);
 
-  const { members: supabaseMembers, loading, error, hasMore, total, loadMore, refetch } = useMembers();
+  const { members: supabaseMembers, loading, loadingAll, error, total, refetch } = useMembers();
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = async () => {
@@ -159,10 +159,7 @@ export default function DirectoryScreen() {
       </View>
 
       <View style={styles.countRow}>
-        <Text style={styles.count}>
-          {filtered.length} ÜYE
-          {total > allMembers.length && !query && filter === 'TÜMÜ' ? ` / ${total}` : ''}
-        </Text>
+        <Text style={styles.count}>{filtered.length} ÜYE</Text>
         {loading && <ActivityIndicator size="small" color={Colors.gold} style={{ marginLeft: 8 }} />}
       </View>
 
@@ -173,13 +170,13 @@ export default function DirectoryScreen() {
         onRefresh={onRefresh}
         contentContainerStyle={{ paddingBottom: 100 }}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
-        onEndReached={() => { if (hasMore && !query) loadMore(); }}
-        onEndReachedThreshold={0.4}
         initialNumToRender={12}
         removeClippedSubviews
         ListFooterComponent={
-          hasMore && !query ? (
-            <Text style={styles.loadingMore}>Yükleniyor...</Text>
+          loadingAll ? (
+            <Text style={styles.loadingMore}>
+              {`Üyeler yükleniyor — ${supabaseMembers.length} / ${total}`}
+            </Text>
           ) : null
         }
         ListEmptyComponent={
