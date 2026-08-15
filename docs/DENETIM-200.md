@@ -1,8 +1,8 @@
-# MAĞAZA ÖNCESİ TAM DENETİM — 225 MADDE
+# MAĞAZA ÖNCESİ TAM DENETİM — 227 MADDE
 
 **Kapsam:** 11.702 satır — `native/` (29 dosya), `supabase/` (12 dosya), `.github/`, `docs/`, `project/`
 **Yöntem:** her dosya baştan sona okundu. Tahmin yok; her madde bir satıra dayanıyor.
-**Tarih:** 2 Ağustos 2026 · **Durum:** 225 bulgu — **160'ı düzeltildi**, 65'i gerekçeli olarak açık.
+**Tarih:** 2 Ağustos 2026 · **Durum:** 227 bulgu — **162'si düzeltildi**, 65'i gerekçeli olarak açık.
 
 > **2. tur:** 25 madde daha kapatıldı; ESLint kurulunca bir ölü özellik çıktı (201).
 > **3. tur:** 37 madde daha kapatıldı. Migration'lar gerçek PostgreSQL'de
@@ -19,6 +19,8 @@
 > modülde toplandı (222) ve **48 test** yazılıp CI'ya eklendi (155).
 > **9. tur:** kendi turumu review ettim — 8. turdaki sayfalama aramayı
 > bozmuş (223); ağ yokken açılış sonsuz çarkta kalıyordu (138).
+> **10. tur:** RLS doğrulaması elle yapılıyordu — 42 iddialık SQL test
+> paketi yazıldı ve CI'ya bağlandı (226–227).
 
 > Bu belgenin amacı listelemek değil, **karar verilebilir hâle getirmek**.
 > Her madde: ne bozuk · kullanıcı ne yaşıyor · ne yapıldı.
@@ -29,10 +31,10 @@
 
 | Ağırlık | Adet | Düzeltildi | Açık |
 |---|---|---|---|
-| 🔴 Kritik — veri/güvenlik/yayın engeli | 28 | 26 | 2 |
+| 🔴 Kritik — veri/güvenlik/yayın engeli | 29 | 27 | 2 |
 | 🟠 Yüksek — yanlış bilgi, bozuk akış | 63 | 60 | 3 |
 | 🟡 Orta — UX, performans, tutarlılık | 86 | 65 | 21 |
-| ⚪ Düşük — temizlik, ileri sürüm | 48 | 15 | 33 |
+| ⚪ Düşük — temizlik, ileri sürüm | 49 | 16 | 33 |
 
 ---
 
@@ -735,3 +737,53 @@ yavaşsa bu biraz sürebilir." yazılıyor.
 **225. `useMembers.mentors` ölü kaldı.** ⚪ ✅
 Mentör sekmesi `useMentors()`'a geçirilmişti; eski `mentors` alanı
 kimse tarafından kullanılmıyordu. Kaldırıldı.
+
+---
+
+# 10. TUR — GÜVENLİĞİ TEK SEFERLİK OLMAKTAN ÇIKARMAK
+
+**226. RLS doğrulaması tekrarlanabilir değildi.** 🔴 ✅
+
+Bu denetimin en ağır bulguları (madde 1, 203, 205) RLS politikalarındaydı
+ve hepsi **elle** doğrulandı. Sorun şu: bir sonraki migration bir
+politikayı sessizce gevşetebilir ve kimse fark etmez. Nitekim tam da bu
+oldu — `011`'in ilk hâlinde yönetim kurulu üyesi hâlâ başkanı
+düşürebiliyordu, yalnızca elle denendiği için görüldü. Görülmeseydi
+yayına o hâliyle çıkacaktı.
+
+→ `supabase/tests/rls_test.sql`: **42 iddia**, ek eklenti gerektirmez
+(pgTAP yok). Her iddia başarısız olursa `EXCEPTION` fırlatır ve dosya
+hata koduyla biter.
+
+| Bölüm | Kapsam |
+|---|---|
+| Yönetim kurulu hesabı ele geçti | 12 saldırı |
+| Onay bekleyen hesap | 5 saldırı + 4 okuma izolasyonu |
+| Normal üye | 7 saldırı + 2 izinli işlem |
+| Onay zinciri | üye kodu · bildirim · denetim kaydı üretildi mi |
+| Veri bütünlüğü | geçmiş tarih · kısa başlık · kontenjan düşürme · rıza kilidi |
+| Yapısal | DELETE politikası yok · 6 politika · `search_path` · RLS kapalı tablo yok |
+
+**Test paketinin kendisi de test ediliyor.** Asla başarısız olamayan bir
+test hiçbir şey korumaz. CI'da son adım, kaçak `DELETE` politikasını
+kasten geri koyup paketin bunu **yakaladığını** doğruluyor; yakalamazsa
+o adım hata verir.
+
+Yerelde iki gerçek gerileme üzerinde denendi:
+
+```
+kaçak DELETE politikası geri konunca  → yakalandı (çıkış kodu 3)
+011'in eski hâli geri konunca         → yakalandı (çıkış kodu 3)
+sağlam veritabanında                  → 42/42 geçti (çıkış kodu 0)
+```
+
+**227. Migration idempotansı da denetleniyor.** ⚪ ✅
+Madde 202'de `011` ikinci çalıştırmada duruyordu ve en kritik güvenlik
+düzeltmesi uygulanmamış kalıyordu. CI artık `011`–`013`'ü **üç kez üst
+üste** çalıştırıyor; biri idempotans kaybederse derleme kırılır.
+
+### `.github/workflows/db-test.yml`
+
+`supabase/**` altında değişiklik olan her PR'da çalışır: temiz
+PostgreSQL 16 → tüm migration'lar sırayla → idempotans → 42 güvenlik
+iddiası → paketin kırılabildiğinin kanıtı.

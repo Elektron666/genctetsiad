@@ -1,0 +1,79 @@
+name: Veritabanı & RLS testleri
+
+# Migration'lar ve RLS politikaları bugüne kadar YALNIZCA ELLE
+# doğrulanıyordu. Bir sonraki migration bir politikayı sessizce
+# gevşetebilirdi — nitekim 011'in ilk hâlinde yönetim kurulu üyesi hâlâ
+# başkanı düşürebiliyordu ve bu ancak elle denendiği için görüldü.
+#
+# Bu iş akışı temiz bir PostgreSQL'e tüm migration'ları sırayla uygular,
+# sonra 42 güvenlik iddiasını çalıştırır. Bir politika gevşerse CI kırılır.
+
+on:
+  push:
+    branches: [main]
+    paths: ['supabase/**']
+  pull_request:
+    paths: ['supabase/**']
+  workflow_dispatch:
+
+jobs:
+  rls:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gttest
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: gttest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Supabase ortamını taklit et (auth şeması, roller)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/_shim.sql
+
+      - name: Migration'ları sırayla uygula
+        run: |
+          set -e
+          for f in supabase/migrations/0*.sql; do
+            echo "── $f"
+            psql -q -v ON_ERROR_STOP=1 -f "$f"
+          done
+
+      - name: Migration'lar idempotent mi (011-013 yeniden çalıştır)
+        run: |
+          set -e
+          for i in 1 2; do
+            for f in supabase/migrations/011_*.sql supabase/migrations/012_*.sql supabase/migrations/013_*.sql; do
+              psql -q -v ON_ERROR_STOP=1 -f "$f"
+            done
+          done
+
+      - name: RLS güvenlik testleri
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/rls_test.sql
+
+      - name: Testlerin gerçekten kırılabildiğini kanıtla
+        # Bir test asla başarısız olamıyorsa hiçbir şey korumuyordur.
+        # Kaçak DELETE politikasını geri koyup paketin bunu YAKALADIĞINI
+        # doğruluyoruz; yakalamazsa bu adım hata verir.
+        run: |
+          psql -q -c "CREATE POLICY \"profiles_delete_admin\" ON profiles FOR DELETE TO authenticated USING (is_admin_or_board());"
+          if psql -q -v ON_ERROR_STOP=1 -f supabase/tests/rls_test.sql > /dev/null 2>&1; then
+            echo "❌ Test paketi kasten bozulmuş politikayı YAKALAYAMADI"
+            exit 1
+          fi
+          echo "✓ Test paketi gerilemeyi yakaladı"
