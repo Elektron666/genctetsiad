@@ -11,9 +11,9 @@ name: Veritabanı & RLS testleri
 on:
   push:
     branches: [main]
-    paths: ['supabase/**']
+    paths: ['supabase/**', 'native/src/**', 'native/app/**', 'native/scripts/**']
   pull_request:
-    paths: ['supabase/**']
+    paths: ['supabase/**', 'native/src/**', 'native/app/**', 'native/scripts/**']
   workflow_dispatch:
 
 jobs:
@@ -65,6 +65,25 @@ jobs:
 
       - name: RLS güvenlik testleri
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/rls_test.sql
+
+      - name: Şemayı çıkar
+        run: |
+          psql -tAc "
+            SELECT json_object_agg(table_name, cols)::text FROM (
+              SELECT table_name, json_agg(column_name ORDER BY column_name) AS cols
+              FROM information_schema.columns
+              WHERE table_schema='public' GROUP BY table_name
+            ) t;" > /tmp/schema.json
+
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+
+      - name: Supabase sorguları şemayla uyumlu mu
+        # Tablo ve sütun adları düz metindir; ne tsc ne eslint denetler.
+        # Bir sütunu yanlış yazmak yalnızca çalışma zamanında,
+        # "Bağlantı kurulamadı" olarak ortaya çıkar.
+        working-directory: native
+        run: node scripts/check-schema.mjs /tmp/schema.json
 
       - name: Testlerin gerçekten kırılabildiğini kanıtla
         # Bir test asla başarısız olamıyorsa hiçbir şey korumuyordur.

@@ -1,8 +1,8 @@
-# MAĞAZA ÖNCESİ TAM DENETİM — 227 MADDE
+# MAĞAZA ÖNCESİ TAM DENETİM — 228 MADDE
 
 **Kapsam:** 11.702 satır — `native/` (29 dosya), `supabase/` (12 dosya), `.github/`, `docs/`, `project/`
 **Yöntem:** her dosya baştan sona okundu. Tahmin yok; her madde bir satıra dayanıyor.
-**Tarih:** 2 Ağustos 2026 · **Durum:** 227 bulgu — **162'si düzeltildi**, 65'i gerekçeli olarak açık.
+**Tarih:** 2 Ağustos 2026 · **Durum:** 228 bulgu — **163'ü düzeltildi**, 65'i gerekçeli olarak açık.
 
 > **2. tur:** 25 madde daha kapatıldı; ESLint kurulunca bir ölü özellik çıktı (201).
 > **3. tur:** 37 madde daha kapatıldı. Migration'lar gerçek PostgreSQL'de
@@ -21,6 +21,8 @@
 > bozmuş (223); ağ yokken açılış sonsuz çarkta kalıyordu (138).
 > **10. tur:** RLS doğrulaması elle yapılıyordu — 42 iddialık SQL test
 > paketi yazıldı ve CI'ya bağlandı (226–227).
+> **11. tur:** Supabase sorgu sütunları hiçbir araçla denetlenmiyordu;
+> şema doğrulayıcı yazıldı (228).
 
 > Bu belgenin amacı listelemek değil, **karar verilebilir hâle getirmek**.
 > Her madde: ne bozuk · kullanıcı ne yaşıyor · ne yapıldı.
@@ -32,7 +34,7 @@
 | Ağırlık | Adet | Düzeltildi | Açık |
 |---|---|---|---|
 | 🔴 Kritik — veri/güvenlik/yayın engeli | 29 | 27 | 2 |
-| 🟠 Yüksek — yanlış bilgi, bozuk akış | 63 | 60 | 3 |
+| 🟠 Yüksek — yanlış bilgi, bozuk akış | 64 | 61 | 3 |
 | 🟡 Orta — UX, performans, tutarlılık | 86 | 65 | 21 |
 | ⚪ Düşük — temizlik, ileri sürüm | 49 | 16 | 33 |
 
@@ -787,3 +789,62 @@ düzeltmesi uygulanmamış kalıyordu. CI artık `011`–`013`'ü **üç kez üs
 `supabase/**` altında değişiklik olan her PR'da çalışır: temiz
 PostgreSQL 16 → tüm migration'lar sırayla → idempotans → 42 güvenlik
 iddiası → paketin kırılabildiğinin kanıtı.
+
+---
+
+# 11. TUR — SUPABASE SORGULARININ ŞEMAYLA DOĞRULANMASI
+
+**228. Sorgu sütun adlarını hiçbir araç denetlemiyordu.** 🟠 ✅
+
+Supabase istemcisinde tablo ve sütun adları **düz metindir**:
+
+```ts
+supabase.from('profiles').select('id, full_name, company')
+```
+
+Bu dizeleri ne TypeScript ne ESLint görür. Bir sütunu yanlış yazarsanız
+uygulama derlenir, 48 birim testi geçer, Hermes paketi üretilir,
+mağazaya çıkar — ve kullanıcı yalnızca **"Bağlantı kurulamadı"** görür.
+Hata çalışma zamanında, tek bir ekranda ortaya çıkar.
+
+→ `native/scripts/check-schema.mjs`: kaynaktaki her `.from().select()`
+zincirini, migration'lardan üretilen **gerçek şemaya** karşı doğrular.
+**105 sütun referansı** denetleniyor.
+
+### Denetleyicinin kendisinde iki hata çıktı
+
+Bu betiği yazarken iki kez yanıldım ve ikisi de kanıtlama adımı
+sayesinde görüldü:
+
+**1) Yanlış alarm.** İlk hâli `.from()` sonrası sabit 400 karakterlik
+pencerede `.select()` arıyordu. `.from('announcements').delete()`
+çağrısı, hemen ardından gelen `.from('events').select(...)` ifadesini
+kendine ait sanıp **beş yanlış hata** üretti. → Pencere bir sonraki
+`.from(` çağrısında kesiliyor.
+
+**2) Sessiz kör nokta — daha ciddisi.** Kasten `full_name` → `fullname`
+yazdım; **yakalamadı**. Sebep: uygulamanın en büyük sütun listesi
+modül düzeyinde bir sabitte duruyor
+(`const DIRECTORY_COLUMNS = 'id, full_name, ...'`) ve regex yalnızca
+düz metin `.select('...')` eşliyordu. Yani **rehberin ana sorgusu hiç
+denetlenmiyordu.**
+
+> En önemli durumu atlayan bir denetleyici, yokluğundan daha kötüdür —
+> yanlış güven verir.
+
+→ Modül düzeyi dize sabitleri çözülüyor; çözülemeyen bir sabit
+**sessizce atlanmıyor**, hata olarak bildiriliyor.
+
+### Kanıtlanmış davranış
+
+```
+temiz kod                          → 105 referans geçti (çıkış 0)
+tablo adı yanlış ('profile')       → yakalandı (çıkış 1)
+sabitteki sütun yanlış ('fullname')→ yakalandı (çıkış 1)
+```
+
+Uygulamada gerçek bir uyumsuzluk **çıkmadı** — 105 referansın hepsi
+geçerli. Bu turun kazancı bulunan hata değil, bundan sonra bu sınıf
+hatanın CI'da yakalanacak olması.
+
+CI: `supabase/**` veya `native/src|app|scripts/**` değişen her PR'da.
