@@ -12,7 +12,7 @@ import { useAdmin } from '@/hooks/useAdmin';
 import type { AuditRow } from '@/hooks/useAdmin';
 import { useToast } from '@/components/Toast';
 import type { Profile } from '@/types/database';
-import { initials, parseTRDate, parseQuota } from '@/lib/format';
+import { initials, parseTRDate, parseQuota, istanbulParts } from '@/lib/format';
 
 const ADMIN_ROLES = ['board', 'president', 'admin'];
 
@@ -27,11 +27,14 @@ const ROLE_LABELS: Record<string, string> = {
   admin:     'Admin',
 };
 
+// Yönetim panelindeki tarihler de cihazın yerel saatini değil
+// Türkiye saatini göstermeli (bkz. src/lib/format.ts).
 const MONTHS_TR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 
 function fmtDate(iso: string) {
-  const d = new Date(iso);
-  return `${d.getDate()} ${MONTHS_TR[d.getMonth()] ?? ''} ${d.getFullYear()}`;
+  const p = istanbulParts(iso);
+  if (!p) return '—';
+  return `${p.gun} ${MONTHS_TR[p.ay - 1]} ${p.yil}`;
 }
 
 // ─── Bekleyen başvuru kartı ───────────────────────────────────────────────────
@@ -361,6 +364,7 @@ function CourseForm({ onCreate }: {
     title: string; description?: string; instructor?: string;
     duration_hours?: number | null;
     level?: 'beginner' | 'intermediate' | 'advanced';
+    is_published?: boolean;
   }) => Promise<boolean>;
 }) {
   const [title, setTitle] = useState('');
@@ -369,6 +373,9 @@ function CourseForm({ onCreate }: {
   const [hours, setHours] = useState('');
   const [level, setLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
   const [busy, setBusy] = useState(false);
+  // Kurslar her zaman yayında açılıyordu; yönetim yarım kalmış bir kursu
+  // hazırlayamıyor, kaydettiği an tüm üyelere görünüyordu.
+  const [yayinla, setYayinla] = useState(true);
 
   const valid = title.trim().length > 3;
 
@@ -381,9 +388,10 @@ function CourseForm({ onCreate }: {
       instructor: instructor.trim() || undefined,
       duration_hours: hours.trim() ? parseInt(hours.trim(), 10) || null : null,
       level,
+      is_published: yayinla,
     });
     setBusy(false);
-    if (ok) { setTitle(''); setDesc(''); setInstructor(''); setHours(''); setLevel('beginner'); }
+    if (ok) { setTitle(''); setDesc(''); setInstructor(''); setHours(''); setLevel('beginner'); setYayinla(true); }
   };
 
   return (
@@ -418,8 +426,26 @@ function CourseForm({ onCreate }: {
         ))}
       </View>
 
+      <TouchableOpacity
+        style={s.draftRow}
+        onPress={() => setYayinla(v => !v)}
+        activeOpacity={0.7}
+        accessibilityRole="switch"
+        accessibilityState={{ checked: yayinla }}
+        accessibilityLabel="Kursu hemen yayınla"
+      >
+        <View style={[s.draftBox, yayinla && s.draftBoxOn]}>
+          {yayinla && <Text style={s.draftTick}>✓</Text>}
+        </View>
+        <Text style={s.draftLabel}>
+          {yayinla
+            ? 'Kaydedince üyelere hemen görünsün'
+            : 'Taslak olarak kaydet — üyelere görünmez, sonra yayınlanır'}
+        </Text>
+      </TouchableOpacity>
+
       <TouchableOpacity style={[s.cta, (!valid || busy) && s.disabled]} onPress={submit} disabled={!valid || busy} activeOpacity={0.8}>
-        <Text style={s.ctaText}>{busy ? 'EKLENİYOR...' : 'KURSU YAYINLA'}</Text>
+        <Text style={s.ctaText}>{busy ? 'KAYDEDİLİYOR...' : (yayinla ? 'KURSU YAYINLA' : 'TASLAK OLARAK KAYDET')}</Text>
       </TouchableOpacity>
       <Text style={s.helper}>Kurs, Akademi sekmesinde tüm üyelere anında açılır.</Text>
     </View>
@@ -501,7 +527,7 @@ function PublishedList({
   heading: string;
   load: () => Promise<PublishedItem[]>;
   onDelete: (item: PublishedItem) => Promise<boolean>;
-  onDetail?: (item: PublishedItem) => void;
+  onDetail?: (item: PublishedItem) => void | Promise<void>;
   onEdit?: (item: PublishedItem, values: Record<string, string>) => Promise<boolean>;
   detailLabel?: string;
   reloadKey: number;
@@ -887,7 +913,7 @@ export default function AdminScreen() {
     publishAnnouncement, createEvent,
     listAnnouncements, deleteAnnouncement, updateAnnouncement,
     listEvents, deleteEvent, updateEvent,
-    listCourses, createCourse, updateCourse, deleteCourse,
+    listCourses, createCourse, updateCourse, deleteCourse, setCoursePublished,
     listAttendees, listPendingArticles, reviewArticle, listAudit,
   } = useAdmin();
   const [tab, setTab] = useState<AdminTab>('ONAYLAR');
@@ -1145,8 +1171,7 @@ export default function AdminScreen() {
                 load={async () => (await listCourses()).map(c => ({
                   id: c.id,
                   title: c.title,
-                  subtitle: [c.instructor, c.duration_hours ? `${c.duration_hours} saat` : null]
-                    .filter(Boolean).join(' · ') || '—',
+                  subtitle: (c.is_published ? '' : '⚠ TASLAK · ') + ([c.instructor, c.duration_hours ? `${c.duration_hours} saat` : null].filter(Boolean).join(' · ') || '—'),
                   edit: [
                     { key: 'title',      label: 'KURS ADI',   value: c.title },
                     { key: 'desc',       label: 'AÇIKLAMA',   value: c.description ?? '', multiline: true },
@@ -1154,7 +1179,19 @@ export default function AdminScreen() {
                     { key: 'hours',      label: 'SÜRE (SAAT)', value: c.duration_hours != null ? String(c.duration_hours) : '', keyboard: 'number-pad' as const },
                   ],
                   _level: c.level,
+                  _published: c.is_published,
                 }))}
+                detailLabel="YAYIN"
+                onDetail={async (item) => {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const suanYayinda = (item as any)._published !== false;
+                  const error = await setCoursePublished(item.id, !suanYayinda);
+                  showToast(
+                    error ? 'Değiştirilemedi.' : (suanYayinda ? 'Kurs taslağa alındı.' : 'Kurs yayınlandı.'),
+                    error ? 'error' : 'success',
+                  );
+                  if (!error) setReloadKey(k => k + 1);
+                }}
                 onEdit={async (item, v) => {
                   const h = v.hours.trim() === '' ? null : parseInt(v.hours.trim(), 10);
                   const error = await updateCourse(item.id, {
@@ -1195,6 +1232,11 @@ export default function AdminScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
+  draftRow:   { flexDirection: 'row', gap: 12, alignItems: 'flex-start', marginTop: 22, marginBottom: 18 },
+  draftBox:   { width: 20, height: 20, borderWidth: 0.5, borderColor: Colors.goldLine, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  draftBoxOn: { backgroundColor: Colors.gold, borderColor: Colors.gold },
+  draftTick:  { fontFamily: Fonts.jakarta, fontSize: 12, color: Colors.navyDeep, fontWeight: '700' },
+  draftLabel: { flex: 1, fontFamily: Fonts.jakarta, fontSize: 10, color: Colors.ivory, lineHeight: 16 },
   loadMore:     { marginTop: 16, borderWidth: 0.5, borderColor: Colors.goldLine, paddingVertical: 13, alignItems: 'center' },
   loadMoreText: { fontFamily: Fonts.jakarta, fontSize: 9, letterSpacing: 2, color: Colors.gold, fontWeight: '600' },
   auditRow:     { borderWidth: 0.5, borderColor: Colors.goldLine, padding: 14, marginBottom: 10 },

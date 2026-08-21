@@ -26,6 +26,7 @@ export type AdminCourse = {
   id: string; title: string; description: string | null;
   instructor: string | null; duration_hours: number | null;
   level: 'beginner' | 'intermediate' | 'advanced' | null;
+  is_published: boolean;
 };
 export type PendingArticle = {
   id: string; title: string; summary: string | null; body: string;
@@ -296,19 +297,31 @@ export function useAdmin() {
   const listCourses = useCallback(async (): Promise<AdminCourse[]> => {
     const { data } = await supabase
       .from('courses')
-      .select('id, title, description, instructor, duration_hours, level')
+      .select('id, title, description, instructor, duration_hours, level, is_published')
       .order('created_at', { ascending: false })
       .limit(50);
     return (data ?? []) as AdminCourse[];
   }, []);
 
+  // Kurslar her zaman is_published: true ile açılıyordu — yönetim
+  // yarım kalmış bir kursu hazırlayamıyor, kaydettiği an tüm üyelere
+  // görünüyordu. Taslak/yayın ayrımı artık kullanılabilir.
   const createCourse = useCallback(async (input: {
     title: string; description?: string; instructor?: string;
     duration_hours?: number | null;
     level?: 'beginner' | 'intermediate' | 'advanced';
+    is_published?: boolean;
   }) => {
-    const { error } = await sb.from('courses').insert({ ...input, is_published: true });
+    const { error } = await sb.from('courses')
+      .insert({ ...input, is_published: input.is_published ?? true });
     return error;
+  }, []);
+
+  /** Taslak ↔ yayın geçişi. */
+  const setCoursePublished = useCallback(async (id: string, yayinda: boolean) => {
+    const { data, error: err } = await sb.from('courses')
+      .update({ is_published: yayinda }).eq('id', id).select('id');
+    return err ?? ((data as unknown[] | null)?.length ? null : new Error('Güncellenemedi'));
   }, []);
 
   const updateCourse = useCallback(async (id: string, input: {
@@ -428,7 +441,7 @@ export function useAdmin() {
     publishAnnouncement, createEvent,
     listAnnouncements, deleteAnnouncement, updateAnnouncement,
     listEvents, deleteEvent, updateEvent,
-    listCourses, createCourse, updateCourse, deleteCourse,
+    listCourses, createCourse, updateCourse, deleteCourse, setCoursePublished,
     listAttendees,
     listPendingArticles, reviewArticle, listAudit,
   };

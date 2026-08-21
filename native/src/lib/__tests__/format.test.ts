@@ -1,5 +1,6 @@
 import {
   trLower, initials, fmtDateTR, vcEsc, buildVCard, parseTRDate, parseQuota,
+  istanbulParts, fmtDateTimeTR,
 } from '../format';
 
 // Buradaki her testin arkasında gerçekten yaşanmış bir hata var.
@@ -158,5 +159,58 @@ describe('parseQuota (madde 66: "0" sınırsız oluyordu)', () => {
     expect(parseQuota('elli').valid).toBe(false);
     expect(parseQuota('-5').valid).toBe(false);
     expect(parseQuota('1.5').valid).toBe(false);
+  });
+});
+
+describe('istanbulParts / fmtDateTimeTR — saat dilimi (madde 18)', () => {
+  it('UTC saatini Türkiye saatine (+3) çevirir', () => {
+    // 2026-07-24T11:00:00Z → Türkiye'de 14:00
+    const p = istanbulParts('2026-07-24T11:00:00Z')!;
+    expect(p.gun).toBe(24);
+    expect(p.ay).toBe(7);
+    expect(p.saat).toBe('14');
+    expect(p.dakika).toBe('00');
+  });
+
+  it('gün sınırını doğru aşar', () => {
+    // 2026-07-24T22:30:00Z → Türkiye'de 25 Temmuz 01:30
+    const p = istanbulParts('2026-07-24T22:30:00Z')!;
+    expect(p.gun).toBe(25);
+    expect(p.saat).toBe('01');
+  });
+
+  it('yıl sınırını doğru aşar', () => {
+    const p = istanbulParts('2026-12-31T22:00:00Z')!;
+    expect(p.yil).toBe(2027);
+    expect(p.ay).toBe(1);
+    expect(p.gun).toBe(1);
+  });
+
+  it('kışın da +3 kalır — Türkiye yaz saati uygulamıyor', () => {
+    const yaz = istanbulParts('2026-07-15T09:00:00Z')!;
+    const kis = istanbulParts('2026-01-15T09:00:00Z')!;
+    expect(yaz.saat).toBe('12');
+    expect(kis.saat).toBe('12');   // DST olsaydı biri 13 olurdu
+  });
+
+  it('cihazın saat diliminden ETKİLENMEZ', () => {
+    // Test ortamının TZ'si ne olursa olsun sonuç aynı olmalı
+    const once = process.env.TZ;
+    process.env.TZ = 'America/New_York';
+    const a = istanbulParts('2026-07-24T11:00:00Z')!;
+    process.env.TZ = 'Asia/Tokyo';
+    const b = istanbulParts('2026-07-24T11:00:00Z')!;
+    process.env.TZ = once;
+    expect(a.saat).toBe(b.saat);
+    expect(a.saat).toBe('14');
+  });
+
+  it('fmtDateTimeTR okunabilir biçim üretir', () => {
+    expect(fmtDateTimeTR('2026-07-24T11:00:00Z')).toBe('24 TEMMUZ · 14:00');
+  });
+
+  it('geçersiz tarihte boş döner', () => {
+    expect(istanbulParts('bozuk')).toBeNull();
+    expect(fmtDateTimeTR('bozuk')).toBe('');
   });
 });

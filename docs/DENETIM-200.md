@@ -1,8 +1,8 @@
-# MAĞAZA ÖNCESİ TAM DENETİM — 228 MADDE
+# MAĞAZA ÖNCESİ TAM DENETİM — 233 MADDE
 
 **Kapsam:** 11.702 satır — `native/` (29 dosya), `supabase/` (12 dosya), `.github/`, `docs/`, `project/`
 **Yöntem:** her dosya baştan sona okundu. Tahmin yok; her madde bir satıra dayanıyor.
-**Tarih:** 2 Ağustos 2026 · **Durum:** 228 bulgu — **163'ü düzeltildi**, 65'i gerekçeli olarak açık.
+**Tarih:** 2 Ağustos 2026 · **Durum:** 233 bulgu — **168'i düzeltildi**, 65'i gerekçeli olarak açık.
 
 > **2. tur:** 25 madde daha kapatıldı; ESLint kurulunca bir ölü özellik çıktı (201).
 > **3. tur:** 37 madde daha kapatıldı. Migration'lar gerçek PostgreSQL'de
@@ -23,6 +23,8 @@
 > paketi yazıldı ve CI'ya bağlandı (226–227).
 > **11. tur:** Supabase sorgu sütunları hiçbir araçla denetlenmiyordu;
 > şema doğrulayıcı yazıldı (228).
+> **12. tur:** kapsanmamış başlıklar — web yayını, SEO, saat dilimi,
+> kurs taslağı, bağımlılık taraması (229–233).
 
 > Bu belgenin amacı listelemek değil, **karar verilebilir hâle getirmek**.
 > Her madde: ne bozuk · kullanıcı ne yaşıyor · ne yapıldı.
@@ -33,10 +35,10 @@
 
 | Ağırlık | Adet | Düzeltildi | Açık |
 |---|---|---|---|
-| 🔴 Kritik — veri/güvenlik/yayın engeli | 29 | 27 | 2 |
-| 🟠 Yüksek — yanlış bilgi, bozuk akış | 64 | 61 | 3 |
-| 🟡 Orta — UX, performans, tutarlılık | 86 | 65 | 21 |
-| ⚪ Düşük — temizlik, ileri sürüm | 49 | 16 | 33 |
+| 🔴 Kritik — veri/güvenlik/yayın engeli | 30 | 28 | 2 |
+| 🟠 Yüksek — yanlış bilgi, bozuk akış | 65 | 62 | 3 |
+| 🟡 Orta — UX, performans, tutarlılık | 88 | 67 | 21 |
+| ⚪ Düşük — temizlik, ileri sürüm | 50 | 17 | 33 |
 
 ---
 
@@ -848,3 +850,68 @@ geçerli. Bu turun kazancı bulunan hata değil, bundan sonra bu sınıf
 hatanın CI'da yakalanacak olması.
 
 CI: `supabase/**` veya `native/src|app|scripts/**` değişen her PR'da.
+
+---
+
+# 12. TUR — KAPSANMAYAN BAŞLIKLAR
+
+Önceki on bir tur kodu ve veritabanını tarıyordu. Bu tur, denetim
+listesinde bulunup **hiç ele alınmamış** dört başlığı kapatıyor.
+
+**229. Tasarım prototipi açık internete yayınlanıyordu.** 🔴 ✅
+`vercel.json` `project/` klasörünü yayınlıyordu — tarayıcıda çalışan
+eski tasarım mockup'ı. İçinde tasarım amaçlı üretilmiş **34 sahte üye
+kaydı** ve aralarında **gerçek kişilerin adları** var (Resul Öden dahil).
+Ayrıca sayfa tarayıcıda Babel derliyor ve React'in *development*
+derlemesini yüklüyordu.
+→ Vercel artık `docs/` yayınlıyor: yasal sayfalar + güvenlik başlıkları
+(`X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`).
+`project/README.md` klasörün neden yayınlanmaması gerektiğini yazıyor.
+
+**230. Web sayfalarında meta/SEO yoktu.** 🟡 ✅
+Açıklama, OG etiketi, favicon, `theme-color`, canonical — hiçbiri yoktu.
+Play Console'da "Web sitesi" alanına verilecek adres burası.
+→ Üç sayfaya da eklendi (favicon gömülü SVG, ek dosya yok).
+
+**231. Etkinlik saatleri cihazın yerel saatinde gösteriliyordu.** 🟠 ✅
+Etkinlikler Türkiye'de fiziksel olarak yapılıyor. Almanya'daki bir üye
+14:00 etkinliğini **13:00 sanıp geç kalırdı**.
+→ Gösterim Türkiye saatine sabitlendi; etkinlik detayında saat de
+görünüyor.
+
+> **`Intl.DateTimeFormat({ timeZone })` bilinçli olarak KULLANILMADI.**
+> Hermes'te tam ICU desteği yapılandırmaya bağlıdır; saat dilimi adı
+> tanınmazsa motor ya hata fırlatır ya da sessizce UTC'ye düşer — ikisi
+> de uygulamadaki tüm tarih gösterimini bozar ve **yalnızca gerçek
+> cihazda** görülür. Türkiye 2016'dan beri yaz saati uygulamıyor ve
+> kalıcı olarak UTC+3; sabit ofset hem doğru hem motordan bağımsız.
+> Yedi test bunu doğruluyor (gün/yıl sınırı, kış-yaz farkı yok, cihaz
+> saat diliminden etkilenmeme).
+
+**232. Kurslar her zaman yayında açılıyordu.** 🟡 ✅
+`is_published: true` sabitti. Yönetim yarım kalmış bir kursu
+hazırlayamıyor, kaydettiği an tüm üyelere görünüyordu.
+→ Kurs formunda taslak/yayın seçimi; listede taslaklar `⚠ TASLAK` ile
+işaretli ve **YAYIN** düğmesiyle iki yönlü geçiş yapılıyor.
+
+**233. Bağımlılık güvenlik taraması hiç çalıştırılmamıştı.** ⚪ ✅
+`npm audit`: **21 bulgu (9 yüksek)**. Hepsi tek tek incelendi —
+**dokuzunun tamamı Expo'nun derleme zincirinden** geliyor
+(metro, postcss, shell-quote, nanoid, image-size, brace-expansion) ve
+**APK'ya girmiyor**; derleme makinesini ilgilendiriyorlar.
+
+> `npm audit fix --force` Expo SDK'yı yükseltir. Bu, Hermes'i kıran
+> supabase-js 2.106 olayının aynı sınıfıdır ve ayrı, planlı bir iştir.
+> CI'ya **bilgilendirici** (bloklamayan) adım olarak eklendi;
+> `--omit=dev` ile yalnızca çalışma zamanına giren bağımlılıklara bakar.
+
+### Doğrulama
+
+```
+tsc            temiz
+eslint         0 hata
+jest           55/55 (7 yeni saat dilimi testi)
+RLS testleri   42/42
+şema denetimi  107 sütun referansı
+expo export    Hermes bytecode üretildi
+```

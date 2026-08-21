@@ -41,6 +41,15 @@ jobs:
         working-directory: native
         run: npx jest --ci
 
+      - name: Bağımlılık güvenlik taraması
+        working-directory: native
+        # Bilgilendirici: mevcut yüksek seviyeli bulguların HEPSİ Expo'nun
+        # derleme zincirinden geliyor (metro, postcss, shell-quote) ve
+        # APK'ya girmiyor. `npm audit fix --force` Expo SDK'yı yükseltir;
+        # bu ayrı ve riskli bir iştir, derlemeyi kırmasın diye bloklamıyor.
+        continue-on-error: true
+        run: npm audit --omit=dev
+
       - uses: expo/expo-github-action@v8
         with:
           expo-version: latest

@@ -28,11 +28,48 @@ export function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toLocaleUpperCase('tr-TR');
 }
 
-/** "15 HAZİRAN" biçimi. Geçersiz tarihte boş döner, "NaN undefined" yazmaz. */
-export function fmtDateTR(iso: string): string {
+// Etkinlikler Türkiye'de, fiziksel olarak yapılıyor. Saatleri cihazın
+// yerel saat diliminde göstermek, yurt dışındaki bir üyeye YANLIŞ saati
+// gösterir: Almanya'daki üye 14:00 etkinliğini 13:00 sanır ve geç kalır.
+// Bu yüzden gösterim her zaman Türkiye saatine sabitlenir.
+//
+// NEDEN Intl.DateTimeFormat({ timeZone }) DEĞİL:
+// Hermes'te tam ICU desteği yapılandırmaya bağlıdır. Saat dilimi adı
+// tanınmazsa motor ya hata fırlatır ya da sessizce UTC'ye düşer — ikisi
+// de uygulamadaki TÜM tarih gösterimini bozar ve yalnızca gerçek cihazda
+// görülür. Türkiye 2016'dan beri yaz saati uygulamıyor ve kalıcı olarak
+// UTC+3'tür; sabit ofset hem doğru hem de motordan bağımsız.
+export const TR_OFFSET_DK = 3 * 60;   // UTC+03:00, yaz saati yok
+
+/** Verilen ISO zamanının Türkiye saatindeki gün/ay/yıl/saat parçaları. */
+export function istanbulParts(iso: string) {
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return '';
-  return `${d.getDate()} ${MONTHS_TR[d.getMonth()]}`;
+  if (isNaN(d.getTime())) return null;
+  // UTC alanlarını okuyup sabit ofseti ekliyoruz; cihazın saat dilimi
+  // hesaba hiç girmiyor.
+  const kaydirilmis = new Date(d.getTime() + TR_OFFSET_DK * 60_000);
+  const iki = (n: number) => String(n).padStart(2, '0');
+  return {
+    gun: kaydirilmis.getUTCDate(),
+    ay: kaydirilmis.getUTCMonth() + 1,
+    yil: kaydirilmis.getUTCFullYear(),
+    saat: iki(kaydirilmis.getUTCHours()),
+    dakika: iki(kaydirilmis.getUTCMinutes()),
+  };
+}
+
+/** "15 HAZİRAN" biçimi — Türkiye saatine göre. */
+export function fmtDateTR(iso: string): string {
+  const p = istanbulParts(iso);
+  if (!p) return '';
+  return `${p.gun} ${MONTHS_TR[p.ay - 1]}`;
+}
+
+/** "15 HAZİRAN · 14:00" — etkinlik kartları için. */
+export function fmtDateTimeTR(iso: string): string {
+  const p = istanbulParts(iso);
+  if (!p) return '';
+  return `${p.gun} ${MONTHS_TR[p.ay - 1]} · ${p.saat}:${p.dakika}`;
 }
 
 /**
