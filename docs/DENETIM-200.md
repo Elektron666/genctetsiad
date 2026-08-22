@@ -1,8 +1,8 @@
-# MAĞAZA ÖNCESİ TAM DENETİM — 233 MADDE
+# MAĞAZA ÖNCESİ TAM DENETİM — 237 MADDE
 
 **Kapsam:** 11.702 satır — `native/` (29 dosya), `supabase/` (12 dosya), `.github/`, `docs/`, `project/`
 **Yöntem:** her dosya baştan sona okundu. Tahmin yok; her madde bir satıra dayanıyor.
-**Tarih:** 2 Ağustos 2026 · **Durum:** 233 bulgu — **168'i düzeltildi**, 65'i gerekçeli olarak açık.
+**Tarih:** 2 Ağustos 2026 · **Durum:** 237 bulgu — **172'si düzeltildi**, 65'i gerekçeli olarak açık.
 
 > **2. tur:** 25 madde daha kapatıldı; ESLint kurulunca bir ölü özellik çıktı (201).
 > **3. tur:** 37 madde daha kapatıldı. Migration'lar gerçek PostgreSQL'de
@@ -25,6 +25,8 @@
 > şema doğrulayıcı yazıldı (228).
 > **12. tur:** kapsanmamış başlıklar — web yayını, SEO, saat dilimi,
 > kurs taslağı, bağımlılık taraması (229–233).
+> **13. tur:** iOS hiç denetlenmemişti — simgede alfa kanalı ve eksik
+> gizlilik manifesti, ikisi de otomatik ret sebebi (234–237).
 
 > Bu belgenin amacı listelemek değil, **karar verilebilir hâle getirmek**.
 > Her madde: ne bozuk · kullanıcı ne yaşıyor · ne yapıldı.
@@ -35,10 +37,10 @@
 
 | Ağırlık | Adet | Düzeltildi | Açık |
 |---|---|---|---|
-| 🔴 Kritik — veri/güvenlik/yayın engeli | 30 | 28 | 2 |
+| 🔴 Kritik — veri/güvenlik/yayın engeli | 32 | 30 | 2 |
 | 🟠 Yüksek — yanlış bilgi, bozuk akış | 65 | 62 | 3 |
-| 🟡 Orta — UX, performans, tutarlılık | 88 | 67 | 21 |
-| ⚪ Düşük — temizlik, ileri sürüm | 50 | 17 | 33 |
+| 🟡 Orta — UX, performans, tutarlılık | 89 | 68 | 21 |
+| ⚪ Düşük — temizlik, ileri sürüm | 51 | 18 | 33 |
 
 ---
 
@@ -914,4 +916,73 @@ jest           55/55 (7 yeni saat dilimi testi)
 RLS testleri   42/42
 şema denetimi  107 sütun referansı
 expo export    Hermes bytecode üretildi
+```
+
+---
+
+# 13. TUR — iOS BAŞVURU HAZIRLIĞI
+
+Android tarafı hazırdı; iOS hiç denetlenmemişti. Üç bulgu çıktı, ikisi
+**otomatik ret** sebebi.
+
+**234. Uygulama simgesinde alfa kanalı vardı.** 🔴 ✅
+`assets/icon.png` RGBA. App Store yükleme sırasında *"Invalid large app
+icon — can't be transparent nor contain an alpha channel"* diyerek
+**otomatik reddeder**; incelemeye bile gitmez.
+
+Android'in uyarlanabilir simgesi ise şeffaflık **ister** — aynı dosya
+ikisine birden hizmet edemez. → `assets/icon-ios.png`: şeffaf pikseller
+markanın lacivertine (`#051C11`) düzleştirildi, `ios.icon` bunu
+gösteriyor. Prebuild çıktısındaki asset katalog simgesi doğrulandı:
+`RGB (1024, 1024)`, alfa yok.
+
+**235. Apple Gizlilik Manifesti üretilmiyordu.** 🔴 ✅
+`PrivacyInfo.xcprivacy` — Apple'ın **Mayıs 2024'ten beri zorunlu**
+tuttuğu dosya. Olmadan App Store Connect yüklemeyi reddeder.
+
+> **Bu bulguyu neredeyse kaçırıyordum.** İlk kontrolde
+> `find ios -name PrivacyInfo.xcprivacy && echo "✓ üretildi"` yazdım;
+> `find` hiçbir şey bulamasa da çıkış kodu 0 döndürdüğü için **"üretildi"
+> yazdı ve ben de öyle raporladım.** Dosya boyutunu sorgulayınca ortaya
+> çıktı. Kabuk komutunun çıkış kodu, bulgunun kendisi değildir.
+
+→ `ios.privacyManifests` tanımlandı: izleme yok, 6 veri türü, `UserDefaults`
+için `CA92.1` gerekçesi. Prebuild artık 3.306 baytlık manifesti üretiyor
+ve içeriği `plistlib` ile doğrulandı.
+
+**236. Arayüz dili beyan edilmemişti.** 🟡 ✅
+`CFBundleLocalizations` yoktu; App Store uygulamayı **İngilizce** sayar
+ve listelemede dil yanlış görünürdü. → `['tr']` + `CFBundleDevelopmentRegion: 'tr'`.
+
+**237. App Store başvuru dosyası yoktu.** ⚪ ✅
+→ `docs/store/app-store-basvuru-dosyasi.md`: subtitle (29/30),
+promotional text, description, keywords (100 karakter sınırı),
+**App Privacy etiketlerinin her satırı**, incelemeci erişim metni,
+Apple'ın istediği ekran görüntüsü boyutları, APNs kurulumu, ret
+sebepleri ve **Android'den farklar tablosu**.
+
+### Üç yerde aynı beyan
+
+Gizlilik beyanı artık üç ayrı yerde ve **birbiriyle tutarlı** olmak
+zorunda; çelişki sonradan uygulama kaldırılmasına yol açar:
+
+| Nerede | Ne |
+|---|---|
+| `app.config.js` → `privacyManifests` | Kodda, derlemeye gömülü |
+| App Store Connect → App Privacy | Elle doldurulacak |
+| Play Console → Veri Güvenliği | Elle doldurulacak |
+
+Üçü de aynı listeyi söylüyor: izleme yok · ad, e-posta, telefon,
+kullanıcı kimliği, diğer içerik **kullanıcıya bağlı** · çökme verisi
+**bağlı değil** (Sentry `sendDefaultPii: false`, `setUser` çağrılmıyor).
+
+### Doğrulama
+
+```
+prebuild (iOS)   ios/ üretildi
+PrivacyInfo      3.306 bayt, plistlib ile okundu
+simge            RGB 1024×1024, alfa yok
+Info.plist       CFBundleDisplayName "Genç TETSİAD" · tr · export uyumu
+tsc/eslint/jest  temiz · 0 hata · 55/55
+expo export      Android VE iOS paketleri üretildi
 ```
