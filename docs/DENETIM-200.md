@@ -1,8 +1,8 @@
-# MAĞAZA ÖNCESİ TAM DENETİM — 214 MADDE
+# MAĞAZA ÖNCESİ TAM DENETİM — 237 MADDE
 
 **Kapsam:** 11.702 satır — `native/` (29 dosya), `supabase/` (12 dosya), `.github/`, `docs/`, `project/`
 **Yöntem:** her dosya baştan sona okundu. Tahmin yok; her madde bir satıra dayanıyor.
-**Tarih:** 2 Ağustos 2026 · **Durum:** 214 bulgu — **147'si düzeltildi**, 67'si gerekçeli olarak açık.
+**Tarih:** 2 Ağustos 2026 · **Durum:** 237 bulgu — **172'si düzeltildi**, 65'i gerekçeli olarak açık.
 
 > **2. tur:** 25 madde daha kapatıldı; ESLint kurulunca bir ölü özellik çıktı (201).
 > **3. tur:** 37 madde daha kapatıldı. Migration'lar gerçek PostgreSQL'de
@@ -15,6 +15,18 @@
 > için `runtimeVersion` çevrildi (161).
 > **7. tur:** yasal metinler gerçekle örtüşmüyordu (211–212), Pages kökü
 > 404 verecekti (213), Play başvuru dosyası hazırlandı (214).
+> **8. tur:** performans ve edge-case (215–221), tekrarlanan mantık tek
+> modülde toplandı (222) ve **48 test** yazılıp CI'ya eklendi (155).
+> **9. tur:** kendi turumu review ettim — 8. turdaki sayfalama aramayı
+> bozmuş (223); ağ yokken açılış sonsuz çarkta kalıyordu (138).
+> **10. tur:** RLS doğrulaması elle yapılıyordu — 42 iddialık SQL test
+> paketi yazıldı ve CI'ya bağlandı (226–227).
+> **11. tur:** Supabase sorgu sütunları hiçbir araçla denetlenmiyordu;
+> şema doğrulayıcı yazıldı (228).
+> **12. tur:** kapsanmamış başlıklar — web yayını, SEO, saat dilimi,
+> kurs taslağı, bağımlılık taraması (229–233).
+> **13. tur:** iOS hiç denetlenmemişti — simgede alfa kanalı ve eksik
+> gizlilik manifesti, ikisi de otomatik ret sebebi (234–237).
 
 > Bu belgenin amacı listelemek değil, **karar verilebilir hâle getirmek**.
 > Her madde: ne bozuk · kullanıcı ne yaşıyor · ne yapıldı.
@@ -25,10 +37,10 @@
 
 | Ağırlık | Adet | Düzeltildi | Açık |
 |---|---|---|---|
-| 🔴 Kritik — veri/güvenlik/yayın engeli | 27 | 25 | 2 |
-| 🟠 Yüksek — yanlış bilgi, bozuk akış | 59 | 56 | 3 |
-| 🟡 Orta — UX, performans, tutarlılık | 80 | 53 | 27 |
-| ⚪ Düşük — temizlik, ileri sürüm | 48 | 13 | 35 |
+| 🔴 Kritik — veri/güvenlik/yayın engeli | 32 | 30 | 2 |
+| 🟠 Yüksek — yanlış bilgi, bozuk akış | 65 | 62 | 3 |
+| 🟡 Orta — UX, performans, tutarlılık | 89 | 68 | 21 |
+| ⚪ Düşük — temizlik, ileri sürüm | 51 | 18 | 33 |
 
 ---
 
@@ -619,3 +631,358 @@ Dosyadaki beyanlar koddan doğrulandı:
 > ⚠️ Dosyadaki en kritik uyarı: **inceleme hesabı önceden oluşturulup
 > `role='member'` yapılmalı.** `pending` kalırsa Google incelemecisi
 > yalnızca onay bekleme ekranını görür ve uygulamayı işlevsiz sayar.
+
+---
+
+# 8. TUR — PERFORMANS, EDGE-CASE VE TEST ALTYAPISI
+
+**215. Rehber araması her tuş vuruşunda tüm listeyi tarıyordu.** 🟡 ✅
+1.500 üyede her harf için **3.000 `toLocaleLowerCase('tr-TR')` çağrısı**
+yapılıyordu (ad + firma, üye başına, her tuşta). Düşük segment Android'de
+yazmayı takılmalı hâle getiriyordu.
+→ 220 ms debounce + üye başına **bir kez** hesaplanan arama anahtarı
+(ad + firma + şehir birleşik). Şehir de artık aranabiliyor.
+
+**216. Rehber 1.500 üyeyi tek istekte, tüm sütunlarıyla indiriyordu.** 🟡 ✅
+`select('*')` — e-posta, rıza damgaları, mentor notu dahil ekranda hiç
+kullanılmayan her şey. → Gösterilen sütunlarla sınırlandı + 100'lük
+sayfalama (`onEndReached` ile otomatik).
+
+**217. Kursa kayıt düğmesinde çift dokunuş iki kayıt gönderiyordu.** 🟠 ✅
+`CourseCard`'da yükleme durumu yoktu. → `busy` durumu + `disabled`.
+
+**218. Mentorluk kabul/red düğmelerinde aynı sorun.** 🟠 ✅
+Hızlı çift dokunuş iki güncelleme gönderiyor, ikincisi 0 satır
+etkiliyordu. → İstek başına kilit.
+
+**219. Kullanılmayan iki görsel yayın paketinde taşınıyordu.** 🟡 ✅
+`DEMO_EVENTS` `__DEV__` ile boşaltılmıştı ama `require()` modül düzeyinde
+çalıştığı için Metro ikisini de paketliyordu — **~465 KB ölü ağırlık**.
+→ `require` da `__DEV__` arkasına alındı.
+
+**220. Kullanıcı girdisi uzun olduğunda düzen taşıyordu.** 🟡 ✅
+Uzun firma/üye adı ve duyuru başlığı satırları itiyordu. → Rehber, admin
+listeleri ve bildirim çekmecesinde `numberOfLines`.
+
+**221. Kayıt ekranında sökülmüş bileşende `setState`.** ⚪ ✅
+Doğrulama sonrası 300 ms'lik geçiş zamanlayıcısı temizlenmiyordu.
+
+**222. Aynı yardımcı fonksiyon dört dosyada kopyalanmıştı.** 🟡 ✅
+`initials` dörtte, vCard üretimi ve tarih ayrıştırma ekran bileşenlerinin
+içinde. Ekran içinde oldukları için **test edilemiyorlardı** — oysa
+bulduğumuz hataların çoğu tam olarak bu saf fonksiyonlardaydı.
+→ `src/lib/format.ts`: `trLower`, `initials`, `fmtDateTR`, `vcEsc`,
+`buildVCard`, `parseTRDate`, `parseQuota`.
+
+**155. Test altyapısı hiç yoktu.** 🟠 ✅
+→ `jest-expo` kuruldu, **48 test** yazıldı, CI'ya eklendi.
+
+### Testler neyi koruyor
+
+Her test, gerçekten yaşanmış bir hatanın tekrarını engelliyor:
+
+| Test | Koruduğu hata |
+|---|---|
+| `trLower` | "İSTANBUL" araması "İstanbul"u bulamıyordu |
+| `initials` | çift boşluklu ad, boş ad, Türkçe büyütme |
+| `vcEsc` / `buildVCard` | "ORMEN, TEKSTİL" kartı ikiye bölüyordu; telefonu olmayana `TEL:—` ve derneğin e-postası gömülüyordu |
+| `parseTRDate` | "24.13.2026" sessizce 2027 Ocak'a kayıyordu; "31.02" 3 Mart'a; geçersiz saat 10:00 oluyordu |
+| `parseQuota` | kontenjana "0" yazınca sınırsız oluyordu |
+| `authErrorTR` | ham İngilizce Supabase hatası kullanıcıya gösteriliyordu |
+| `isValidTRMobile` | boş girdi "+90" üretiyor, 15 hane kabul ediliyordu |
+
+> Testi yazarken **aynı tuzağa ben de düştüm:** `/internet bağlantı/i`
+> ile eşleştirmeye çalıştım, geçmedi. JS'in `/i` bayrağı ASCII'ye göre
+> katlıyor; `'İ'` (U+0130) ile `'i'` eşleşmiyor. Testin kendisi Türkçe
+> küçültme hatasına yakalandı ve düzeltildi.
+
+### Doğrulama sonuçları
+
+```
+tsc --noEmit    temiz
+eslint .        0 hata (4 uyarı)
+jest            48/48 geçti
+expo export     Hermes bytecode üretildi
+```
+
+CI artık her derlemede üçünü de çalıştırıyor.
+
+---
+
+# 9. TUR — KENDİ TURUMU REVIEW ETMEK
+
+**223. 8. turda soktuğum sayfalama, aramanın doğruluğunu bozdu.** 🟠 ✅
+Rehbere `onEndReached` ile sonsuz kaydırma eklemiştim. Ama arama
+**istemcide** yapılıyor: yalnızca ilk 200 kayıt yüklüyken "Zeynep"
+aranırsa, listenin 400. sırasındaki Zeynep **"Sonuç bulunamadı"**
+görünüyordu. Sayfalamadan önce hepsi tek seferde geldiği için arama
+doğruydu — performansı düzeltirken doğruluğu bozmuşum.
+
+> Aramayı sunucuya taşımak çözüm değildi: Postgres `ilike` varsayılan
+> collation'da Türkçe İ/ı ayrımını doğru yapmıyor. Aramanın doğruluğu
+> istemcideki `toLocaleLowerCase('tr-TR')` sayesinde.
+
+→ Sonsuz kaydırma kaldırıldı. İlk sayfa gelir gelmez liste çizilir,
+kalan sayfalar **arka planda akar**. Yüklenirken altta
+"Üyeler yükleniyor — 400 / 1.500" görünür; arama o sırada sonuç
+vermezse "liste hâlâ yükleniyor" denir. Tümü indiğinde arama yine
+eksiksiz.
+
+**138. Ağ yokken açılış sonsuza kadar dönen çarkta kalıyordu.** 🔴 ✅
+`supabase.auth.getSession()` zaman aşımına sahip değil. Ağ yoksa
+çözülmüyor, `status` kalıcı olarak `'loading'` kalıyor ve kullanıcı
+**sonsuza kadar** dönen çarka bakıyordu — ne mesaj, ne yeniden deneme,
+ne çıkış. Uçakta veya tünelde uygulamayı açan üye onu "bozuk" sayardı.
+→ 8 saniye zaman aşımı → giriş ekranına düşer. Zaman aşımından sonra
+gelen yanıtta gerçek oturum varsa yine devreye alınır.
+
+**224. Yavaş bağlantıda açılış ekranı hiçbir şey söylemiyordu.** 🟡 ✅
+3 saniyeden uzun sürerse "Bağlantı kuruluyor... İnternet bağlantınız
+yavaşsa bu biraz sürebilir." yazılıyor.
+
+**225. `useMembers.mentors` ölü kaldı.** ⚪ ✅
+Mentör sekmesi `useMentors()`'a geçirilmişti; eski `mentors` alanı
+kimse tarafından kullanılmıyordu. Kaldırıldı.
+
+---
+
+# 10. TUR — GÜVENLİĞİ TEK SEFERLİK OLMAKTAN ÇIKARMAK
+
+**226. RLS doğrulaması tekrarlanabilir değildi.** 🔴 ✅
+
+Bu denetimin en ağır bulguları (madde 1, 203, 205) RLS politikalarındaydı
+ve hepsi **elle** doğrulandı. Sorun şu: bir sonraki migration bir
+politikayı sessizce gevşetebilir ve kimse fark etmez. Nitekim tam da bu
+oldu — `011`'in ilk hâlinde yönetim kurulu üyesi hâlâ başkanı
+düşürebiliyordu, yalnızca elle denendiği için görüldü. Görülmeseydi
+yayına o hâliyle çıkacaktı.
+
+→ `supabase/tests/rls_test.sql`: **42 iddia**, ek eklenti gerektirmez
+(pgTAP yok). Her iddia başarısız olursa `EXCEPTION` fırlatır ve dosya
+hata koduyla biter.
+
+| Bölüm | Kapsam |
+|---|---|
+| Yönetim kurulu hesabı ele geçti | 12 saldırı |
+| Onay bekleyen hesap | 5 saldırı + 4 okuma izolasyonu |
+| Normal üye | 7 saldırı + 2 izinli işlem |
+| Onay zinciri | üye kodu · bildirim · denetim kaydı üretildi mi |
+| Veri bütünlüğü | geçmiş tarih · kısa başlık · kontenjan düşürme · rıza kilidi |
+| Yapısal | DELETE politikası yok · 6 politika · `search_path` · RLS kapalı tablo yok |
+
+**Test paketinin kendisi de test ediliyor.** Asla başarısız olamayan bir
+test hiçbir şey korumaz. CI'da son adım, kaçak `DELETE` politikasını
+kasten geri koyup paketin bunu **yakaladığını** doğruluyor; yakalamazsa
+o adım hata verir.
+
+Yerelde iki gerçek gerileme üzerinde denendi:
+
+```
+kaçak DELETE politikası geri konunca  → yakalandı (çıkış kodu 3)
+011'in eski hâli geri konunca         → yakalandı (çıkış kodu 3)
+sağlam veritabanında                  → 42/42 geçti (çıkış kodu 0)
+```
+
+**227. Migration idempotansı da denetleniyor.** ⚪ ✅
+Madde 202'de `011` ikinci çalıştırmada duruyordu ve en kritik güvenlik
+düzeltmesi uygulanmamış kalıyordu. CI artık `011`–`013`'ü **üç kez üst
+üste** çalıştırıyor; biri idempotans kaybederse derleme kırılır.
+
+### `.github/workflows/db-test.yml`
+
+`supabase/**` altında değişiklik olan her PR'da çalışır: temiz
+PostgreSQL 16 → tüm migration'lar sırayla → idempotans → 42 güvenlik
+iddiası → paketin kırılabildiğinin kanıtı.
+
+---
+
+# 11. TUR — SUPABASE SORGULARININ ŞEMAYLA DOĞRULANMASI
+
+**228. Sorgu sütun adlarını hiçbir araç denetlemiyordu.** 🟠 ✅
+
+Supabase istemcisinde tablo ve sütun adları **düz metindir**:
+
+```ts
+supabase.from('profiles').select('id, full_name, company')
+```
+
+Bu dizeleri ne TypeScript ne ESLint görür. Bir sütunu yanlış yazarsanız
+uygulama derlenir, 48 birim testi geçer, Hermes paketi üretilir,
+mağazaya çıkar — ve kullanıcı yalnızca **"Bağlantı kurulamadı"** görür.
+Hata çalışma zamanında, tek bir ekranda ortaya çıkar.
+
+→ `native/scripts/check-schema.mjs`: kaynaktaki her `.from().select()`
+zincirini, migration'lardan üretilen **gerçek şemaya** karşı doğrular.
+**105 sütun referansı** denetleniyor.
+
+### Denetleyicinin kendisinde iki hata çıktı
+
+Bu betiği yazarken iki kez yanıldım ve ikisi de kanıtlama adımı
+sayesinde görüldü:
+
+**1) Yanlış alarm.** İlk hâli `.from()` sonrası sabit 400 karakterlik
+pencerede `.select()` arıyordu. `.from('announcements').delete()`
+çağrısı, hemen ardından gelen `.from('events').select(...)` ifadesini
+kendine ait sanıp **beş yanlış hata** üretti. → Pencere bir sonraki
+`.from(` çağrısında kesiliyor.
+
+**2) Sessiz kör nokta — daha ciddisi.** Kasten `full_name` → `fullname`
+yazdım; **yakalamadı**. Sebep: uygulamanın en büyük sütun listesi
+modül düzeyinde bir sabitte duruyor
+(`const DIRECTORY_COLUMNS = 'id, full_name, ...'`) ve regex yalnızca
+düz metin `.select('...')` eşliyordu. Yani **rehberin ana sorgusu hiç
+denetlenmiyordu.**
+
+> En önemli durumu atlayan bir denetleyici, yokluğundan daha kötüdür —
+> yanlış güven verir.
+
+→ Modül düzeyi dize sabitleri çözülüyor; çözülemeyen bir sabit
+**sessizce atlanmıyor**, hata olarak bildiriliyor.
+
+### Kanıtlanmış davranış
+
+```
+temiz kod                          → 105 referans geçti (çıkış 0)
+tablo adı yanlış ('profile')       → yakalandı (çıkış 1)
+sabitteki sütun yanlış ('fullname')→ yakalandı (çıkış 1)
+```
+
+Uygulamada gerçek bir uyumsuzluk **çıkmadı** — 105 referansın hepsi
+geçerli. Bu turun kazancı bulunan hata değil, bundan sonra bu sınıf
+hatanın CI'da yakalanacak olması.
+
+CI: `supabase/**` veya `native/src|app|scripts/**` değişen her PR'da.
+
+---
+
+# 12. TUR — KAPSANMAYAN BAŞLIKLAR
+
+Önceki on bir tur kodu ve veritabanını tarıyordu. Bu tur, denetim
+listesinde bulunup **hiç ele alınmamış** dört başlığı kapatıyor.
+
+**229. Tasarım prototipi açık internete yayınlanıyordu.** 🔴 ✅
+`vercel.json` `project/` klasörünü yayınlıyordu — tarayıcıda çalışan
+eski tasarım mockup'ı. İçinde tasarım amaçlı üretilmiş **34 sahte üye
+kaydı** ve aralarında **gerçek kişilerin adları** var (Resul Öden dahil).
+Ayrıca sayfa tarayıcıda Babel derliyor ve React'in *development*
+derlemesini yüklüyordu.
+→ Vercel artık `docs/` yayınlıyor: yasal sayfalar + güvenlik başlıkları
+(`X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`).
+`project/README.md` klasörün neden yayınlanmaması gerektiğini yazıyor.
+
+**230. Web sayfalarında meta/SEO yoktu.** 🟡 ✅
+Açıklama, OG etiketi, favicon, `theme-color`, canonical — hiçbiri yoktu.
+Play Console'da "Web sitesi" alanına verilecek adres burası.
+→ Üç sayfaya da eklendi (favicon gömülü SVG, ek dosya yok).
+
+**231. Etkinlik saatleri cihazın yerel saatinde gösteriliyordu.** 🟠 ✅
+Etkinlikler Türkiye'de fiziksel olarak yapılıyor. Almanya'daki bir üye
+14:00 etkinliğini **13:00 sanıp geç kalırdı**.
+→ Gösterim Türkiye saatine sabitlendi; etkinlik detayında saat de
+görünüyor.
+
+> **`Intl.DateTimeFormat({ timeZone })` bilinçli olarak KULLANILMADI.**
+> Hermes'te tam ICU desteği yapılandırmaya bağlıdır; saat dilimi adı
+> tanınmazsa motor ya hata fırlatır ya da sessizce UTC'ye düşer — ikisi
+> de uygulamadaki tüm tarih gösterimini bozar ve **yalnızca gerçek
+> cihazda** görülür. Türkiye 2016'dan beri yaz saati uygulamıyor ve
+> kalıcı olarak UTC+3; sabit ofset hem doğru hem motordan bağımsız.
+> Yedi test bunu doğruluyor (gün/yıl sınırı, kış-yaz farkı yok, cihaz
+> saat diliminden etkilenmeme).
+
+**232. Kurslar her zaman yayında açılıyordu.** 🟡 ✅
+`is_published: true` sabitti. Yönetim yarım kalmış bir kursu
+hazırlayamıyor, kaydettiği an tüm üyelere görünüyordu.
+→ Kurs formunda taslak/yayın seçimi; listede taslaklar `⚠ TASLAK` ile
+işaretli ve **YAYIN** düğmesiyle iki yönlü geçiş yapılıyor.
+
+**233. Bağımlılık güvenlik taraması hiç çalıştırılmamıştı.** ⚪ ✅
+`npm audit`: **21 bulgu (9 yüksek)**. Hepsi tek tek incelendi —
+**dokuzunun tamamı Expo'nun derleme zincirinden** geliyor
+(metro, postcss, shell-quote, nanoid, image-size, brace-expansion) ve
+**APK'ya girmiyor**; derleme makinesini ilgilendiriyorlar.
+
+> `npm audit fix --force` Expo SDK'yı yükseltir. Bu, Hermes'i kıran
+> supabase-js 2.106 olayının aynı sınıfıdır ve ayrı, planlı bir iştir.
+> CI'ya **bilgilendirici** (bloklamayan) adım olarak eklendi;
+> `--omit=dev` ile yalnızca çalışma zamanına giren bağımlılıklara bakar.
+
+### Doğrulama
+
+```
+tsc            temiz
+eslint         0 hata
+jest           55/55 (7 yeni saat dilimi testi)
+RLS testleri   42/42
+şema denetimi  107 sütun referansı
+expo export    Hermes bytecode üretildi
+```
+
+---
+
+# 13. TUR — iOS BAŞVURU HAZIRLIĞI
+
+Android tarafı hazırdı; iOS hiç denetlenmemişti. Üç bulgu çıktı, ikisi
+**otomatik ret** sebebi.
+
+**234. Uygulama simgesinde alfa kanalı vardı.** 🔴 ✅
+`assets/icon.png` RGBA. App Store yükleme sırasında *"Invalid large app
+icon — can't be transparent nor contain an alpha channel"* diyerek
+**otomatik reddeder**; incelemeye bile gitmez.
+
+Android'in uyarlanabilir simgesi ise şeffaflık **ister** — aynı dosya
+ikisine birden hizmet edemez. → `assets/icon-ios.png`: şeffaf pikseller
+markanın lacivertine (`#051C11`) düzleştirildi, `ios.icon` bunu
+gösteriyor. Prebuild çıktısındaki asset katalog simgesi doğrulandı:
+`RGB (1024, 1024)`, alfa yok.
+
+**235. Apple Gizlilik Manifesti üretilmiyordu.** 🔴 ✅
+`PrivacyInfo.xcprivacy` — Apple'ın **Mayıs 2024'ten beri zorunlu**
+tuttuğu dosya. Olmadan App Store Connect yüklemeyi reddeder.
+
+> **Bu bulguyu neredeyse kaçırıyordum.** İlk kontrolde
+> `find ios -name PrivacyInfo.xcprivacy && echo "✓ üretildi"` yazdım;
+> `find` hiçbir şey bulamasa da çıkış kodu 0 döndürdüğü için **"üretildi"
+> yazdı ve ben de öyle raporladım.** Dosya boyutunu sorgulayınca ortaya
+> çıktı. Kabuk komutunun çıkış kodu, bulgunun kendisi değildir.
+
+→ `ios.privacyManifests` tanımlandı: izleme yok, 6 veri türü, `UserDefaults`
+için `CA92.1` gerekçesi. Prebuild artık 3.306 baytlık manifesti üretiyor
+ve içeriği `plistlib` ile doğrulandı.
+
+**236. Arayüz dili beyan edilmemişti.** 🟡 ✅
+`CFBundleLocalizations` yoktu; App Store uygulamayı **İngilizce** sayar
+ve listelemede dil yanlış görünürdü. → `['tr']` + `CFBundleDevelopmentRegion: 'tr'`.
+
+**237. App Store başvuru dosyası yoktu.** ⚪ ✅
+→ `docs/store/app-store-basvuru-dosyasi.md`: subtitle (29/30),
+promotional text, description, keywords (100 karakter sınırı),
+**App Privacy etiketlerinin her satırı**, incelemeci erişim metni,
+Apple'ın istediği ekran görüntüsü boyutları, APNs kurulumu, ret
+sebepleri ve **Android'den farklar tablosu**.
+
+### Üç yerde aynı beyan
+
+Gizlilik beyanı artık üç ayrı yerde ve **birbiriyle tutarlı** olmak
+zorunda; çelişki sonradan uygulama kaldırılmasına yol açar:
+
+| Nerede | Ne |
+|---|---|
+| `app.config.js` → `privacyManifests` | Kodda, derlemeye gömülü |
+| App Store Connect → App Privacy | Elle doldurulacak |
+| Play Console → Veri Güvenliği | Elle doldurulacak |
+
+Üçü de aynı listeyi söylüyor: izleme yok · ad, e-posta, telefon,
+kullanıcı kimliği, diğer içerik **kullanıcıya bağlı** · çökme verisi
+**bağlı değil** (Sentry `sendDefaultPii: false`, `setUser` çağrılmıyor).
+
+### Doğrulama
+
+```
+prebuild (iOS)   ios/ üretildi
+PrivacyInfo      3.306 bayt, plistlib ile okundu
+simge            RGB 1024×1024, alfa yok
+Info.plist       CFBundleDisplayName "Genç TETSİAD" · tr · export uyumu
+tsc/eslint/jest  temiz · 0 hata · 55/55
+expo export      Android VE iOS paketleri üretildi
+```

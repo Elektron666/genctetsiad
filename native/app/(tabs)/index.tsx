@@ -37,10 +37,15 @@ const PRESIDENT = {
   ],
 };
 
+// Ekranda gerçekten gösterilen iki görsel.
 const IMG_FABRIKA   = require('../../assets/images/fabrika-ziyareti-grup.jpg');
-const IMG_HOMETEX   = require('../../assets/images/hometex-2026-acilis.jpg');
-const IMG_KOMITE    = require('../../assets/images/bolge-komite-toplantisi.jpg');
 const IMG_PRESIDENT = require('../../assets/images/resul-oden-roportaj.jpg');
+
+// Aşağıdaki ikisi yalnızca sunum verisinde kullanılıyordu. require()
+// modül düzeyinde çalıştığı için, dizi __DEV__ ile boşaltılmasına
+// rağmen Metro ikisini de yayın paketine koyuyordu (~465 KB ölü ağırlık).
+const IMG_HOMETEX   = __DEV__ ? require('../../assets/images/hometex-2026-acilis.jpg') : null;
+const IMG_KOMITE    = __DEV__ ? require('../../assets/images/bolge-komite-toplantisi.jpg') : null;
 
 // Sunum verisi. Ana sayfa artık gerçek etkinlikleri Supabase'den çekiyor;
 // bu dizi yalnızca geliştirme/sunum modunda geri düşüş olarak kullanılır.
@@ -298,7 +303,7 @@ function NotificationDrawer({ onClose }: { onClose: () => void }) {
                     <Text style={[notifStyles.itemCat, { color: catColor(n.category) }]}>{n.category}</Text>
                     <Text style={notifStyles.itemDate}>{n.date}</Text>
                   </View>
-                  <Text style={notifStyles.itemTitle}>{n.title}</Text>
+                  <Text style={notifStyles.itemTitle} numberOfLines={2}>{n.title}</Text>
                   <Text style={notifStyles.itemBody}>{n.body}</Text>
                 </View>
               </TouchableOpacity>

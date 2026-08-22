@@ -57,11 +57,83 @@ module.exports = () => {
         supportsTablet: false,
         bundleIdentifier: 'org.tetsiad.genc',
         buildNumber: '1',
+        // App Store simgede ALFA KANALI kabul etmez; şeffaflık içeren
+        // simge yükleme anında otomatik reddedilir ("Invalid large app
+        // icon ... can't be transparent"). Android uyarlanabilir simge
+        // şeffaflık İSTER, o yüzden iki ayrı dosya.
+        icon: './assets/icon-ios.png',
         infoPlist: {
           // Bu olmadan HER TestFlight/App Store yüklemesi "ihracat
           // uyumluluğu" sorusunda takılır ve elle cevaplanana kadar
           // dağıtım başlamaz. Uygulama yalnızca standart HTTPS kullanıyor.
           ITSAppUsesNonExemptEncryption: false,
+          // Arayüz tamamen Türkçe. Beyan edilmezse App Store uygulamayı
+          // İngilizce sayar ve Türkiye dışındaki listelemede dil yanlış görünür.
+          CFBundleLocalizations: ['tr'],
+          CFBundleDevelopmentRegion: 'tr',
+        },
+
+        // Apple Gizlilik Manifesti — Mayıs 2024'ten beri ZORUNLU.
+        // Olmadan App Store Connect yüklemeyi reddeder.
+        // Buradaki beyanlar App Store Connect'teki "App Privacy"
+        // cevaplarıyla ve Play Console Veri Güvenliği formuyla BİREBİR
+        // aynı olmalı; çelişki sonradan uygulama kaldırılmasına yol açar.
+        privacyManifests: {
+          // Reklam takibi yok, IDFA kullanılmıyor, izleme alan adı yok.
+          NSPrivacyTracking: false,
+          NSPrivacyTrackingDomains: [],
+
+          NSPrivacyCollectedDataTypes: [
+            {
+              NSPrivacyCollectedDataType: 'NSPrivacyCollectedDataTypeName',
+              NSPrivacyCollectedDataTypeLinked: true,
+              NSPrivacyCollectedDataTypeTracking: false,
+              NSPrivacyCollectedDataTypePurposes: ['NSPrivacyCollectedDataTypePurposeAppFunctionality'],
+            },
+            {
+              NSPrivacyCollectedDataType: 'NSPrivacyCollectedDataTypeEmailAddress',
+              NSPrivacyCollectedDataTypeLinked: true,
+              NSPrivacyCollectedDataTypeTracking: false,
+              NSPrivacyCollectedDataTypePurposes: ['NSPrivacyCollectedDataTypePurposeAppFunctionality'],
+            },
+            {
+              NSPrivacyCollectedDataType: 'NSPrivacyCollectedDataTypePhoneNumber',
+              NSPrivacyCollectedDataTypeLinked: true,
+              NSPrivacyCollectedDataTypeTracking: false,
+              NSPrivacyCollectedDataTypePurposes: ['NSPrivacyCollectedDataTypePurposeAppFunctionality'],
+            },
+            {
+              NSPrivacyCollectedDataType: 'NSPrivacyCollectedDataTypeUserID',
+              NSPrivacyCollectedDataTypeLinked: true,
+              NSPrivacyCollectedDataTypeTracking: false,
+              NSPrivacyCollectedDataTypePurposes: ['NSPrivacyCollectedDataTypePurposeAppFunctionality'],
+            },
+            {
+              // Firma, şehir, sektör, pozisyon
+              NSPrivacyCollectedDataType: 'NSPrivacyCollectedDataTypeOtherUserContent',
+              NSPrivacyCollectedDataTypeLinked: true,
+              NSPrivacyCollectedDataTypeTracking: false,
+              NSPrivacyCollectedDataTypePurposes: ['NSPrivacyCollectedDataTypePurposeAppFunctionality'],
+            },
+            {
+              // Sentry çökme raporu — kullanıcıya BAĞLI DEĞİL
+              // (sendDefaultPii: false, setUser hiç çağrılmıyor)
+              NSPrivacyCollectedDataType: 'NSPrivacyCollectedDataTypeCrashData',
+              NSPrivacyCollectedDataTypeLinked: false,
+              NSPrivacyCollectedDataTypeTracking: false,
+              NSPrivacyCollectedDataTypePurposes: ['NSPrivacyCollectedDataTypePurposeAppFunctionality'],
+            },
+          ],
+
+          // "Required reason API" beyanları. expo-updates ve
+          // expo-constants NSUserDefaults kullanır; CA92.1 = yalnızca
+          // uygulamanın kendi verisine erişim.
+          NSPrivacyAccessedAPITypes: [
+            {
+              NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryUserDefaults',
+              NSPrivacyAccessedAPITypeReasons: ['CA92.1'],
+            },
+          ],
         },
       },
       android: {

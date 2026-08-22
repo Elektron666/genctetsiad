@@ -16,6 +16,7 @@ import { useAppContext } from '@/context/AppContext';
 import { useAuthContext } from '@/context/AuthContext';
 import { useEvents } from '@/hooks/useEvents';
 import { useToast } from '@/components/Toast';
+import { istanbulParts } from '@/lib/format';
 import type { Event as SupabaseEvent } from '@/types/database';
 
 // ─── Data ────────────────────────────────────────────────────────────────────
@@ -28,6 +29,7 @@ type EventItem = {
   max?: number | null;   // kontenjan (null = sınırsız)
   day: number;
   month: string;
+  time?: string;
   tag: string;
   title: string;
   place: string;
@@ -118,12 +120,15 @@ const EVENTS: EventItem[] = __DEV__ ? DEMO_EVENTS : [];
 const MONTHS_TR = ['OCAK', 'ŞUBAT', 'MART', 'NİSAN', 'MAYIS', 'HAZİRAN', 'TEMMUZ', 'AĞUSTOS', 'EYLÜL', 'EKİM', 'KASIM', 'ARALIK'];
 
 function supabaseToEventItem(e: SupabaseEvent, index: number): EventItem {
-  const date = new Date(e.starts_at);
+  // Cihazın yerel saati DEĞİL, Türkiye saati. Yurt dışındaki üye
+  // etkinliğin gerçek saatini görmeli (bkz. src/lib/format.ts).
+  const p = istanbulParts(e.starts_at);
   return {
     id:       index + 1,   // liste içi benzersiz key; gerçek kimlik uuid'de
     uuid:     e.id,
-    day:      date.getDate(),
-    month:    MONTHS_TR[date.getMonth()] ?? '',
+    day:      p?.gun ?? 0,
+    month:    p ? (MONTHS_TR[p.ay - 1] ?? '') : '',
+    time:     p ? `${p.saat}:${p.dakika}` : '',
     // 'tag' kategori rozeti için tasarlanmıştı; şehir yazılıyordu ve
     // hemen altındaki 'place' satırında şehir zaten görünüyordu.
     // Veritabanında kategori sütunu yok — dürüst olan sabit etiket.
@@ -351,7 +356,9 @@ function EventDetail({
           <View style={{ flex: 1 }}>
             <Text style={styles.detailTagInner}>{event.tag}</Text>
             <Text style={styles.detailTitle}>{event.title}</Text>
-            <Text style={styles.detailPlace}>{event.place}</Text>
+            <Text style={styles.detailPlace}>
+              {event.time ? `${event.time} · ${event.place}` : event.place}
+            </Text>
           </View>
         </View>
 

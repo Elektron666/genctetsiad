@@ -58,6 +58,10 @@ export default function RegisterScreen() {
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const verifyingRef = useRef(false);
+  // Doğrulama sonrası 300 ms'lik geçiş; ekran bu arada kapanırsa
+  // sökülmüş bileşende setState uyarısı oluşuyordu.
+  const stepTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (stepTimer.current) clearTimeout(stepTimer.current); }, []);
   const nameParts = (profile?.full_name ?? '').trim().split(' ');
   const [firstName, setFirstName] = useState(nameParts.slice(0, -1).join(' ') || nameParts[0] || '');
   const [lastName, setLastName] = useState(nameParts.length > 1 ? nameParts[nameParts.length - 1] : '');
@@ -119,7 +123,7 @@ export default function RegisterScreen() {
         otpRefs.current[0]?.focus();
         return;
       }
-      setTimeout(() => setStep(2), 300);
+      stepTimer.current = setTimeout(() => setStep(2), 300);
     }
   };
 
