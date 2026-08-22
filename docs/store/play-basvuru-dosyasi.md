@@ -13,6 +13,7 @@ cevaplandığı da yazıyor.
 | ☐ Resend SMTP bağlı | Olmadan hiç kimse kayıt olamaz — inceleme hesabı dahil |
 | ☐ GitHub Pages açık, gizlilik linki çalışıyor | İncelemeci tıklar; ölü link = ret |
 | ☐ Firebase `google-services.json` eklendi | Olmadan bildirim çalışmaz (uygulama yine çalışır) |
+| ☐ **Sabit test kodu tanımlandı** | Olmadan incelemeci giriş YAPAMAZ — bölüm 7 |
 | ☐ Gerçek cihazda kayıt → onay → duyuru zinciri denendi | Hiç denenmedi |
 | ☐ Play Console hesabı ($25, tek seferlik) | — |
 
@@ -225,29 +226,67 @@ görünmesin** — test hesaplarıyla çekin.
 ## 7 · İncelemeci için erişim (App access)
 
 Uygulama üyelik esaslı ve kapalı olduğundan Google incelemecisi giriş
-yapamazsa **reddedilir.** "All functionality is restricted" seçip
-aşağıdakini verin:
+yapamazsa **reddedilir.**
+
+> ### ⚠️ ÖNCE BUNU OKUYUN — incelemeci nasıl giriş yapacak?
+>
+> Girişimiz e-postaya **tek kullanımlık kod** göndererek çalışıyor.
+> İncelemeciye bir adres versek bile **o posta kutusunu okuyamaz** —
+> kod bize gelir, ona değil. Yani ek bir ayar yapılmazsa ne Apple ne
+> Google incelemecisi uygulamaya giremez ve başvuru **kesin reddedilir**.
+>
+> Çözüm bir e-posta hesabı açmak değil: Supabase'de o adres için
+> **sabit bir test kodu** tanımlamaktır. İncelemeci adresi yazar, sabit
+> kodu girer, içeri girer — hiçbir e-posta gönderilmez.
+>
+> **Supabase → Authentication → Sign In / Providers → Email → Test OTP**
+>
+> ```
+> inceleme@genctetsiad.org : 123456
+> ```
+>
+> Adresin gerçekten var olması gerekmez; o kutuya hiç posta gitmez.
+> Kendi alan adınızı kullanabilirsiniz.
+>
+> Sonra hesabı oluşturup **onaylayın** — `pending` kalırsa incelemeci
+> yalnızca "Değerlendirme sürecinde" ekranını görür:
+>
+> ```sql
+> -- Supabase → Authentication → Users → Add user
+> --   ("Auto Confirm User" işaretli olsun)
+> -- Ardından profili doldurup onaylayın:
+> UPDATE profiles
+> SET role = 'member',
+>     full_name = 'Uygulama İnceleme',
+>     company = 'TETSİAD',
+>     city = 'İstanbul',
+>     sector = 'Ev Tekstili'
+> WHERE email = 'inceleme@genctetsiad.org';
+> ```
+>
+> Test OTP'yi yayın sonrası kaldırmayı unutmayın.
+
+"All functionality is restricted" seçip aşağıdakini verin:
 
 ```
 Uygulama üyelik esaslıdır. Giriş e-posta ile tek kullanımlık kod
-üzerinden yapılır; sabit şifre yoktur.
+üzerinden yapılır; kalıcı şifre yoktur.
 
-İnceleme hesabı:
-  E-posta: [inceleme@tetsiad.org — önceden oluşturup ONAYLAYIN]
+İnceleme hesabı için sabit bir doğrulama kodu tanımlanmıştır —
+e-posta beklemenize gerek YOKTUR.
+
+  E-posta: inceleme@genctetsiad.org
+  Kod:     123456
 
 Giriş adımları:
-  1. Giriş ekranında yukarıdaki e-posta adresini girin
+  1. Giriş ekranında yukarıdaki adresi girin
   2. "DEVAM ET" düğmesine basın
-  3. Adrese gelen 6 haneli kodu girin
+  3. Kod alanına 123456 yazın
   4. Uygulama açılır
 
-Kod bu adrese ulaşamıyorsa lütfen info@tetsiad.org ile iletişime geçin;
-kodu doğrudan iletebiliriz.
+Bu hesap onaylı üye olarak tanımlanmıştır; tüm ekranlar erişilebilir.
+Sorun yaşarsanız info@tetsiad.org ile iletişime geçebilirsiniz.
 ```
-
-> **Bu hesabı önceden oluşturup Supabase'den `role='member'` yapın.**
-> `pending` bırakırsanız incelemeci yalnızca onay ekranını görür ve
-> "uygulama işlevsiz" değerlendirmesi yapabilir.
 
 ---
 

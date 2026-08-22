@@ -15,7 +15,7 @@ Her alan doldurulmuş hâlde. Tahmin gerektiren hiçbir alan bırakılmadı.
 | ☐ Apple Developer Program ($99/yıl) | Onay 24–48 saat sürebilir |
 | ☐ Resend SMTP | Olmadan hiç kimse, Apple incelemecisi dahil, kayıt olamaz |
 | ☐ Gizlilik politikası URL'si çalışıyor | Apple zorunlu tutar, alan boş bırakılamaz |
-| ☐ Onaylı inceleme hesabı (`role='member'`) | **En sık ret sebebi** — bölüm 7 |
+| ☐ **Sabit test kodu + onaylı inceleme hesabı** | **En sık ret sebebi** — bölüm 7. Kod olmadan incelemeci giriş YAPAMAZ |
 | ☐ APNs anahtarı (bildirim isteniyorsa) | iOS'ta FCM yetmez |
 
 ---
@@ -190,43 +190,78 @@ Advertising Data · Product Interaction · Identifiers dışındaki her şey
 
 ⚠️ **Kapalı üyelik uygulamalarının bir numaralı ret sebebi burasıdır.**
 
+> ### ⚠️ ÖNCE BUNU OKUYUN — incelemeci nasıl giriş yapacak?
+>
+> Girişimiz e-postaya **tek kullanımlık kod** göndererek çalışıyor.
+> İncelemeciye bir adres versek bile **o posta kutusunu okuyamaz** —
+> kod bize gelir, ona değil. Yani ek bir ayar yapılmazsa ne Apple ne
+> Google incelemecisi uygulamaya giremez ve başvuru **kesin reddedilir**.
+>
+> Çözüm bir e-posta hesabı açmak değil: Supabase'de o adres için
+> **sabit bir test kodu** tanımlamaktır. İncelemeci adresi yazar, sabit
+> kodu girer, içeri girer — hiçbir e-posta gönderilmez.
+>
+> **Supabase → Authentication → Sign In / Providers → Email → Test OTP**
+>
+> ```
+> inceleme@genctetsiad.org : 123456
+> ```
+>
+> Adresin gerçekten var olması gerekmez; o kutuya hiç posta gitmez.
+> Kendi alan adınızı kullanabilirsiniz.
+>
+> Sonra hesabı oluşturup **onaylayın** — `pending` kalırsa incelemeci
+> yalnızca "Değerlendirme sürecinde" ekranını görür:
+>
+> ```sql
+> -- Supabase → Authentication → Users → Add user
+> --   ("Auto Confirm User" işaretli olsun)
+> -- Ardından profili doldurup onaylayın:
+> UPDATE profiles
+> SET role = 'member',
+>     full_name = 'Uygulama İnceleme',
+>     company = 'TETSİAD',
+>     city = 'İstanbul',
+>     sector = 'Ev Tekstili'
+> WHERE email = 'inceleme@genctetsiad.org';
+> ```
+>
+> Test OTP'yi yayın sonrası kaldırmayı unutmayın.
+
 **Sign-in required:** Evet
 
 ```
-Kullanıcı adı: inceleme@tetsiad.org
-Şifre: (yok — giriş e-postaya gelen tek kullanımlık kodla yapılır)
+Kullanıcı adı: inceleme@genctetsiad.org
+Şifre: 123456
 ```
+
+> App Store Connect şifre alanını zorunlu tutar; sabit test kodunu
+> oraya yazın ve aşağıdaki notta bunun bir OTP olduğunu açıklayın.
 
 **Notes alanına:**
 
 ```
 Bu uygulama TETSİAD derneğinin üyelerine özel, kapalı bir platformdur.
-Giriş e-posta ile tek kullanımlık kod üzerinden yapılır; sabit şifre
+Giriş e-posta ile tek kullanımlık kod üzerinden yapılır; kalıcı şifre
 yoktur.
 
+İnceleme hesabı için sabit bir doğrulama kodu tanımlanmıştır —
+e-posta beklemenize gerek YOKTUR.
+
 Giriş adımları:
-  1. Giriş ekranında inceleme@tetsiad.org adresini girin
+  1. Giriş ekranında inceleme@genctetsiad.org adresini girin
   2. "DEVAM ET" düğmesine basın
-  3. Adrese gelen 6 haneli kodu girin
+  3. Kod alanına 123456 yazın
   4. Uygulama açılır
 
 Bu hesap onaylı üye olarak tanımlanmıştır; üye rehberi, akademi ve
 bülten dahil tüm ekranlar erişilebilir durumdadır.
 
-Kod ulaşmazsa info@tetsiad.org adresinden bize ulaşabilirsiniz; kodu
-doğrudan iletebiliriz.
+Sorun yaşarsanız info@tetsiad.org adresinden bize ulaşabilirsiniz.
 
 Uygulama reklam içermez, satın alma içermez ve üçüncü taraf izleme
 aracı kullanmaz.
 ```
-
-> **Hesabı önceden oluşturup onaylayın:**
-> ```sql
-> UPDATE profiles SET role = 'member' WHERE email = 'inceleme@tetsiad.org';
-> ```
-> `pending` bırakılırsa incelemeci yalnızca "Değerlendirme sürecinde"
-> ekranını görür ve **Guideline 2.1 — App Completeness** gerekçesiyle
-> reddeder.
 
 ---
 
