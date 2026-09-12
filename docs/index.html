@@ -3,65 +3,468 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Genç TETSİAD — Yasal Bilgiler</title>
-<meta name="description" content="Genç TETSİAD — Türkiye ev tekstilinin genç iş insanları platformu. Gizlilik politikası, KVKK aydınlatma metni ve kullanım koşulları." />
+<title>Genç TETSİAD — Türkiye ev tekstilinin genç iş insanları platformu</title>
+<meta name="description" content="Genç TETSİAD, Türkiye ev tekstilinin genç iş insanlarını buluşturan üyelik platformudur. Üye rehberi, etkinlik takvimi, akademi, mentorluk ve bülten." />
 <meta name="theme-color" content="#051C11" />
 <meta name="robots" content="index, follow" />
-<link rel="canonical" href="https://elektron666.github.io/genctetsiad/" />
+<link rel="canonical" href="https://genctetsiad.org/" />
 
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Genç TETSİAD" />
-<meta property="og:title" content="Genç TETSİAD — Yasal Bilgiler" />
-<meta property="og:description" content="Türkiye ev tekstilinin genç iş insanları platformu. Gizlilik politikası ve kullanım koşulları." />
+<meta property="og:title" content="Genç TETSİAD — Değişim gençlerle olacak" />
+<meta property="og:description" content="Türkiye ev tekstilinin genç iş insanları platformu. Üye rehberi, etkinlik takvimi, akademi ve mentorluk." />
+<meta property="og:image" content="https://genctetsiad.org/gorsel/kapak.webp" />
 <meta property="og:locale" content="tr_TR" />
-<meta name="twitter:card" content="summary" />
+<meta name="twitter:card" content="summary_large_image" />
 
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23051C11'/><text x='16' y='23' font-size='18' font-family='Georgia,serif' font-style='italic' fill='%23D9C896' text-anchor='middle'>G</text></svg>" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,500;1,300;1,500&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap" />
+
 <style>
-  :root { --navy:#051C11; --navy2:#0A2A1A; --gold:#D9C896; --ivory:#F5F0E6; --muted:#8A9A8F; --line:rgba(217,200,150,.28); }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--navy); color:var(--ivory); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; line-height:1.65; }
-  .wrap { max-width:680px; margin:0 auto; padding:64px 24px 80px; }
-  .brand { text-align:center; margin-bottom:48px; }
-  .rule { display:inline-block; width:28px; height:1px; background:var(--gold); vertical-align:middle; }
-  .kicker { font-size:11px; letter-spacing:4px; color:var(--gold); font-weight:600; margin:0 12px; }
-  h1 { font-size:34px; font-weight:300; font-style:italic; margin:22px 0 10px; letter-spacing:-.5px; }
-  .sub { color:var(--muted); font-size:14px; margin:0; }
-  .card { display:block; text-decoration:none; color:inherit; border:1px solid var(--line); background:var(--navy2); padding:22px 24px; margin-bottom:14px; transition:border-color .2s; }
-  .card:hover { border-color:var(--gold); }
-  .card h2 { font-size:16px; margin:0 0 6px; color:var(--gold); font-weight:600; }
-  .card p { margin:0; font-size:13.5px; color:var(--muted); }
-  .card .go { float:right; color:var(--gold); }
-  footer { margin-top:48px; padding-top:24px; border-top:1px solid var(--line); text-align:center; font-size:12px; color:var(--muted); }
-  footer a { color:var(--gold); text-decoration:none; }
-  @media (max-width:520px){ h1{font-size:27px} .wrap{padding:44px 18px 60px} }
+:root{
+  --navy:#051C11; --navy-deep:#030F09; --navy-mid:#0A2E1A;
+  --gold:#D9C896; --gold-line:rgba(217,200,150,.15);
+  --ivory:#F5F0E6; --muted:rgba(245,240,230,.45);
+  --serif:'Cormorant Garamond',Georgia,serif;
+  --sans:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--navy); color:var(--ivory);
+  font-family:var(--sans); font-weight:300; line-height:1.7;
+  -webkit-font-smoothing:antialiased;
+}
+img{max-width:100%; display:block}
+a{color:inherit}
+
+.kap{max-width:1120px; margin:0 auto; padding:0 28px}
+.dar{max-width:660px; margin:0 auto}
+
+/* ── etiket + ince çizgi ── */
+.etiket{
+  font-family:var(--sans); font-size:10px; font-weight:600;
+  letter-spacing:3.5px; color:var(--gold); text-transform:uppercase;
+}
+.cizgi{height:1px; background:var(--gold-line); border:0; margin:0}
+.kisa-cizgi{display:inline-block; width:28px; height:1px; background:var(--gold); vertical-align:middle}
+
+h1,h2,h3{font-family:var(--serif); font-weight:300; font-style:italic; margin:0; letter-spacing:-.5px}
+h2{font-size:clamp(30px,5vw,44px); line-height:1.15}
+h3{font-size:22px; font-style:normal; font-weight:500}
+
+/* ── üst çubuk ── */
+header.ust{
+  position:fixed; inset:0 0 auto 0; z-index:50;
+  background:rgba(3,15,9,.82); backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--gold-line);
+}
+.ust-ic{display:flex; align-items:center; justify-content:space-between; height:58px}
+.marka{font-family:var(--sans); font-size:11px; font-weight:700; letter-spacing:3px; color:var(--gold); text-decoration:none}
+.ust nav{display:flex; gap:26px}
+.ust nav a{font-size:12px; color:var(--muted); text-decoration:none; transition:color .2s}
+.ust nav a:hover,.ust nav a:focus-visible{color:var(--ivory)}
+@media(max-width:720px){ .ust nav{display:none} }
+
+/* ── kapak ── */
+.kapak{position:relative; min-height:100svh; display:flex; align-items:flex-end; overflow:hidden}
+/* Kapak fotoğrafı çok geniş (2.2:1); dar ekranda tam boy istemek kadrajı
+   aşırı daraltıyor, 25 kişilik kareden 5 kişi kalıyordu. */
+@media(max-width:720px){ .kapak{min-height:78svh} }
+.kapak img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover}
+.kapak::after{
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(180deg,rgba(5,28,17,.92) 0%,rgba(5,28,17,.20) 38%,rgba(5,28,17,.35) 58%,rgba(5,28,17,.97) 100%);
+}
+.kapak-ic{position:relative; z-index:2; width:100%; padding:0 0 72px}
+.slogan{
+  font-family:var(--serif); font-style:italic; font-weight:300;
+  font-size:clamp(44px,9vw,86px); line-height:1.02; letter-spacing:-2px; margin:0 0 22px;
+}
+.slogan .vurgu{color:var(--gold)}
+.kapak p{font-size:14px; color:rgba(245,240,230,.72); max-width:340px; margin:0 0 34px}
+
+.dugmeler{display:flex; gap:12px; flex-wrap:wrap}
+.dugme{
+  font-family:var(--sans); font-size:11px; font-weight:700; letter-spacing:2.5px;
+  padding:15px 30px; text-decoration:none; border:1px solid var(--gold);
+  background:var(--gold); color:var(--navy-deep); transition:opacity .2s;
+}
+.dugme:hover,.dugme:focus-visible{opacity:.86}
+.dugme.bos{background:transparent; color:var(--gold); border-color:var(--gold-line)}
+.dugme.bos:hover{border-color:var(--gold)}
+
+/* ── bölümler ── */
+section{padding:96px 0}
+.bolum-basi{display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:40px}
+
+.manifesto p{font-size:16px; line-height:1.95; margin:0 0 26px; color:rgba(245,240,230,.88)}
+.manifesto p:last-child{color:var(--gold); font-family:var(--serif); font-style:italic; font-size:24px; line-height:1.5}
+
+/* ── başkan ── */
+.baskan{background:var(--navy-deep)}
+.baskan-grid{display:grid; grid-template-columns:minmax(0,380px) minmax(0,1fr); gap:56px; align-items:start}
+@media(max-width:860px){ .baskan-grid{grid-template-columns:1fr; gap:36px} }
+.portre{position:relative; border:1px solid var(--gold-line)}
+.portre img{width:100%; height:auto}
+.portre-ad{position:absolute; left:20px; right:20px; bottom:18px}
+.portre::after{content:''; position:absolute; inset:0; background:linear-gradient(180deg,transparent 45%,rgba(3,15,9,.95) 100%)}
+.portre-ad{z-index:2}
+.portre-ad .ad{font-family:var(--serif); font-style:italic; font-size:26px; line-height:1.2}
+.portre-ad .unvan{font-family:var(--mono); font-size:8px; letter-spacing:2px; color:var(--gold); margin-top:6px}
+.alinti{
+  font-family:var(--serif); font-style:italic; font-size:clamp(22px,3vw,30px);
+  line-height:1.45; color:var(--gold); margin:0 0 30px; padding-left:20px;
+  border-left:1px solid var(--gold-line);
+}
+.baskan-metin p{font-size:14.5px; line-height:1.9; margin:0 0 18px; color:rgba(245,240,230,.80)}
+.imza{margin-top:28px; padding-top:20px; border-top:1px solid var(--gold-line); font-family:var(--mono); font-size:9px; letter-spacing:1.5px; color:var(--muted)}
+
+/* ── programlar ── */
+.program{
+  display:grid; grid-template-columns:88px minmax(0,1fr) 78px;
+  gap:24px; align-items:start; padding:26px 0; border-bottom:1px solid var(--gold-line);
+}
+.program:first-of-type{border-top:1px solid var(--gold-line)}
+.program-kod{font-family:var(--mono); font-size:13px; letter-spacing:1px; color:var(--gold)}
+.program h3{margin:0 0 8px; font-size:17px}
+.program p{margin:0; font-size:13.5px; color:var(--muted); line-height:1.7}
+.kontenjan{text-align:right}
+.kontenjan .sayi{font-family:var(--serif); font-style:italic; font-size:26px; color:var(--gold); line-height:1}
+.kontenjan .alt{font-family:var(--mono); font-size:7.5px; letter-spacing:1.5px; color:var(--muted); margin-top:4px}
+@media(max-width:640px){
+  .program{grid-template-columns:1fr auto; gap:12px}
+  .program-kod{grid-column:1/-1}
+}
+
+/* ── saha ── */
+/* Sabit oran + max-height birlikte kullanılınca tarayıcı genişliği de
+   oranı korumak için kısıyor ve şerit tam genişlik olmaktan çıkıyordu.
+   Bu yüzden yükseklik doğrudan veriliyor, kadrajı object-fit hallediyor. */
+.saha{position:relative; margin:0; background:var(--navy); overflow:hidden; max-width:100%;
+      height:clamp(300px,40vw,560px);
+      border-top:1px solid var(--gold-line); border-bottom:1px solid var(--gold-line)}
+.saha img{width:100%; height:100%; object-fit:cover; display:block; filter:saturate(.88)}
+.saha::after{content:''; position:absolute; inset:0;
+             background:linear-gradient(180deg,rgba(3,15,9,.10) 45%,rgba(3,15,9,.90) 100%)}
+.saha figcaption{position:absolute; z-index:2; left:0; right:0; bottom:26px}
+.saha .baslik{font-family:var(--serif); font-style:italic; font-size:clamp(20px,3.4vw,30px); line-height:1.25}
+.saha .aciklama{font-family:var(--mono); font-size:8px; letter-spacing:2px; color:var(--gold); margin-top:8px}
+
+/* ── uygulama ── */
+.uygulama{background:var(--navy-deep)}
+/* 6 özellik var. auto-fit 4 sütun seçince ikinci sıra yarım kalıyor ve
+   boş hücre, ızgara arkasındaki çizgi rengiyle gri bir blok olarak
+   görünüyordu. 6; 3'e de 2'ye de 1'e de tam bölünür. */
+.ozellikler{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1px; background:var(--gold-line); border:1px solid var(--gold-line)}
+@media(max-width:880px){ .ozellikler{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media(max-width:560px){ .ozellikler{grid-template-columns:1fr} }
+.ozellik{background:var(--navy); padding:30px 26px}
+.ozellik .im{font-size:15px; color:var(--gold); margin-bottom:14px}
+.ozellik h3{font-size:15px; margin:0 0 8px}
+.ozellik p{margin:0; font-size:13px; color:var(--muted); line-height:1.7}
+
+.magaza{display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin-top:40px}
+.rozet{
+  border:1px solid var(--gold-line); padding:13px 26px; text-align:center;
+  font-family:var(--mono); font-size:9px; letter-spacing:1.5px; color:var(--muted);
+}
+.rozet strong{display:block; font-family:var(--sans); font-size:11px; font-weight:600; letter-spacing:1px; color:var(--ivory); margin-top:4px}
+
+/* ── üyelik ── */
+/* Üç adım tek sırada durmalı; auto-fit, 660px'lik dar kolonda
+   üçüncüsünü alt satıra atıyordu. */
+.adimlar{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:24px; margin-top:8px}
+@media(max-width:640px){ .adimlar{grid-template-columns:1fr; gap:28px} }
+.adim{border-top:1px solid var(--gold); padding-top:20px}
+.adim .no{font-family:var(--mono); font-size:9px; letter-spacing:2px; color:var(--gold)}
+.adim h3{font-size:16px; margin:12px 0 8px}
+.adim p{margin:0; font-size:13px; color:var(--muted); line-height:1.7}
+
+.not{
+  margin-top:44px; padding:22px 24px; border:1px solid var(--gold-line);
+  background:var(--navy-mid); font-size:13.5px; color:rgba(245,240,230,.78); line-height:1.8;
+}
+
+/* ── alt bilgi ── */
+footer{background:var(--navy-deep); padding:64px 0 40px; border-top:1px solid var(--gold-line)}
+.alt-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:36px; margin-bottom:40px}
+.alt-grid h4{font-family:var(--sans); font-size:9px; font-weight:700; letter-spacing:2.5px; color:var(--gold); margin:0 0 14px; text-transform:uppercase}
+.alt-grid a,.alt-grid p{display:block; font-size:13px; color:var(--muted); text-decoration:none; margin:0 0 8px; transition:color .2s}
+.alt-grid a:hover,.alt-grid a:focus-visible{color:var(--ivory)}
+.kunye{display:flex; justify-content:space-between; gap:20px; flex-wrap:wrap; padding-top:24px; border-top:1px solid var(--gold-line); font-family:var(--mono); font-size:8px; letter-spacing:1.5px; color:var(--muted)}
+.kunye .altin{color:var(--gold)}
+
+:focus-visible{outline:2px solid var(--gold); outline-offset:3px}
+@media(prefers-reduced-motion:reduce){ html{scroll-behavior:auto} *{transition:none!important} }
 </style>
 </head>
 <body>
-<div class="wrap">
 
-  <div class="brand">
-    <div><span class="rule"></span><span class="kicker">TETSİAD</span><span class="rule"></span></div>
-    <h1>Genç TETSİAD</h1>
-    <p class="sub">Türkiye ev tekstilinin genç iş insanları platformu</p>
+<header class="ust">
+  <div class="kap ust-ic">
+    <a class="marka" href="./">GENÇ TETSİAD</a>
+    <nav>
+      <a href="#manifesto">Manifesto</a>
+      <a href="#baskan">Başkan'dan</a>
+      <a href="#programlar">Programlar</a>
+      <a href="#uygulama">Uygulama</a>
+      <a href="#uyelik">Üyelik</a>
+    </nav>
   </div>
+</header>
 
-  <a class="card" href="gizlilik-politikasi.html">
-    <h2>Gizlilik Politikası &amp; KVKK Aydınlatma Metni <span class="go">→</span></h2>
-    <p>Hangi verileri topluyoruz, neden işliyoruz, nerede saklıyoruz, kiminle paylaşıyoruz
-       ve KVKK m.11 kapsamındaki haklarınız.</p>
-  </a>
-
-  <a class="card" href="kullanim-kosullari.html">
-    <h2>Kullanım Koşulları <span class="go">→</span></h2>
-    <p>Üyelik esasları, platform kuralları, içerik sorumluluğu ve hesap sonlandırma.</p>
-  </a>
-
-  <footer>
-    <p><strong>TETSİAD</strong> — Tekstil Sanayicileri ve İşadamları Derneği<br>
-    <a href="mailto:info@tetsiad.org">info@tetsiad.org</a> · +90 212 292 04 04</p>
-  </footer>
-
+<!-- ── KAPAK ── -->
+<div class="kapak">
+  <img src="gorsel/kapak.webp" width="1179" height="530" alt="Genç TETSİAD üyeleri fabrika ziyaretinde" fetchpriority="high" />
+  <div class="kapak-ic kap">
+    <div style="margin-bottom:26px">
+      <span class="kisa-cizgi"></span>
+      <span class="etiket" style="margin:0 12px">TETSİAD Gençlik Yapılanması</span>
+      <span class="kisa-cizgi"></span>
+    </div>
+    <h1 class="slogan">Değişim<br>gençlerle<br><span class="vurgu">olacak.</span></h1>
+    <p>Türkiye ev tekstilinin genç iş insanları platformu.</p>
+    <div class="dugmeler">
+      <a class="dugme" href="#uyelik">ÜYELİK BAŞVURUSU</a>
+      <a class="dugme bos" href="#manifesto">MANİFESTO</a>
+    </div>
+  </div>
 </div>
+
+<!-- ── MANİFESTO ── -->
+<section id="manifesto">
+  <div class="kap dar">
+    <div class="bolum-basi">
+      <span class="kisa-cizgi"></span><span class="etiket">Manifesto</span><span class="kisa-cizgi"></span>
+    </div>
+    <div class="manifesto">
+      <p>Türkiye ev tekstili sektörü, yüzyıllık bir dokuma geleneğinin üzerinde yükseliyor. Biz bu geleneği geleceğe taşıyacak nesil olarak bir araya geldik.</p>
+      <p>Genç TETSİAD; üretimi, tasarımı ve ihracatı birleştiren genç iş insanlarının platformudur. Rekabeti değil, dayanışmayı; kâr yarışını değil, ortak büyümeyi seçiyoruz.</p>
+      <p>Avrupa'nın yeşil dönüşümünü tehdit değil fırsat olarak okuyoruz. Sürdürülebilir üretim standartlarını dünyadan önce benimsemek, bizi öne çıkaracak.</p>
+      <p>Mentorluk, kurs ve etkinliklerle birbirimizden öğreniyoruz. Sektördeki her genç isim hem öğrenci hem öğretmendir.</p>
+      <p>Değişim gençlerle olacak. Biz, o değişimin kendisiyiz.</p>
+    </div>
+  </div>
+</section>
+
+<!--
+  ════════════════════════════════════════════════════════════════
+  RAKAMLAR BÖLÜMÜ — YÖNETİM ONAYI OLMADAN AÇMAYIN
+  ════════════════════════════════════════════════════════════════
+  Aşağıdaki üye/il/ülke sayıları mobil uygulamada SABİT YAZILIYDI ve
+  kaynağı belirsizdi (denetim raporu madde 98). Kurumsal sitede
+  doğrulanmamış rakam güven kaybettirir.
+
+  Dernek yönetimi teyit ettiğinde bu yorumu kaldırın ve rakamları
+  güncel değerlerle değiştirin.
+
+<section style="background:var(--navy-deep); padding:70px 0">
+  <div class="kap" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px; background:var(--gold-line); border-block:1px solid var(--gold-line)">
+    <div style="background:var(--navy-deep); text-align:center; padding:30px 16px">
+      <div style="font-family:var(--serif); font-style:italic; font-size:38px; color:var(--gold); line-height:1">1.500+</div>
+      <div class="etiket" style="margin-top:8px">Üye</div>
+    </div>
+    <div style="background:var(--navy-deep); text-align:center; padding:30px 16px">
+      <div style="font-family:var(--serif); font-style:italic; font-size:38px; color:var(--gold); line-height:1">55</div>
+      <div class="etiket" style="margin-top:8px">İl</div>
+    </div>
+    <div style="background:var(--navy-deep); text-align:center; padding:30px 16px">
+      <div style="font-family:var(--serif); font-style:italic; font-size:38px; color:var(--gold); line-height:1">40</div>
+      <div class="etiket" style="margin-top:8px">Ülke</div>
+    </div>
+  </div>
+</section>
+-->
+
+<!-- ── BAŞKAN'DAN ── -->
+<section id="baskan" class="baskan">
+  <div class="kap">
+    <div class="bolum-basi">
+      <span class="kisa-cizgi"></span><span class="etiket">Başkan'dan</span><span class="kisa-cizgi"></span>
+    </div>
+    <div class="baskan-grid">
+      <figure class="portre" style="margin:0">
+        <img src="gorsel/baskan.webp" width="480" height="440" alt="Resul Öden, Genç TETSİAD Başkanı" loading="lazy" />
+        <figcaption class="portre-ad">
+          <div class="ad">Resul Öden</div>
+          <div class="unvan">GENÇ TETSİAD BAŞKANI · ROSSA HOME</div>
+        </figcaption>
+      </figure>
+      <div class="baskan-metin">
+        <blockquote class="alinti">Genç TETSİAD, sektörün geleceğini bugünden örmeye başlayan bir atölyedir. Üretirken öğrenmek, paylaşırken büyümek istiyoruz.</blockquote>
+        <p>Ev tekstili sektörümüz onlarca yıldır dünya pazarında güçlü bir yer tutmaktadır. Ancak bu güç, artık yalnızca üretim kapasitesiyle ölçülmüyor.</p>
+        <p>Genç TETSİAD olarak tam da bu dönüşümün merkezinde yer almak istiyoruz. Türkiye'nin dokuma geleneğini, genç kuşağın vizyonuyla birleştirdiğimizde ortaya çok güçlü bir sinerji çıkıyor.</p>
+        <p>Bu platform, yalnızca bir uygulama değil; sektörün geleceğine yapılan somut bir yatırım.</p>
+        <div class="imza">RESUL ÖDEN · GENÇ TETSİAD BAŞKANI · ROSSA HOME, İSTANBUL</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── PROGRAMLAR ── -->
+<section id="programlar">
+  <div class="kap">
+    <div class="bolum-basi">
+      <span class="kisa-cizgi"></span><span class="etiket">Gelişim ve Temsil Programları</span><span class="kisa-cizgi"></span>
+    </div>
+
+    <div class="program">
+      <div class="program-kod">3T</div>
+      <div>
+        <h3>Türkiye Tekstil Temsilcileri</h3>
+        <p>Yıllık liderlik ve temsil programı. Seçilen üyeler ulusal ve uluslararası platformlarda sektörü temsil eder.</p>
+      </div>
+      <div class="kontenjan"><div class="sayi">12</div><div class="alt">KONTENJAN</div></div>
+    </div>
+
+    <div class="program">
+      <div class="program-kod">TBA</div>
+      <div>
+        <h3>Tekstil Büyükelçileri</h3>
+        <p>Uluslararası fuar ve konferanslarda Türkiye ev tekstilini temsil eden genç büyükelçiler programı.</p>
+      </div>
+      <div class="kontenjan"><div class="sayi">8</div><div class="alt">KONTENJAN</div></div>
+    </div>
+
+    <div class="program">
+      <div class="program-kod">AM</div>
+      <div>
+        <h3>Altın Mekik</h3>
+        <p>Üretim, tasarım ve ihracat alanında olağanüstü başarı gösteren genç üyelere verilen prestij ödülü ve burs.</p>
+      </div>
+      <div class="kontenjan"><div class="sayi">3</div><div class="alt">KONTENJAN</div></div>
+    </div>
+
+    <div class="program">
+      <div class="program-kod">UTGİK</div>
+      <div>
+        <h3>Uluslararası Tekstil Girişimcilik İnovasyonu Komitesi</h3>
+        <p>AB ve global tekstil trendlerini takip eden araştırma ve rapor programı.</p>
+      </div>
+      <div class="kontenjan"><div class="sayi">—</div><div class="alt">SÜREKLİ</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ── SAHA ── -->
+<figure class="saha">
+  <img src="gorsel/fuar.webp" alt="Genç TETSİAD üyeleri, T.C. Ticaret Bakanlığı ve TETSİAD panosu önünde toplu hâlde" width="923" height="573" loading="lazy" decoding="async">
+  <figcaption>
+    <div class="kap">
+      <div class="baslik">Fuarlarda ve resmî platformlarda temsil</div>
+      <div class="aciklama">ULUSLARARASI TEMSİL</div>
+    </div>
+  </figcaption>
+</figure>
+
+<!-- ── UYGULAMA ── -->
+<section id="uygulama" class="uygulama">
+  <div class="kap">
+    <div class="bolum-basi">
+      <span class="kisa-cizgi"></span><span class="etiket">Üyelere Özel Mobil Uygulama</span><span class="kisa-cizgi"></span>
+    </div>
+
+    <div class="ozellikler">
+      <div class="ozellik">
+        <div class="im">◈</div><h3>Üye Rehberi</h3>
+        <p>Türkiye'nin dört bir yanındaki üyelere ulaşın. Firma, şehir ve sektör bilgisiyle aranabilir dizin, QR dijital kartvizit.</p>
+      </div>
+      <div class="ozellik">
+        <div class="im">◆</div><h3>Etkinlik Takvimi</h3>
+        <p>Fabrika ziyaretleri, fuar hazırlıkları, komite toplantıları. Kontenjanı görün, tek dokunuşla yerinizi ayırtın.</p>
+      </div>
+      <div class="ozellik">
+        <div class="im">◉</div><h3>Akademi</h3>
+        <p>İhracattan sürdürülebilir tedarik zincirine, marka inşasından AB direktiflerine — tüm üyelere ücretsiz.</p>
+      </div>
+      <div class="ozellik">
+        <div class="im">◈</div><h3>Mentorluk</h3>
+        <p>Sektörün deneyimli isimleriyle eşleşin. Her genç isim hem öğrenci hem öğretmendir.</p>
+      </div>
+      <div class="ozellik">
+        <div class="im">◆</div><h3>Bülten</h3>
+        <p>Üyelerin kaleminden sektör yazıları. Dernek yönetiminin editoryal incelemesinden geçerek yayımlanır.</p>
+      </div>
+      <div class="ozellik">
+        <div class="im">◉</div><h3>Duyurular</h3>
+        <p>Dernekten gelen her haber anında telefonunuzda.</p>
+      </div>
+    </div>
+
+    <div class="magaza">
+      <div class="rozet">YAKINDA<strong>App Store</strong></div>
+      <div class="rozet">YAKINDA<strong>Google Play</strong></div>
+    </div>
+  </div>
+</section>
+
+<!-- ── ÜYELİK ── -->
+<section id="uyelik">
+  <div class="kap dar">
+    <div class="bolum-basi">
+      <span class="kisa-cizgi"></span><span class="etiket">Üyelik</span><span class="kisa-cizgi"></span>
+    </div>
+    <h2 style="text-align:center; margin-bottom:44px">Üç adımda<br>Genç TETSİAD üyesi.</h2>
+
+    <div class="adimlar">
+      <div class="adim">
+        <div class="no">01</div><h3>Başvuru</h3>
+        <p>Uygulama üzerinden başvurunuzu oluşturursunuz. Firma, şehir ve sektör bilgileriniz alınır.</p>
+      </div>
+      <div class="adim">
+        <div class="no">02</div><h3>Değerlendirme</h3>
+        <p>Başvurunuz dernek komisyonu tarafından incelenir.</p>
+      </div>
+      <div class="adim">
+        <div class="no">03</div><h3>Onay</h3>
+        <p>Onaylandığında üye kodunuz ve dijital kartvizitiniz otomatik tanımlanır.</p>
+      </div>
+    </div>
+
+    <div class="not">
+      <strong style="font-weight:600">Genç TETSİAD üyelik esaslı, kapalı bir platformdur.</strong>
+      Üye bilgileri yalnızca onaylı üyelere görünür ve 6698 sayılı KVKK kapsamında korunur.
+      Telefon numaranızın rehberde görünüp görünmeyeceğini kendiniz belirlersiniz.
+      Hesabınızı ve tüm verilerinizi uygulama içinden kalıcı olarak silebilirsiniz.
+    </div>
+  </div>
+</section>
+
+<!-- ── ALT BİLGİ ── -->
+<footer>
+  <div class="kap">
+    <div class="alt-grid">
+      <div>
+        <h4>Genç TETSİAD</h4>
+        <a href="#manifesto">Manifesto</a>
+        <a href="#baskan">Başkan'dan</a>
+        <a href="#programlar">Programlar</a>
+        <a href="#uyelik">Üyelik</a>
+      </div>
+      <div>
+        <h4>Yasal</h4>
+        <a href="gizlilik-politikasi.html">Gizlilik Politikası &amp; KVKK</a>
+        <a href="kullanim-kosullari.html">Kullanım Koşulları</a>
+      </div>
+      <div>
+        <h4>İletişim</h4>
+        <a href="mailto:info@tetsiad.org">info@tetsiad.org</a>
+        <a href="tel:+902122920404">+90 212 292 04 04</a>
+        <p>TETSİAD — Tekstil Sanayicileri<br>ve İşadamları Derneği</p>
+      </div>
+    </div>
+
+    <div class="kunye">
+      <span>GENÇ TETSİAD · TETSİAD GENÇLİK YAPILANMASI</span>
+      <span>KONSEPT &amp; TASARIM · <span class="altin">FATİH ÖZDEMİR</span> · ORMEN TEKSTİL, ANKARA</span>
+    </div>
+  </div>
+</footer>
+
 </body>
 </html>
