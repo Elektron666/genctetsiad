@@ -181,19 +181,55 @@ jobs:
 
           if [ -n "$LOG_URL" ]; then
             echo "📥 Downloading log: $LOG_URL"
-            curl -fsSL "$LOG_URL" -o build.log.txt 2>&1
-            if [ -f build.log.txt ] && [ -s build.log.txt ]; then
-              echo "✅ Log downloaded: $(wc -c < build.log.txt) bytes"
-              echo "::group::🔥 FULL BUILD LOG"
-              cat build.log.txt
-              echo "::endgroup::"
-              echo "::group::🎯 GRADLE ERRORS ONLY"
-              grep -E "^(FAILURE|e:|error:|ERROR|> Task|BUILD FAILED|Exception|Caused by)" build.log.txt || echo "(no grep match)"
-              echo "::endgroup::"
+            curl -fsSL "$LOG_URL" -o build.log.raw 2>&1
+
+            # EAS log dosyalarını SIKIŞTIRILMIŞ saklıyor (brotli ya da gzip).
+            # Eskiden ham bayt doğrudan cat'leniyordu: Actions ekranına ikilik
+            # çöp düşüyor, grep hiçbir şey bulamıyor ve "(no grep match)" yazıp
+            # asıl hatayı gizliyordu. #25'te tam olarak bu oldu.
+            if [ -f build.log.raw ] && [ -s build.log.raw ]; then
+              echo "✅ İndirildi: $(wc -c < build.log.raw) bayt — $(file -b build.log.raw)"
+              command -v brotli >/dev/null 2>&1 || sudo apt-get install -y -qq brotli >/dev/null 2>&1 || true
+              if   brotli -dc build.log.raw > build.log.txt 2>/dev/null && [ -s build.log.txt ]; then
+                echo "   brotli ile açıldı"
+              elif gzip  -dc build.log.raw > build.log.txt 2>/dev/null && [ -s build.log.txt ]; then
+                echo "   gzip ile açıldı"
+              else
+                cp build.log.raw build.log.txt
+                echo "   sıkıştırılmamış"
+              fi
+
+              # Satır satır okunabilir mi? Değilse ekrana basmanın anlamı yok.
+              if LC_ALL=C grep -qP '[\x00-\x08\x0E-\x1F]' build.log.txt; then
+                echo "⚠️ Log hâlâ okunamıyor (bilinmeyen sıkıştırma). Ham hâli artifact olarak yükleniyor."
+                cp build.log.raw okunamayan-build.log
+              else
+                echo "::group::🎯 HATA SATIRLARI"
+                grep -nE "(FAILURE|^e: |error:|ERROR|BUILD FAILED|Exception|Caused by|What went wrong)" build.log.txt \
+                  | tail -60 || echo "(eşleşme yok)"
+                echo "::endgroup::"
+                echo "::group::🔥 SON 200 SATIR"
+                tail -200 build.log.txt
+                echo "::endgroup::"
+              fi
             else
-              echo "❌ Log download failed"
+              echo "❌ Log indirilemedi"
             fi
           else
             echo "❌ No logFiles URL in BUILD_INFO"
             echo "BUILD_INFO: $BUILD_INFO"
           fi
+
+      # Log hiç açılamazsa ham dosyayı indirilebilir bırak — Actions
+      # ekranındaki ikilik çöpten hata ayıklamak mümkün değil.
+      - name: Okunamayan log'u yükle
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: eas-build-log
+          path: |
+            native/okunamayan-build.log
+            native/build.log.txt
+          retention-days: 7
+          if-no-files-found: ignore
