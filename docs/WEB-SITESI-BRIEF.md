@@ -239,3 +239,30 @@ olur, `İ` değil. Test et.
 
 Bittiğinde uygulamadaki ve mağaza başvurularındaki üç URL
 `genctetsiad.org`'a çevrilecek.
+
+---
+
+## GÖRSEL KAYNAKLARI — YÖNETİM KARARI GEREKİYOR
+
+Site yayına hazır durumda; ancak elimizdeki dört fotoğrafın **üçü sosyal
+medya ekran görüntüsüydü**. Üzerlerine yakılmış arayüz öğeleri kırpılarak
+temizlendi, fakat asılları istenmeli.
+
+| Dosya | Sorun | Yapılan | Gereken |
+|---|---|---|---|
+| `gorsel/kapak.webp` | Karusel sayacı "1/11", profil dairesi ve ses-kapalı simgesi kareye gömülüydü | Üstten 125px, alttan 104px kırpıldı; kadroda kimse eksilmedi | Fotoğrafçının orijinal dosyası (kırpma sonrası 1179×530 kaldı, geniş) |
+| `gorsel/fuar.webp` | Üstte Instagram başlık çubuğu (avatar + `tetsiad` + "···") | Üstten 67px kırpıldı | — kullanılabilir |
+| `gorsel/baskan.webp` | **Üçüncü tarafın** haber videosundan kare: "EV TEKS MEDYA" mikrofon flaması ve yayın alt bandı | Alt bant kırpıldı (sayfadaki kendi künyemizle çakışıyordu) | **Başkanın resmî portresi** ve/veya video sahibinden yazılı kullanım izni |
+| `gorsel/komite.webp` | Kafe masasında altı kişilik sohbet karesi; "komite çalışması" başlığını taşımıyordu, üstelik derneği yalnızca erkeklerden oluşuyormuş gibi gösteriyordu | **Siteden çıkarıldı** | İsteniyorsa gerçek bir komite/atölye fotoğrafı |
+
+İki nokta yönetime sorulmalı:
+
+1. **Kullanım hakkı.** Başkanın fotoğrafı bir yayın kuruluşunun
+   çekimidir. Derneğin resmî sitesinde kullanmak için izin gerekir;
+   en temizi dernek arşivinden çekilmiş bir portre koymaktır.
+2. **İsim yazımı.** Videodaki alt bantta ad **"A. Resul Öden"** olarak
+   geçiyor; sitede ve uygulamada "Resul Öden" yazıyor. Hangisinin
+   kullanılacağı teyit edilmeli.
+
+Rakamlar bölümü (`index.html` içinde yorum satırında) hâlâ kapalıdır ve
+yönetim teyidi gelmeden açılmamalıdır.

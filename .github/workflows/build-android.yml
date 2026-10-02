@@ -64,10 +64,93 @@ jobs:
       - name: EAS Build (Android)
         id: eas_build
         working-directory: native
-        run: eas build --platform android --profile ${{ inputs.profile }} --non-interactive
+        # --json derleme bitince çıktıyı makine okunur verir; içinde
+        # imzalanmış dosyanın indirme adresi var. --wait olmadan komut
+        # kuyruğa atıp dönüyordu ve indirecek bir şey olmuyordu.
+        run: |
+          # `|| true`: eas hata verdiğinde adım o satırda kesilirse aşağıdaki
+          # teşhis çıktısı hiç basılmıyor. Çıkışı kendimiz değerlendiriyoruz.
+          eas build --platform android --profile ${{ inputs.profile }} \
+            --non-interactive --wait --json > eas-build.json || true
+
+          echo "::group::EAS çıktısı"
+          jq '.' eas-build.json 2>/dev/null || cat eas-build.json
+          echo "::endgroup::"
+
+          # --json tek derlemede bile dizi döndürüyor.
+          # `|| true`: çıktı hiç JSON değilse jq'nun ayrıştırma hatası yerine
+          # aşağıdaki anlaşılır mesaj görünsün.
+          SONUC=$(jq -r 'if type=="array" then .[0] else . end' eas-build.json 2>/dev/null || true)
+          INDIRME=$(echo "$SONUC" | jq -r '.artifacts.applicationArchiveUrl // empty' 2>/dev/null || true)
+          SAYFA=$(echo   "$SONUC" | jq -r '.id // empty'     2>/dev/null || true)
+          DURUM=$(echo   "$SONUC" | jq -r '.status // empty' 2>/dev/null || true)
+
+          # eas yalnızca ERRORED durumunda sıfırdan farklı çıkıyor; İPTAL
+          # EDİLEN derlemede 0 dönüyor ve indirecek dosya olmuyor. Bu yüzden
+          # çıkış koduna değil, durumun kendisine bakıyoruz.
+          if [ "$DURUM" != "FINISHED" ] || [ -z "$INDIRME" ]; then
+            echo "❌ Derleme tamamlanmadı — durum: ${DURUM:-(okunamadı)}"
+            echo "   İndirme adresi: ${INDIRME:-yok}"
+            echo "   Ayrıntı için aşağıdaki 'Fetch failure logs' adımına bakın."
+            exit 1
+          fi
+
+          echo "indirme=$INDIRME" >> "$GITHUB_OUTPUT"
+          echo "sayfa=https://expo.dev/accounts/_/projects/_/builds/$SAYFA" >> "$GITHUB_OUTPUT"
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           EAS_NO_VCS: "1"
+
+      # EAS dosyayı kendi sunucusunda tutuyor; buraya indirilmezse
+      # Actions sayfasında görülecek bir şey olmuyordu.
+      - name: Dosyayı indir
+        id: indir
+        working-directory: native
+        run: |
+          URL="${{ steps.eas_build.outputs.indirme }}"
+          case "$URL" in
+            *.aab) AD="genctetsiad-${{ inputs.profile }}.aab" ;;
+            *)     AD="genctetsiad-${{ inputs.profile }}.apk" ;;
+          esac
+          curl -fsSL "$URL" -o "$AD"
+          echo "ad=$AD" >> "$GITHUB_OUTPUT"
+          echo "boyut=$(du -h "$AD" | cut -f1)" >> "$GITHUB_OUTPUT"
+          echo "sha=$(sha256sum "$AD" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Actions'a yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: genctetsiad-${{ inputs.profile }}
+          path: native/${{ steps.indir.outputs.ad }}
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Özet
+        run: |
+          {
+            echo "## 📦 ${{ steps.indir.outputs.ad }}"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Profil | \`${{ inputs.profile }}\` |"
+            echo "| Boyut | ${{ steps.indir.outputs.boyut }} |"
+            echo "| SHA-256 | \`${{ steps.indir.outputs.sha }}\` |"
+            echo
+            echo "**Bu sayfanın en altındaki _Artifacts_ bölümünden indirilir.**"
+            echo "Bağlantı 30 gün geçerlidir ve indirmek için GitHub'da oturum açmak gerekir."
+            echo
+            if [ "${{ inputs.profile }}" = "production" ]; then
+              echo "> \`production\` profili **.aab** üretir — Play Console'a yüklemek içindir,"
+              echo "> telefona doğrudan kurulamaz. Teste \`preview\` profilini kullanın."
+            else
+              echo "### Telefona kurulum"
+              echo "1. Dosyayı Android telefona aktarın"
+              echo "2. Ayarlar → *Bilinmeyen kaynaklara izin ver* (dosya yöneticisi için)"
+              echo "3. APK'ya dokunup kurun"
+            fi
+            echo
+            echo "EAS derleme sayfası: ${{ steps.eas_build.outputs.sayfa }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: 🔴 Fetch failure logs
         if: failure()
@@ -98,19 +181,55 @@ jobs:
 
           if [ -n "$LOG_URL" ]; then
             echo "📥 Downloading log: $LOG_URL"
-            curl -fsSL "$LOG_URL" -o build.log.txt 2>&1
-            if [ -f build.log.txt ] && [ -s build.log.txt ]; then
-              echo "✅ Log downloaded: $(wc -c < build.log.txt) bytes"
-              echo "::group::🔥 FULL BUILD LOG"
-              cat build.log.txt
-              echo "::endgroup::"
-              echo "::group::🎯 GRADLE ERRORS ONLY"
-              grep -E "^(FAILURE|e:|error:|ERROR|> Task|BUILD FAILED|Exception|Caused by)" build.log.txt || echo "(no grep match)"
-              echo "::endgroup::"
+            curl -fsSL "$LOG_URL" -o build.log.raw 2>&1
+
+            # EAS log dosyalarını SIKIŞTIRILMIŞ saklıyor (brotli ya da gzip).
+            # Eskiden ham bayt doğrudan cat'leniyordu: Actions ekranına ikilik
+            # çöp düşüyor, grep hiçbir şey bulamıyor ve "(no grep match)" yazıp
+            # asıl hatayı gizliyordu. #25'te tam olarak bu oldu.
+            if [ -f build.log.raw ] && [ -s build.log.raw ]; then
+              echo "✅ İndirildi: $(wc -c < build.log.raw) bayt — $(file -b build.log.raw)"
+              command -v brotli >/dev/null 2>&1 || sudo apt-get install -y -qq brotli >/dev/null 2>&1 || true
+              if   brotli -dc build.log.raw > build.log.txt 2>/dev/null && [ -s build.log.txt ]; then
+                echo "   brotli ile açıldı"
+              elif gzip  -dc build.log.raw > build.log.txt 2>/dev/null && [ -s build.log.txt ]; then
+                echo "   gzip ile açıldı"
+              else
+                cp build.log.raw build.log.txt
+                echo "   sıkıştırılmamış"
+              fi
+
+              # Satır satır okunabilir mi? Değilse ekrana basmanın anlamı yok.
+              if LC_ALL=C grep -qP '[\x00-\x08\x0E-\x1F]' build.log.txt; then
+                echo "⚠️ Log hâlâ okunamıyor (bilinmeyen sıkıştırma). Ham hâli artifact olarak yükleniyor."
+                cp build.log.raw okunamayan-build.log
+              else
+                echo "::group::🎯 HATA SATIRLARI"
+                grep -nE "(FAILURE|^e: |error:|ERROR|BUILD FAILED|Exception|Caused by|What went wrong)" build.log.txt \
+                  | tail -60 || echo "(eşleşme yok)"
+                echo "::endgroup::"
+                echo "::group::🔥 SON 200 SATIR"
+                tail -200 build.log.txt
+                echo "::endgroup::"
+              fi
             else
-              echo "❌ Log download failed"
+              echo "❌ Log indirilemedi"
             fi
           else
             echo "❌ No logFiles URL in BUILD_INFO"
             echo "BUILD_INFO: $BUILD_INFO"
           fi
+
+      # Log hiç açılamazsa ham dosyayı indirilebilir bırak — Actions
+      # ekranındaki ikilik çöpten hata ayıklamak mümkün değil.
+      - name: Okunamayan log'u yükle
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: eas-build-log
+          path: |
+            native/okunamayan-build.log
+            native/build.log.txt
+          retention-days: 7
+          if-no-files-found: ignore
