@@ -64,10 +64,93 @@ jobs:
       - name: EAS Build (Android)
         id: eas_build
         working-directory: native
-        run: eas build --platform android --profile ${{ inputs.profile }} --non-interactive
+        # --json derleme bitince çıktıyı makine okunur verir; içinde
+        # imzalanmış dosyanın indirme adresi var. --wait olmadan komut
+        # kuyruğa atıp dönüyordu ve indirecek bir şey olmuyordu.
+        run: |
+          # `|| true`: eas hata verdiğinde adım o satırda kesilirse aşağıdaki
+          # teşhis çıktısı hiç basılmıyor. Çıkışı kendimiz değerlendiriyoruz.
+          eas build --platform android --profile ${{ inputs.profile }} \
+            --non-interactive --wait --json > eas-build.json || true
+
+          echo "::group::EAS çıktısı"
+          jq '.' eas-build.json 2>/dev/null || cat eas-build.json
+          echo "::endgroup::"
+
+          # --json tek derlemede bile dizi döndürüyor.
+          # `|| true`: çıktı hiç JSON değilse jq'nun ayrıştırma hatası yerine
+          # aşağıdaki anlaşılır mesaj görünsün.
+          SONUC=$(jq -r 'if type=="array" then .[0] else . end' eas-build.json 2>/dev/null || true)
+          INDIRME=$(echo "$SONUC" | jq -r '.artifacts.applicationArchiveUrl // empty' 2>/dev/null || true)
+          SAYFA=$(echo   "$SONUC" | jq -r '.id // empty'     2>/dev/null || true)
+          DURUM=$(echo   "$SONUC" | jq -r '.status // empty' 2>/dev/null || true)
+
+          # eas yalnızca ERRORED durumunda sıfırdan farklı çıkıyor; İPTAL
+          # EDİLEN derlemede 0 dönüyor ve indirecek dosya olmuyor. Bu yüzden
+          # çıkış koduna değil, durumun kendisine bakıyoruz.
+          if [ "$DURUM" != "FINISHED" ] || [ -z "$INDIRME" ]; then
+            echo "❌ Derleme tamamlanmadı — durum: ${DURUM:-(okunamadı)}"
+            echo "   İndirme adresi: ${INDIRME:-yok}"
+            echo "   Ayrıntı için aşağıdaki 'Fetch failure logs' adımına bakın."
+            exit 1
+          fi
+
+          echo "indirme=$INDIRME" >> "$GITHUB_OUTPUT"
+          echo "sayfa=https://expo.dev/accounts/_/projects/_/builds/$SAYFA" >> "$GITHUB_OUTPUT"
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           EAS_NO_VCS: "1"
+
+      # EAS dosyayı kendi sunucusunda tutuyor; buraya indirilmezse
+      # Actions sayfasında görülecek bir şey olmuyordu.
+      - name: Dosyayı indir
+        id: indir
+        working-directory: native
+        run: |
+          URL="${{ steps.eas_build.outputs.indirme }}"
+          case "$URL" in
+            *.aab) AD="genctetsiad-${{ inputs.profile }}.aab" ;;
+            *)     AD="genctetsiad-${{ inputs.profile }}.apk" ;;
+          esac
+          curl -fsSL "$URL" -o "$AD"
+          echo "ad=$AD" >> "$GITHUB_OUTPUT"
+          echo "boyut=$(du -h "$AD" | cut -f1)" >> "$GITHUB_OUTPUT"
+          echo "sha=$(sha256sum "$AD" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Actions'a yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: genctetsiad-${{ inputs.profile }}
+          path: native/${{ steps.indir.outputs.ad }}
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Özet
+        run: |
+          {
+            echo "## 📦 ${{ steps.indir.outputs.ad }}"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Profil | \`${{ inputs.profile }}\` |"
+            echo "| Boyut | ${{ steps.indir.outputs.boyut }} |"
+            echo "| SHA-256 | \`${{ steps.indir.outputs.sha }}\` |"
+            echo
+            echo "**Bu sayfanın en altındaki _Artifacts_ bölümünden indirilir.**"
+            echo "Bağlantı 30 gün geçerlidir ve indirmek için GitHub'da oturum açmak gerekir."
+            echo
+            if [ "${{ inputs.profile }}" = "production" ]; then
+              echo "> \`production\` profili **.aab** üretir — Play Console'a yüklemek içindir,"
+              echo "> telefona doğrudan kurulamaz. Teste \`preview\` profilini kullanın."
+            else
+              echo "### Telefona kurulum"
+              echo "1. Dosyayı Android telefona aktarın"
+              echo "2. Ayarlar → *Bilinmeyen kaynaklara izin ver* (dosya yöneticisi için)"
+              echo "3. APK'ya dokunup kurun"
+            fi
+            echo
+            echo "EAS derleme sayfası: ${{ steps.eas_build.outputs.sayfa }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: 🔴 Fetch failure logs
         if: failure()
